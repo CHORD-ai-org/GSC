@@ -113,4 +113,4 @@ Membership is never inferred from tags, embeddings, or relation traversal. A Con
 
 Closed in Phase 01: object set (5 types), status vocabulary, relation kinds including `supports` / `challenges`, file storage location, Context membership rule. See `DECISION_LOG.md`.
 
-Remaining open for Phase 02: exact form layouts, keyword filter behavior, how `supports` / `challenges` are displayed in a detail view.
+Closed in Phase 02: inline form layout (D-019), literal substring keyword filter (D-020), text-label stance display (D-021). No conceptual questions remain open before Phase 03.

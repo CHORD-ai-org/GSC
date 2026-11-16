@@ -8,7 +8,7 @@ Maintained: 2026-11-16. Source of truth for phase order and verification. Do not
 |---|---|---|---|---|---|---|---|
 | 00 — Repo inspection & foundation | Inspect GSC + Thylas, establish docs, minimum stack | `README`, `AGENTS`, `THINKING`, `PROJECT_CONTEXT`, `PRODUCT_VISION`, `DESIGN_BOUNDARIES`, `INFORMATION_MODEL` (draft), `THYLAS_REFERENCE`, `DEVELOPMENT_ROADMAP`, `IMPLEMENTATION_STATUS`, `DECISION_LOG`, `KNOWN_ISSUES` | Access to both repos | Both repos inspected; all claims have paths; no code written; stack proposal recorded | Fabricating Thylas facts; jumping into implementation | D-004 local DB; D-005 stack; D-010 UI placement | **COMPLETE — reviewed 2026-11-16** |
 | 01 — Information model & taxonomy | Reduce proposed model to smallest useful set | Final `INFORMATION_MODEL.md`, `RAW_INFORMATION_TAXONOMY.md`, `STRUCTURED_OBJECT_TAXONOMY.md`, `RELATIONSHIP_MODEL.md` | Phase 00 review; D-005 | Every type maps to ≥1 scenario A–D; no type without a user action; statuses labelled | Ontology explosion; turning concepts into schema too early | none blocking; display details moved to Phase 02 | **COMPLETE — 2026-11-16** |
-| 02 — MVP interaction design | Define real workflows and UI, not a dashboard | `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, UI prototype | Phase 01 complete; D-004/D-005/D-010 decided | 8 required workflows described screen-by-screen; prototype renders; section pattern matches Thylas | Decorative UI; building a dashboard; embedding in Thylas too early | standalone vs Thylas-shaped section | **PROPOSED — not started** |
+| 02 — MVP interaction design | Define real workflows and UI, not a dashboard | `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, UI prototype | Phase 01 complete; D-004/D-005/D-010 decided | 8 required workflows described screen-by-screen; prototype renders; section pattern matches Thylas | Decorative UI; building a dashboard; embedding in Thylas too early | none blocking | **COMPLETE — 2026-11-16** |
 | 03 — GSC core implementation | Smallest independently functional GSC | Runnable prototype, persistence, validation, tests, updated technical docs | Phase 02 approved | Build passes; CRUD + relationship + provenance tests pass; data survives restart | Giant JSONB; scope creep; local DB setup | persistence adapter choice | **PROPOSED — not started** |
 | 04 — Context views | Demonstrate explicitly assembled Context | Basic context organization, context inspection UI, Context Space vs View doc | Phase 03 working | Knowledge Context assembled from existing objects; no dynamic retrieval added | Slipping into retrieval engine or permission system | which views beyond Knowledge Context | **PROPOSED — not started** |
 | 05 — Evaluation & integration prep | Prove intended value; prepare Thylas boundary | `MVP_EVALUATION.md`, known limitations, integration requirements | Phase 04 working | Scenarios A–D executed and recorded; five evaluation questions answered; no full Thylas integration | Claiming success without executed scenarios | integration contract shape | **PROPOSED — not started** |
@@ -70,6 +70,8 @@ All P1-1 to P1-5 cards completed 2026-11-16. Evidence: four final documents in t
 - **Test:** a create → edit sequence can be reconstructed from stored fields.
 
 ## 3. Phase 02 task cards
+
+All P2-0 to P2-6 cards completed 2026-11-16. Evidence: `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, `ui-prototype/index.html`, `IMPLEMENTATION_STATUS.md`.
 
 ### P2-0 Navigation and interaction hierarchy
 

@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Limitations and Unresolved Problems
 
-Updated: 2026-11-16 (Phase 01).
+Updated: 2026-11-16 (Phase 02).
 
 ## Resolved in Phase 01
 
@@ -13,20 +13,29 @@ Updated: 2026-11-16 (Phase 01).
 
 No unresolved blocker prevents Phase 02 documentation.
 
-## Open decisions for Phase 02
+## Resolved in Phase 02
+
+| Issue | Resolution |
+|---|---|
+| Form layout | inline panels; no dialogs (`D-019`) |
+| Keyword filter | case-insensitive substring over title + typed text (`D-020`) |
+| Stance display | literal `supports` / `challenges` labels with `+` / `−` glyphs (`D-021`) |
+
+## Open decisions for Phase 03
 
 | Issue | Impact | Status |
 |---|---|---|
-| Exact form layouts and field order | Needed before UI prototype | `OPEN` |
-| Keyword filter scope and control placement | Needed for browse workflow | `OPEN` |
-| Visual marking of `supports` / `challenges` in detail view | `RELATIONSHIP_MODEL.md` §5 is `PROPOSED` | `PROPOSED` |
-| Docker PostgreSQL container provisioning | Persistence cannot be tested until Phase 03 | `DEFERRED` to Phase 03 |
+| Physical schema shape | Determines migrations and typed-field queries | `OPEN` |
+| API contract modules and request/response shapes | Blocks implementation of F1–F8 | `OPEN` |
+| Docker PostgreSQL container provisioning | Persistence cannot be tested until provisioned | `DEFERRED` to Phase 03 |
+| Test scope for Phase 03 | Must be recorded with command and result | `OPEN` |
 
 ## Known gaps by design
 
 | Gap | Reason | Revisit when |
 |---|---|---|
-| No code, package manifest, schema, API, or tests | Phases 00–01 are documentation-only | Phase 03 |
+| No code, package manifest, schema, API, or tests | Phases 00–02 are design + static prototype only | Phase 03 |
+| Prototype does not persist | `ui-prototype/index.html` uses in-memory sample data by design | Phase 03 |
 | No permission system | Explicitly out of MVP | after Phase 05 |
 | No semantic search / vector index | Explicitly out of MVP | demonstrated need |
 | No WAM, Coworker, or LLM integration | Architectural independence | explicit request |
@@ -47,10 +56,10 @@ No unresolved blocker prevents Phase 02 documentation.
 
 Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusing any Thylas pattern.
 
-## Risks to watch in Phase 02–03
+## Risks to watch in Phase 03
 
-1. UI built before workflows are written (decorative prototype).
-2. Adding types not required by scenarios A–D.
-3. Single JSONB blob as system of record.
-4. Silent import of Thylas runtime code or tokens.
-5. Claiming tests passed without recording command and result.
+1. Treating the static prototype as a working product; it is in-memory only.
+2. Single JSONB blob as system of record.
+3. Silent import of Thylas runtime code or tokens.
+4. Claiming tests passed without recording command and result.
+5. Adding types or retrieval features not required by scenarios A–D.

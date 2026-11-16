@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Phase 01 complete — documentation only. No runnable code, schema, API, or UI exists yet.
+**Status:** Phase 02 complete — design docs + static UI prototype. No runnable app, schema, API, or persistence exists yet.
 
 ## Read first
 
@@ -13,8 +13,9 @@ Independent prototype of a persistent context infrastructure for human–AI coll
 5. `DEVELOPMENT_ROADMAP.md` — phase order, verification, open questions.
 6. `PRODUCT_VISION.md` + `INFORMATION_MODEL.md` — product intent and finalized model.
 7. `RAW_INFORMATION_TAXONOMY.md`, `STRUCTURED_OBJECT_TAXONOMY.md`, `RELATIONSHIP_MODEL.md` — MVP types and relations.
-8. `THYLAS_REFERENCE.md` — verified facts about the reference project.
-9. `IMPLEMENTATION_STATUS.md`, `DECISION_LOG.md`, `KNOWN_ISSUES.md` — current state.
+8. `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, `ui-prototype/index.html` — interaction design.
+9. `THYLAS_REFERENCE.md` — verified facts about the reference project.
+10. `IMPLEMENTATION_STATUS.md`, `DECISION_LOG.md`, `KNOWN_ISSUES.md` — current state.
 
 Do not rely on conversation history. These files are the source of truth.
 
@@ -31,6 +32,9 @@ GSC/
   RAW_INFORMATION_TAXONOMY.md    raw item types
   STRUCTURED_OBJECT_TAXONOMY.md  object types and fields
   RELATIONSHIP_MODEL.md          relation kinds and provenance
+  MVP_USER_FLOWS.md          workflows F1-F8 and scenario walks
+  MVP_UI_SPECIFICATION.md    screens S1-S7, tokens, components
+  ui-prototype/index.html    interactive static prototype (in-memory)
   DESIGN_BOUNDARIES.md       in scope / out of scope / ownership
   THYLAS_REFERENCE.md        Thylas audit: verified vs assumed
   DEVELOPMENT_ROADMAP.md     Phase 00-05 plan and Phase 01/02 task cards
@@ -39,7 +43,7 @@ GSC/
   KNOWN_ISSUES.md            limitations and unresolved problems
 ```
 
-No `src/`, `server/`, package manifest, or tests exist yet. They are Phase 02/03 work.
+No `src/`, `server/`, package manifest, or tests exist yet. They are Phase 03 work. Open `ui-prototype/index.html` directly in a browser to view the static prototype.
 
 ## Environment facts (verified locally, 2026-11-16)
 

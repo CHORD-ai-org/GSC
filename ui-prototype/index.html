@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GSC — MVP UI Prototype</title>
+<style>
+:root{
+  --bg-app:#0A0A0A; --bg-surface:#161616; --bg-rail:#101010;
+  --ink:#EBEBEB; --ink-2:#A8A8A8; --ink-3:#6E6E6E;
+  --line:#2A2A2A; --line-strong:#3A3A3A; --accent:#FFFFFF;
+  --tint-sel:#1F1F1F; --tint-hover:#181818; --error:#D98A7A;
+  --ui:'Inter Variable',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg-app);color:var(--ink);font-family:var(--ui);font-size:13px;line-height:20px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.topbar{height:48px;display:flex;align-items:center;gap:24px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--bg-rail)}
+.brand{font-weight:600;letter-spacing:.02em}
+.proto{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:2px 6px;margin-left:8px;font-weight:400}
+.views{display:flex;align-self:stretch}
+.views button{background:none;border:0;border-bottom:1px solid transparent;color:var(--ink-2);padding:0 12px}
+.views button.active{color:var(--ink);border-bottom-color:var(--accent)}
+.topbar .spacer{flex:1}
+.btn{background:transparent;border:1px solid var(--line);border-radius:4px;padding:5px 10px;color:var(--ink)}
+.btn:hover{background:var(--tint-hover);border-color:var(--line-strong)}
+.btn.primary{background:var(--accent);color:var(--bg-app);border-color:var(--accent)}
+.btn.primary:hover{background:var(--ink)}
+.btn.small{padding:2px 8px;font-size:11px}
+#app{display:grid;grid-template-columns:minmax(0,1fr) 340px;height:calc(100vh - 48px)}
+.col-main{border-right:1px solid var(--line);padding:24px 32px;overflow:auto}
+.col-detail{padding:24px 20px;overflow:auto}
+.section-head{display:flex;align-items:baseline;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2)}
+.section-head .tick{width:6px;height:6px;border:1px solid var(--ink-2);transform:rotate(45deg)}
+.section-head .rule{flex:1;height:1px;background:var(--line)}
+.section-head .count{font-family:var(--mono);color:var(--ink-3);letter-spacing:0}
+.toolbar{display:flex;gap:8px;align-items:center;margin:16px 0 8px}
+select,input,textarea{background:var(--bg-surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--line-strong)}
+textarea{width:100%;resize:vertical;min-height:80px;line-height:20px}
+input[type=text]{min-width:0}
+.toolbar .grow{flex:1}
+.list{border-top:1px solid var(--line)}
+.row{width:100%;min-height:44px;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);border-left:1px solid transparent;padding:6px 8px}
+.row:hover{background:var(--tint-hover)}
+.row.selected{background:var(--tint-sel);border-left-color:var(--accent)}
+.glyph{width:30px;font-family:var(--mono);font-size:11px;color:var(--ink-3);flex:none}
+.row-main{flex:1;min-width:0}
+.row-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-meta{display:block;font-size:11px;line-height:16px;color:var(--ink-3)}
+.row-status{font-family:var(--mono);font-size:11px;color:var(--ink-2);flex:none}
+.empty{border:1px dashed var(--line);border-radius:4px;padding:24px;color:var(--ink-2);margin-top:12px}
+.empty .t{color:var(--ink);margin-bottom:4px}
+.panel-title{font-size:20px;line-height:28px;margin:4px 0 4px}
+.panel-kicker{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.actions{display:flex;gap:8px;margin:16px 0 20px}
+.field-block{margin-bottom:14px}
+.field-label{font-size:11px;line-height:16px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin-bottom:4px}
+.field-value{white-space:pre-wrap;word-break:break-word}
+.field-value.muted{color:var(--ink-3)}
+.subhead{display:flex;align-items:center;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin:22px 0 8px}
+.subhead .rule{flex:1;height:1px;background:var(--line)}
+.rel-row,.hist-row{min-height:32px;display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line);padding:4px 0}
+.rel-row{flex-wrap:wrap}
+.rel-kind{font-family:var(--mono);font-size:11px;color:var(--ink-2);width:104px;flex:none}
+.rel-title{flex:1;min-width:0;overflow-wrap:anywhere}
+.rel-note{font-size:11px;color:var(--ink-3);width:100%;padding-left:112px}
+.hist-detail{min-width:0;overflow-wrap:anywhere}
+.hist-time{font-family:var(--mono);font-size:11px;color:var(--ink-3);width:104px;flex:none}
+.hist-detail{color:var(--ink-2);font-size:12px}
+.note{font-size:11px;color:var(--ink-3);margin-top:6px}
+.error{border-left:2px solid var(--error);color:var(--error);padding:6px 10px;margin:12px 0;background:rgba(217,138,122,.06)}
+.form-grid{display:grid;gap:12px;margin-top:16px}
+.form-grid label{display:block}
+.form-grid label span{display:block;font-size:11px;line-height:16px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin-bottom:4px}
+.form-grid input,.form-grid select,.form-grid textarea{width:100%}
+.form-actions{display:flex;gap:8px;margin-top:16px}
+.ctx-meta{display:grid;grid-template-columns:88px 1fr;gap:4px 12px;margin:12px 0 20px}
+.ctx-meta .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2)}
+.ctx-remove{border:0;background:transparent;color:var(--ink-3);padding:0 6px}
+.ctx-remove:hover{color:var(--ink)}
+.stack-row{display:flex;gap:8px;align-items:center}
+@media(max-width:900px){
+  #app{grid-template-columns:1fr;height:auto}
+  .col-main{border-right:0;border-bottom:1px solid var(--line);padding:20px}
+  .col-detail{padding:20px}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">GSC<span class="proto">PROTOTYPE · in-memory</span></div>
+  <nav class="views">
+    <button data-action="view" data-view="library">Library</button>
+    <button data-action="view" data-view="context">Contexts</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="btn primary" data-action="new">New</button>
+</header>
+<main id="app"></main>
+<script>
+const RAW=['raw.document','raw.message','raw.evidence','raw.filecontent'];
+const OBJ=['object.concept','object.hypothesis','object.methodology','object.decision','object.evidencereference'];
+const LABEL={
+ 'raw.document':'Document','raw.message':'Message','raw.evidence':'Evidence','raw.filecontent':'File content',
+ 'object.concept':'Concept','object.hypothesis':'Hypothesis','object.methodology':'Methodology',
+ 'object.decision':'Decision','object.evidencereference':'Evidence reference'
+};
+const GLYPH={
+ 'raw.document':'DO','raw.message':'MS','raw.evidence':'EV','raw.filecontent':'FI',
+ 'object.concept':'CO','object.hypothesis':'HY','object.methodology':'ME','object.decision':'DE','object.evidencereference':'ER'
+};
+const DEFS={
+ 'raw.document':[{k:'content_text',l:'Content',req:true,t:'area'},{k:'author',l:'Author',req:false,t:'text'}],
+ 'raw.message':[{k:'content_text',l:'Content',req:true,t:'area'},{k:'author',l:'Author',req:true,t:'text'},{k:'captured_at',l:'Captured at',req:false,t:'text'}],
+ 'raw.evidence':[{k:'content_text',l:'Content',req:true,t:'area'},{k:'locator',l:'Locator',req:true,t:'text'},{k:'measured_at',l:'Measured at',req:false,t:'text'}],
+ 'raw.filecontent':[{k:'filename',l:'Filename',req:true,t:'text'},{k:'content_text',l:'Text (optional)',req:false,t:'area'},{k:'mime_type',l:'MIME type',req:false,t:'text'}],
+ 'object.concept':[{k:'definition',l:'Definition',req:true,t:'area'},{k:'notes',l:'Notes',req:false,t:'area'}],
+ 'object.hypothesis':[{k:'claim',l:'Claim',req:true,t:'area'},{k:'reasoning',l:'Reasoning',req:false,t:'area'},{k:'notes',l:'Notes',req:false,t:'area'}],
+ 'object.methodology':[{k:'name',l:'Name',req:true,t:'text'},{k:'steps',l:'Steps',req:true,t:'area'},{k:'intended_use',l:'Intended use',req:false,t:'area'},{k:'notes',l:'Notes',req:false,t:'area'}],
+ 'object.decision':[{k:'statement',l:'Statement',req:true,t:'area'},{k:'reasoning',l:'Reasoning',req:true,t:'area'},{k:'alternatives',l:'Alternatives',req:false,t:'area'},{k:'consequences',l:'Consequences',req:false,t:'area'},{k:'notes',l:'Notes',req:false,t:'area'}],
+ 'object.evidencereference':[{k:'claim',l:'Claim',req:true,t:'area'},{k:'source_item_id',l:'Source item',req:true,t:'source'},{k:'locator',l:'Locator',req:false,t:'text'},{k:'notes',l:'Notes',req:false,t:'area'}]
+};
+let seq=108;
+const items=[
+ {id:'raw_0038',type:'raw.document',title:'Attention Is All You Need',domain:'knowledge',origin:'import',source_label:'Vaswani et al., 2017',status:'active',created_at:'2026-11-10 09:12',updated_at:'2026-11-10 09:12',content_text:'The Transformer replaces recurrence with attention-only encoding...',author:'Vaswani et al.'},
+ {id:'raw_0041',type:'raw.evidence',title:'Section 3.2 — scaled dot-product',domain:'knowledge',origin:'import',source_label:'Vaswani et al., 2017, p.4',status:'active',created_at:'2026-11-10 09:14',updated_at:'2026-11-10 09:14',content_text:'Attention can be computed in parallel after a single matrix multiplication.',locator:'p.4'},
+ {id:'raw_0044',type:'raw.message',title:'Design review — recorder scope',domain:'work',origin:'user',source_label:'Review call, 2026-11-12',status:'active',created_at:'2026-11-12 15:20',updated_at:'2026-11-12 15:20',content_text:'We agreed the recorder should preserve text, not interpret it.',author:'Ceaser'},
+ {id:'obj_0101',type:'object.concept',title:'Context as an addressable object',domain:'knowledge',origin:'user',source_label:'',status:'active',created_at:'2026-11-11 10:02',updated_at:'2026-11-14 11:30',definition:'A context is an organized view over stored information, with its own identity and explicit membership.',notes:'Not a database layer. Not the whole Context Space.'},
+ {id:'obj_0102',type:'object.hypothesis',title:'Sparse attention preserves local context',domain:'knowledge',origin:'agent',source_label:'derived from paper import',status:'draft',created_at:'2026-11-13 16:40',updated_at:'2026-11-13 16:40',claim:'Sparse attention can preserve local context at lower cost.',reasoning:'Local windows retain adjacent dependencies.'},
+ {id:'obj_0103',type:'object.methodology',title:'Black-box boundary analysis',domain:'knowledge',origin:'user',source_label:'',status:'active',created_at:'2026-11-12 08:15',updated_at:'2026-11-12 08:15',name:'Black-box boundary analysis',steps:'1. List observable inputs and outputs\n2. Mark unknown internals\n3. Record boundary claims as hypotheses',intended_use:'When internals are unavailable.'},
+ {id:'obj_0105',type:'object.decision',title:'Keep raw content immutable',domain:'work',origin:'user',source_label:'Design review, 2026-11-12',status:'active',created_at:'2026-11-12 16:05',updated_at:'2026-11-12 16:05',statement:'Raw item content cannot be edited after creation.',reasoning:'Editing an original destroys provenance.',alternatives:'In-place edits with version diff; delete and recreate.',consequences:'Corrections become new items linked with related_to.'},
+ {id:'obj_0106',type:'object.evidencereference',title:'Parallel attention claim',domain:'knowledge',origin:'agent',source_label:'',status:'draft',created_at:'2026-11-13 16:41',updated_at:'2026-11-13 16:41',claim:'Attention is parallelizable after one multiplication.',source_item_id:'raw_0041',locator:'p.4'}
+];
+const relations=[
+ {id:'rel_01',kind:'derived_from',from_id:'obj_0102',to_id:'raw_0038',note:'Section 3',created_at:'2026-11-13 16:40',created_by:'agent'},
+ {id:'rel_02',kind:'supports',from_id:'obj_0106',to_id:'obj_0102',note:'Parallel computation evidence',created_at:'2026-11-13 16:42',created_by:'agent'},
+ {id:'rel_03',kind:'challenges',from_id:'obj_0101',to_id:'obj_0102',note:'Locality is not guaranteed by sparsity alone',created_at:'2026-11-14 11:30',created_by:'user'},
+ {id:'rel_04',kind:'related_to',from_id:'obj_0103',to_id:'obj_0101',note:'Boundary analysis produces concepts',created_at:'2026-11-14 11:32',created_by:'user'},
+ {id:'rel_05',kind:'derived_from',from_id:'obj_0105',to_id:'raw_0044',note:'Review decision',created_at:'2026-11-12 16:05',created_by:'user'}
+];
+const history=[
+ {item_id:'obj_0101',at:'2026-11-11 10:02',actor:'user',action:'created',detail:'Concept created'},
+ {item_id:'obj_0101',at:'2026-11-14 11:30',actor:'user',action:'updated',detail:'Notes updated: not a database layer'},
+ {item_id:'obj_0102',at:'2026-11-13 16:40',actor:'agent',action:'created',detail:'Hypothesis created as draft'},
+ {item_id:'obj_0105',at:'2026-11-12 16:05',actor:'user',action:'created',detail:'Decision created with reasoning'}
+];
+const context={title:'Knowledge Context',subject:'Context infrastructure design',scope:'MVP research and decisions',purpose:'Keep sources, concepts and decisions inspectable together',members:['obj_0101','obj_0102','obj_0103','raw_0038']};
+const state={view:'library',selected:'obj_0102',panel:null,detailMode:'view',filterType:'all',filterDomain:'all',keyword:'',formType:'raw.document',draft:{},error:'',linkKind:'derived_from',linkTarget:'',contextAdd:''};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v===undefined||v===null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const item=id=>items.find(x=>x.id===id);
+const now=()=>new Date().toISOString().slice(0,16).replace('T',' ');
+function pushHistory(id,action,detail,actor){history.push({item_id:id,at:now(),actor:actor||'user',action:action,detail:detail})}
+function isObj(t){return OBJ.includes(t)}
+function allowedStatus(t){return isObj(t)?['draft','active','superseded']:['active','archived']}
+function defs(t){return DEFS[t]||[]}
+function itemText(x){return [x.title,x.type,x.domain,x.source_label,...defs(x.type).map(d=>x[d.k])].join(' ').toLowerCase()}
+function filtered(){
+  const k=state.keyword.trim().toLowerCase();
+  return items.filter(x=>(state.filterType==='all'||x.type===state.filterType)&&(state.filterDomain==='all'||x.domain===state.filterDomain)&&(!k||itemText(x).includes(k)));
+}
+function opts(list,selected){return list.map(v=>`<option value="${esc(v)}"${v===selected?' selected':''}>${esc(LABEL[v]||v)}</option>`).join('')}
+function sectionHead(title,count){return `<div class="section-head"><span class="tick"></span><span>${esc(title)}</span><span class="rule"></span><span class="count" id="count">${esc(count)}</span></div>`}
+function rowsHTML(list){
+  if(!list.length)return `<div class="empty"><div class="t">Nothing matches this view.</div><div>Adjust the filters, or create a new raw item or object.</div></div>`;
+  return `<div class="list">${list.map(x=>`<button class="row${state.selected===x.id?' selected':''}" data-action="select" data-id="${esc(x.id)}"><span class="glyph">${esc(GLYPH[x.type])}</span><span class="row-main"><span class="row-title">${esc(x.title)}</span><span class="row-meta">${esc(LABEL[x.type])} · ${esc(x.domain)} · ${esc(x.id)}</span></span><span class="row-status">${esc(x.status)}</span></button>`).join('')}</div>`;
+}
+function fieldInput(d,v){
+  const val=esc(v===undefined||v===null?'':v);
+  if(d.t==='area')return `<textarea data-field="${esc(d.k)}" rows="3">${val}</textarea>`;
+  if(d.t==='source')return `<select data-field="${esc(d.k)}"><option value="">— select raw item —</option>${items.filter(x=>!isObj(x.type)).map(x=>`<option value="${esc(x.id)}"${v===x.id?' selected':''}>${esc(x.title)}</option>`).join('')}</select>`;
+  return `<input type="text" data-field="${esc(d.k)}" value="${val}">`;
+}
+function formHTML(type,v,shared){
+  v=v||{};
+  const raw=!isObj(type);
+  let s=shared?`<div class="form-grid">
+    <label><span>Title</span><input type="text" data-field="title" value="${esc(v.title||'')}"></label>
+    <label><span>Domain</span><select data-field="domain">${['knowledge','work','user','coworker','artifact'].map(d=>`<option value="${d}"${(v.domain||'knowledge')===d?' selected':''}>${d}</option>`).join('')}</select></label>
+    <label><span>Origin</span><select data-field="origin">${['user','import','agent'].map(d=>`<option value="${d}"${(v.origin||'user')===d?' selected':''}>${d}</option>`).join('')}</select></label>
+    <label><span>Status</span><select data-field="status">${allowedStatus(type).map(d=>`<option value="${d}"${(v.status||allowedStatus(type)[0])===d?' selected':''}>${d}</option>`).join('')}</select></label>
+    <label><span>Source label (optional)</span><input type="text" data-field="source_label" value="${esc(v.source_label||'')}"></label>
+  </div>`:'';
+  const typed=`<div class="form-grid">${defs(type).map(d=>`<label><span>${esc(d.l)}${d.req?' · required':''}</span>${fieldInput(d,v[d.k])}</label>`).join('')}</div>`;
+  let sourcePick='';
+  if(!raw&&type!=='object.evidencereference'){
+    sourcePick=`<div class="form-grid"><label><span>Source item (optional → derived_from)</span><select data-field="source_pick"><option value="">— none —</option>${items.filter(x=>!isObj(x.type)).map(x=>`<option value="${esc(x.id)}"${v.source_pick===x.id?' selected':''}>${esc(x.title)}</option>`).join('')}</select></label></div>`;
+  }
+  return s+typed+sourcePick;
+}
+function readForm(){document.querySelectorAll('[data-field]').forEach(el=>{state.draft[el.dataset.field]=el.value});return state.draft}
+function libraryHTML(){
+  if(state.panel==='new')return `<div class="section-head"><span class="tick"></span><span>New item</span><span class="rule"></span></div>
+    ${state.error?`<div class="error">${esc(state.error)}</div>`:''}
+    <div class="field-block"><div class="field-label">Type</div><select data-change="form-type">${optgroupHTML()}</select></div>
+    <div class="panel-title">${esc(LABEL[state.formType])}</div>
+    ${formHTML(state.formType,state.draft,true)}
+    <div class="form-actions"><button class="btn primary" data-action="save-new">Save</button><button class="btn" data-action="cancel-new">Cancel</button></div>`;
+  const list=filtered();
+  return sectionHead('Information',list.length+' items')+`
+    <div class="toolbar">
+      <select data-change="filter-type"><option value="all">All types</option>${opts(RAW.concat(OBJ),state.filterType)}</select>
+      <select data-change="filter-domain"><option value="all">All domains</option>${['knowledge','work','user','coworker','artifact'].map(d=>`<option value="${d}"${state.filterDomain===d?' selected':''}>${d}</option>`).join('')}</select>
+      <input class="grow" id="keyword" type="text" value="${esc(state.keyword)}" placeholder="Filter by title or text">
+    </div>
+    <div id="list">${rowsHTML(list)}</div>`;
+}
+function optgroupHTML(){return `<optgroup label="Raw information">${opts(RAW,state.formType)}</optgroup><optgroup label="Structured objects">${opts(OBJ,state.formType)}</optgroup>`}
+function relRowsHTML(id){
+  const out=relations.filter(r=>r.from_id===id),inc=relations.filter(r=>r.to_id===id);
+  const row=r=>{const other=item(r.from_id===id?r.to_id:r.from_id);const glyph=r.kind==='supports'?'+ ':r.kind==='challenges'?'− ':'';return `<div class="rel-row"><span class="rel-kind">${esc(glyph+r.kind)}</span><span class="rel-title">${esc(other?other.title:r.to_id)}</span><span class="rel-note">${esc(r.note||'')}</span></div>`};
+  return `<div class="subhead"><span>Outgoing</span><span class="rule"></span><span class="count">${out.length}</span></div>${out.length?out.map(row).join(''):'<div class="note">None.</div>'}
+    <div class="subhead"><span>Incoming</span><span class="rule"></span><span class="count">${inc.length}</span></div>${inc.length?inc.map(row).join(''):'<div class="note">None.</div>'}
+    <div class="note">Stance labels (supports / challenges) are not verification.</div>`;
+}
+function detailHTML(){
+  const x=item(state.selected);
+  if(!x)return `<div class="empty"><div class="t">No item selected.</div><div>Choose a row in Library to inspect its fields, source, relations and history.</div></div>`;
+  if(state.detailMode==='edit')return `<div class="panel-kicker">EDIT · ${esc(x.id)}</div><div class="panel-title">${esc(x.title)}</div>
+    ${state.error?`<div class="error">${esc(state.error)}</div>`:''}
+    ${formHTML(x.type,x,true)}
+    <div class="form-actions"><button class="btn primary" data-action="save-edit">Save</button><button class="btn" data-action="cancel-edit">Cancel</button></div>
+    <div class="note">Source, origin and relations are not editable here.</div>`;
+  if(state.detailMode==='link')return `<div class="panel-kicker">LINK · ${esc(x.id)}</div><div class="panel-title">Add relation</div>
+    ${state.error?`<div class="error">${esc(state.error)}</div>`:''}
+    <div class="form-grid">
+      <label><span>Kind</span><select data-change="link-kind">${['derived_from','references','related_to','supports','challenges'].map(k=>`<option value="${k}"${state.linkKind===k?' selected':''}>${k}</option>`).join('')}</select></label>
+      <label><span>Target</span><select data-change="link-target"><option value="">— select —</option>${linkTargets().map(t=>`<option value="${esc(t.id)}"${state.linkTarget===t.id?' selected':''}>${esc(t.title)}</option>`).join('')}</select></label>
+      <label><span>Note (optional)</span><input type="text" data-field="rel_note" value=""></label>
+    </div>
+    <div class="note">${state.linkKind==='derived_from'?'One primary origin per object. ':''}${['supports','challenges'].includes(state.linkKind)?'Stance only; does not change status.':''}</div>
+    <div class="form-actions"><button class="btn primary" data-action="save-link">Save relation</button><button class="btn" data-action="cancel-link">Cancel</button></div>`;
+  const derived=relations.find(r=>r.from_id===x.id&&r.kind==='derived_from');
+  const src=derived?item(derived.to_id):null;
+  const hist=history.filter(h=>h.item_id===x.id).slice().reverse();
+  return `<div class="panel-kicker">${esc(x.id)}</div><div class="panel-title">${esc(x.title)}</div>
+    <div class="row-meta">${esc(LABEL[x.type])} · ${esc(x.status)}</div>
+    <div class="actions"><button class="btn small" data-action="edit">Edit</button><button class="btn small" data-action="link">Link</button></div>
+    ${defs(x.type).map(d=>`<div class="field-block"><div class="field-label">${esc(d.l)}</div><div class="field-value${x[d.k]?'':' muted'}">${esc(x[d.k]||'—')}</div></div>`).join('')}
+    <div class="subhead"><span>Provenance</span><span class="rule"></span></div>
+    <div class="field-block"><div class="field-label">Origin</div><div class="field-value">${esc(x.origin)}${x.source_label?' · '+esc(x.source_label):''}</div></div>
+    <div class="field-block"><div class="field-label">Derived from</div><div class="field-value${src?'':' muted'}">${src?esc(src.title)+(derived.note?' · '+esc(derived.note):''):'Independently created'}</div></div>
+    <div class="field-block"><div class="field-label">Created / updated</div><div class="field-value">${esc(x.created_at)} · ${esc(x.updated_at)}</div></div>
+    <div class="subhead"><span>Relations</span><span class="rule"></span></div>${relRowsHTML(x.id)}
+    <div class="subhead"><span>History</span><span class="rule"></span><span class="count">${hist.length}</span></div>
+    ${hist.length?hist.map(h=>`<div class="hist-row"><span class="hist-time">${esc(h.at)}</span><span class="hist-detail">${esc(h.actor)} · ${esc(h.action)} — ${esc(h.detail)}</span></div>`).join(''):'<div class="note">No events recorded.</div>'}`;
+}
+function linkTargets(){
+  if(state.linkKind==='derived_from'||state.linkKind==='references'){
+    if(state.linkKind==='derived_from'&&item(state.selected)&&relations.some(r=>r.from_id===state.selected&&r.kind==='derived_from'))return [];
+    return state.linkKind==='derived_from'?items.filter(x=>!isObj(x.type)):items.filter(x=>x.id!==state.selected);
+  }
+  return items.filter(x=>isObj(x.type)&&x.id!==state.selected);
+}
+function contextHTML(){
+  const members=context.members.map(id=>item(id)).filter(Boolean);
+  return sectionHead(context.title,members.length+' members')+`
+    <div class="ctx-meta"><div class="k">Subject</div><div>${esc(context.subject)}</div><div class="k">Scope</div><div>${esc(context.scope)}</div><div class="k">Purpose</div><div>${esc(context.purpose)}</div></div>
+    <div class="subhead"><span>Members · explicit selection</span><span class="rule"></span></div>
+    <div class="list">${members.map(x=>`<div class="row"><span class="glyph">${esc(GLYPH[x.type])}</span><span class="row-main"><span class="row-title">${esc(x.title)}</span><span class="row-meta">${esc(LABEL[x.type])} · ${esc(x.id)}</span></span><button class="ctx-remove" data-action="ctx-remove" data-id="${esc(x.id)}" title="Remove">×</button></div>`).join('')||'<div class="empty">No members yet.</div>'}</div>
+    <div class="subhead"><span>Add member</span><span class="rule"></span></div>
+    <div class="stack-row"><select id="ctx-select"><option value="">— select an item —</option>${items.map(x=>`<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('')}</select><button class="btn" data-action="ctx-add">Add</button></div>
+    <div class="note">Membership is explicit. No inference, tags or relation traversal.</div>`;
+}
+function renderListOnly(){
+  const el=$('#list');if(!el)return;
+  const list=filtered();
+  $('#count').textContent=list.length+' items';
+  el.innerHTML=rowsHTML(list);
+}
+function render(){
+  $('#app').innerHTML=`<section class="col-main">${state.view==='library'?libraryHTML():contextHTML()}</section><aside class="col-detail">${detailHTML()}</aside>`;
+  document.querySelectorAll('[data-action="view"]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view));
+}
+function requiredMissing(type,v){
+  const keys=['title',...defs(type).filter(d=>d.req).map(d=>d.k)];
+  return keys.filter(k=>!String(v[k]||'').trim());
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-action]');if(!el)return;
+  const a=el.dataset.action;
+  if(a==='view'){state.view=el.dataset.view;state.panel=null;state.detailMode='view';state.error='';render();return}
+  if(a==='select'){state.selected=el.dataset.id;state.detailMode='view';state.error='';render();return}
+  if(a==='new'){state.view='library';state.panel='new';state.formType='raw.document';state.draft={};state.error='';render();return}
+  if(a==='cancel-new'){state.panel=null;state.error='';render();return}
+  if(a==='edit'){state.detailMode='edit';state.draft=Object.assign({},item(state.selected));state.error='';render();return}
+  if(a==='cancel-edit'){state.detailMode='view';state.error='';render();return}
+  if(a==='link'){state.detailMode='link';state.linkKind=isObj(item(state.selected).type)?'derived_from':'related_to';state.linkTarget='';state.error='';render();return}
+  if(a==='cancel-link'){state.detailMode='view';state.error='';render();return}
+  if(a==='save-new'){
+    readForm();const miss=requiredMissing(state.formType,state.draft);
+    if(miss.length){state.error='Required fields: '+miss.join(', ');render();return}
+    const t=state.formType,raw=!isObj(t),id=(raw?'raw_':'obj_')+String(++seq).padStart(4,'0');
+    const v=Object.assign({},state.draft);
+    if(t==='raw.filecontent'){v.storage_ref='data/files/'+id}
+    items.push({id:id,type:t,title:v.title,domain:v.domain||'knowledge',origin:v.origin||'user',source_label:v.source_label||'',status:allowedStatus(t)[0],created_at:now(),updated_at:now(),...Object.fromEntries(defs(t).map(d=>[d.k,v[d.k]]))});
+    if(!raw&&v.source_pick)relations.push({id:'rel_'+String(Date.now()).slice(-6),kind:'derived_from',from_id:id,to_id:v.source_pick,note:'',created_at:now(),created_by:'user'});
+    pushHistory(id,'created',LABEL[t]+' created');state.selected=id;state.panel=null;state.draft={};state.error='';render();return;
+  }
+  if(a==='save-edit'){
+    readForm();const x=item(state.selected),miss=requiredMissing(x.type,state.draft);
+    if(miss.length){state.error='Required fields: '+miss.join(', ');render();return}
+    ['title','domain','origin','source_label','status'].forEach(k=>{if(k in state.draft)x[k]=state.draft[k]});
+    defs(x.type).forEach(d=>{x[d.k]=state.draft[d.k]});
+    x.updated_at=now();pushHistory(x.id,'updated','Fields updated');state.detailMode='view';state.draft={};state.error='';render();return;
+  }
+  if(a==='save-link'){
+    const note=(document.querySelector('[data-field="rel_note"]')||{}).value||'';
+    if(!state.linkTarget){state.error='Select a target item.';render();return}
+    if(relations.some(r=>r.kind===state.linkKind&&r.from_id===state.selected&&r.to_id===state.linkTarget)){state.error='This exact relation already exists.';render();return}
+    relations.push({id:'rel_'+String(Date.now()).slice(-6),kind:state.linkKind,from_id:state.selected,to_id:state.linkTarget,note:note,created_at:now(),created_by:'user'});
+    pushHistory(state.selected,'relation_added',state.linkKind+' → '+item(state.linkTarget).title);
+    pushHistory(state.linkTarget,'relation_added','incoming '+state.linkKind);
+    state.linkTarget='';state.detailMode='view';state.error='';render();return;
+  }
+  if(a==='ctx-remove'){context.members=context.members.filter(id=>id!==el.dataset.id);render();return}
+  if(a==='ctx-add'){const sel=$('#ctx-select');if(sel&&sel.value&&!context.members.includes(sel.value)){context.members.push(sel.value)}render();return}
+});
+document.addEventListener('change',e=>{
+  const el=e.target.closest('[data-change]');if(!el)return;
+  const c=el.dataset.change;
+  if(c==='filter-type'){state.filterType=el.value;renderListOnly();return}
+  if(c==='filter-domain'){state.filterDomain=el.value;renderListOnly();return}
+  if(c==='form-type'){readForm();state.formType=el.value;if(!allowedStatus(state.formType).includes(state.draft.status))state.draft.status=allowedStatus(state.formType)[0];state.error='';render();return}
+  if(c==='link-kind'){state.linkKind=el.value;state.linkTarget='';state.error='';render();return}
+  if(c==='link-target'){state.linkTarget=el.value;return}
+});
+document.addEventListener('input',e=>{if(e.target.id==='keyword'){state.keyword=e.target.value;renderListOnly()}});
+render();
+</script>
+</body>
+</html>

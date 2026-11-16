@@ -40,12 +40,13 @@ Uniqueness: `(kind, from_id, to_id)`. Adding the same edge twice is rejected, no
 - `related_to` is symmetric in display but stored once; it appears in both endpoints' detail views.
 - No required acyclic graph. Cycles via `related_to` are allowed and harmless because no traversal exists.
 
-## 5. Display rule — `PROPOSED` for Phase 02 UI
+## 5. Display rule — `DECIDED` in Phase 02 (D-021)
 
 - Detail view shows two sections: **Outgoing** and **Incoming**.
 - Each row: relation kind → other item's title → optional `note`.
+- `supports` / `challenges` use literal text labels prefixed with `+` / `−`. No color encoding, no status change.
 - No graph canvas, no force layout, no transitive expansion.
-- Exactly how `supports` / `challenges` are visually marked is a Phase 02 UI decision.
+- The detail view includes the note "stance only; not verification".
 
 ## 6. Provenance reconstruction
 

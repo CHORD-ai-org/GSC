@@ -133,3 +133,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** tag-based membership, embedding similarity, relation traversal.
 - **Consequences:** no retrieval engine in MVP; integration consumers can rely on an explicit list.
 - **Status:** `DECIDED` — 2026-11-16, Phase 01.
+
+## D-019 — Inline forms, no dialogs
+
+- **Decision:** New renders as an inline panel in the main column; Edit and Link render inline in the detail panel.
+- **Reasoning:** matches the verified Thylas pattern (inline create/delete in `WorkspaceGrid`), avoids modal chrome, keeps the section layout.
+- **Alternatives:** modal dialogs; separate full-page forms.
+- **Consequences:** only one create form at a time; Esc restores the previous view.
+- **Status:** `DECIDED` — 2026-11-16, Phase 02.
+
+## D-020 — Keyword filter is literal substring
+
+- **Decision:** case-insensitive substring over `title` plus typed text fields; toolbar input; visible result count; no ranking.
+- **Reasoning:** P2-4 needs locate-ability, not search infrastructure; no index or embedding in MVP.
+- **Alternatives:** full-text index; fuzzy/semantic search; no keyword filter.
+- **Consequences:** predictable but shallow discovery; Phase 05 evaluation must not claim semantic search.
+- **Status:** `DECIDED` — 2026-11-16, Phase 02.
+
+## D-021 — Stance relations are text labels
+
+- **Decision:** `supports` / `challenges` display as literal kind labels with `+` / `−` glyphs; no color encoding and no status change.
+- **Reasoning:** prevents stance from being read as verification; keeps detail rows simple.
+- **Alternatives:** colored badges; arrows implying truth direction; hiding stance kinds.
+- **Consequences:** `RELATIONSHIP_MODEL.md` §5 display rule is now final; detail view carries a "stance only; not verification" note.
+- **Status:** `DECIDED` — 2026-11-16, Phase 02.
