@@ -157,3 +157,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** colored badges; arrows implying truth direction; hiding stance kinds.
 - **Consequences:** `RELATIONSHIP_MODEL.md` §5 display rule is now final; detail view carries a "stance only; not verification" note.
 - **Status:** `DECIDED` — 2026-11-16, Phase 02.
+
+## D-022 — Physical schema shape
+
+- **Decision:** four tables: `items`, `item_content`, `relations`, `events`; typed nullable columns, no JSONB payload.
+- **Reasoning:** explicit identity and relations; queryable fields; smallest explicit model.
+- **Alternatives:** one wide `items` table; side tables per type; JSONB field blob.
+- **Consequences:** schema changes require a migration and taxonomy reconciliation.
+- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+
+## D-023 — API contract and shared modules
+
+- **Decision:** five endpoints; shared modules `src/lib/{items,relations,events,api}.ts`; TS types + shape checks; no zod.
+- **Reasoning:** mirrors verified Thylas pattern; one type source for client and server.
+- **Alternatives:** per-type endpoints; schema DSL/codegen; server-only types.
+- **Consequences:** every UI flow F1–F8 must map to these endpoints; errors use one shape.
+- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+
+## D-024 — Local DB and ports
+
+- **Decision:** Docker PG container `gsc-postgres`, host port `55433`; API port `8788`; `DATABASE_URL` in `.env.local`.
+- **Reasoning:** avoids the Thylas `55432` / `8787` defaults; no secrets committed.
+- **Alternatives:** reuse Thylas ports; external managed DB; embedded PGlite.
+- **Consequences:** verification depends on Docker actually starting; no container started yet.
+- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+
+## D-025 — Phase 03 test scope
+
+- **Decision:** contract unit tests + repo round-trip tests on Docker PG + API route tests + manual UI screenshots.
+- **Reasoning:** covers types, persistence, transport, and rendered UI without browser e2e infrastructure.
+- **Alternatives:** no DB tests; full browser e2e framework; test-only mocks for all layers.
+- **Consequences:** DB-dependent tests cannot run until P3-1 succeeds; results must be recorded with command and count.
+- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §5. Awaiting approval.

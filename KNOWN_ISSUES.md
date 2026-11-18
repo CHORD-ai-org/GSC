@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Limitations and Unresolved Problems
 
-Updated: 2026-11-16 (Phase 02).
+Updated: 2026-11-18 (Phase 03 plan drafted).
 
 ## Resolved in Phase 01
 
@@ -25,10 +25,11 @@ No unresolved blocker prevents Phase 02 documentation.
 
 | Issue | Impact | Status |
 |---|---|---|
-| Physical schema shape | Determines migrations and typed-field queries | `OPEN` |
-| API contract modules and request/response shapes | Blocks implementation of F1–F8 | `OPEN` |
-| Docker PostgreSQL container provisioning | Persistence cannot be tested until provisioned | `DEFERRED` to Phase 03 |
-| Test scope for Phase 03 | Must be recorded with command and result | `OPEN` |
+| Physical schema shape | `D-022` proposal in `PHASE_03_PLAN.md` §2 | `PROPOSED` |
+| API contract modules and shapes | `D-023` proposal in `PHASE_03_PLAN.md` §2 | `PROPOSED` |
+| Docker ports `55433` / API `8788` | `D-024` proposal in `PHASE_03_PLAN.md` §2 | `PROPOSED` |
+| Test scope | `D-025` proposal in `PHASE_03_PLAN.md` §5 | `PROPOSED` |
+| Docker container actual startup | Binary present; no container started yet | `OPEN` — first gate of P3-1 |
 
 ## Known gaps by design
 

@@ -1,8 +1,8 @@
 # THINKING.md — Active Task
 
-> Last updated: 2026-11-16
+> Last updated: 2026-11-18
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Phase 02 COMPLETE. Awaiting user review before Phase 03 implementation.
+> Status: Phase 03 plan drafted (`PROPOSED`). Awaiting approval before implementation.
 
 ## User approvals received 2026-11-16
 
@@ -35,13 +35,12 @@
 - Local environment: Node v22.22.2, Docker 29.1.5 available; no reachable PostgreSQL; no container started.
 - Prototype verified at 1440×900 via headless Chrome: Library, New form, and Contexts screens render without overlap.
 
-## Open questions for Phase 03
+## Phase 03 planning (2026-11-18)
 
-1. Physical schema: explicit typed columns for each object type vs a shared item table plus typed side tables.
-2. API contract module names and request/response shapes.
-3. Docker PostgreSQL container provisioning and `DATABASE_URL`.
-4. Test scope: contract tests, API route tests, persistence round-trip tests.
+`PHASE_03_PLAN.md` drafted with P3-0…P3-11, dependency order, verification matrix, risks, and open questions. No code written.
+
+Four proposals awaiting approval: D-022 schema (4 tables), D-023 API endpoints/shared modules, D-024 Docker ports, D-025 test scope.
 
 ## Next action after approval
 
-Phase 03 — scaffold the standalone app, shared contracts, `node:http` API and Drizzle/PG persistence. Implement one vertical slice first: create a raw item → create a Concept → attach source → reopen detail. Then update status and handoff files.
+Start P3-0 scaffold, then P3-1 DB, P3-2 contracts. First milestone: P3-7 vertical slice — create raw item → create Concept with source → reopen detail. Then P3-8…P3-11 and handoff.

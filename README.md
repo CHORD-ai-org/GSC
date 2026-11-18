@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Phase 02 complete — design docs + static UI prototype. No runnable app, schema, API, or persistence exists yet.
+**Status:** Phase 03 plan drafted (`PROPOSED`). No runnable app, schema, API, or persistence exists yet.
 
 ## Read first
 
@@ -35,6 +35,7 @@ GSC/
   MVP_USER_FLOWS.md          workflows F1-F8 and scenario walks
   MVP_UI_SPECIFICATION.md    screens S1-S7, tokens, components
   ui-prototype/index.html    interactive static prototype (in-memory)
+  PHASE_03_PLAN.md           Phase 03 task cards and verification gates
   DESIGN_BOUNDARIES.md       in scope / out of scope / ownership
   THYLAS_REFERENCE.md        Thylas audit: verified vs assumed
   DEVELOPMENT_ROADMAP.md     Phase 00-05 plan and Phase 01/02 task cards

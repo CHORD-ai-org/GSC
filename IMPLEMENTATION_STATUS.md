@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — What Actually Works
 
-Updated: 2026-11-16 (Phase 02).
+Updated: 2026-11-18 (Phase 03 plan drafted).
 
 ## 1. Current phase
 
@@ -9,7 +9,7 @@ Updated: 2026-11-16 (Phase 02).
 | 00 — Inspection & foundation | COMPLETE, reviewed 2026-11-16 | 12 documents created; Phase 00 report delivered |
 | 01 — Information model & taxonomy | COMPLETE, 2026-11-16 | `INFORMATION_MODEL.md` finalized + 3 new taxonomy/model documents |
 | 02 — MVP interaction design | COMPLETE, 2026-11-16 | `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, static UI prototype |
-| 03 — Core implementation | NOT STARTED | no code, package manifest, schema, or API |
+| 03 — Core implementation | NOT STARTED — plan `PROPOSED` | `PHASE_03_PLAN.md` drafted; no code, package manifest, schema, or API |
 | 04 — Context views | NOT STARTED | no views |
 | 05 — Evaluation & integration prep | NOT STARTED | no evaluation |
 
@@ -66,7 +66,7 @@ No files under `D:\github projects\Thylas` were modified.
 | `MVP_USER_FLOWS.md` | new — F1–F8, navigation hierarchy, 4 scenario walks |
 | `MVP_UI_SPECIFICATION.md` | new — S1–S7, tokens, components, D-019/020/021 |
 | `ui-prototype/index.html` | new — self-contained interactive prototype, in-memory only |
-| `DECISION_LOG.md` | D-019/D-020/D-021 added; no `OPEN`/`PROPOSED` left |
+| `DECISION_LOG.md` | D-019/D-020/D-021 added; no `OPEN`/`PROPOSED` left at end of Phase 02 |
 | `RELATIONSHIP_MODEL.md`, `INFORMATION_MODEL.md` | display rule and open-item sections finalized |
 | `DEVELOPMENT_ROADMAP.md`, `THINKING.md`, `README.md` | Phase 02 marked complete |
 
@@ -91,7 +91,7 @@ No files under `D:\github projects\Thylas` were modified.
 | Check | Method | Result |
 |---|---|---|
 | Documentation set | `ls -1 *.md` | 15 markdown files present |
-| Decision states | grep `^- \*\*Status:\*\*` in `DECISION_LOG.md` | 16 entries; 15 `DECIDED`, 1 `DEFERRED` (D-011); no `OPEN`/`PROPOSED` left |
+| Decision states | grep `^- \*\*Status:\*\*` in `DECISION_LOG.md` | At end of Phase 02: 16 entries, 15 `DECIDED`, 1 `DEFERRED`; no `OPEN`/`PROPOSED` left |
 | Scenario coverage | read type tables in both taxonomy docs | 4 raw types and 5 object types each map to ≥1 scenario A–D |
 | No orphan types | read scenario tables | every retained type is reachable by a user action; no universal ontology added |
 | No code claimed | `git status --short` | only documentation, `.gitignore`, `.workbuddy/`, `ui-prototype/` untracked/modified |
@@ -108,6 +108,14 @@ No files under `D:\github projects\Thylas` were modified.
 | Workflow coverage | read `MVP_USER_FLOWS.md` | all 8 required workflows + 4 scenarios described |
 
 No build, test, or API verification was applicable — no application code exists. The prototype is static and in-memory.
+
+### Phase 03 planning checks (2026-11-18)
+
+| Check | Method | Result |
+|---|---|---|
+| Plan exists | `PHASE_03_PLAN.md` | 12 task cards P3-0…P3-11, dependency order, verification matrix |
+| No premature implementation | `git status --short` | no `src/`, `server/`, or package manifest created |
+| Proposal status | `PHASE_03_PLAN.md` §7 | D-022…D-025 marked `PROPOSED`, awaiting approval |
 
 ## 5. Assumptions still unverified
 
