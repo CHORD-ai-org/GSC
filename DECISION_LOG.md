@@ -164,7 +164,7 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** explicit identity and relations; queryable fields; smallest explicit model.
 - **Alternatives:** one wide `items` table; side tables per type; JSONB field blob.
 - **Consequences:** schema changes require a migration and taxonomy reconciliation.
-- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+- **Status:** `DECIDED` — 2026-11-18, user approved execution.
 
 ## D-023 — API contract and shared modules
 
@@ -172,7 +172,7 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** mirrors verified Thylas pattern; one type source for client and server.
 - **Alternatives:** per-type endpoints; schema DSL/codegen; server-only types.
 - **Consequences:** every UI flow F1–F8 must map to these endpoints; errors use one shape.
-- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+- **Status:** `DECIDED` — 2026-11-18, user approved execution.
 
 ## D-024 — Local DB and ports
 
@@ -180,7 +180,7 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** avoids the Thylas `55432` / `8787` defaults; no secrets committed.
 - **Alternatives:** reuse Thylas ports; external managed DB; embedded PGlite.
 - **Consequences:** verification depends on Docker actually starting; no container started yet.
-- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §2. Awaiting approval.
+- **Status:** `DECIDED` — 2026-11-18. Ports retained as defaults; Docker daemon unavailable, so PGlite is active (D-026).
 
 ## D-025 — Phase 03 test scope
 
@@ -188,4 +188,84 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** covers types, persistence, transport, and rendered UI without browser e2e infrastructure.
 - **Alternatives:** no DB tests; full browser e2e framework; test-only mocks for all layers.
 - **Consequences:** DB-dependent tests cannot run until P3-1 succeeds; results must be recorded with command and count.
-- **Status:** `PROPOSED` — 2026-11-18, `PHASE_03_PLAN.md` §5. Awaiting approval.
+- **Status:** `DECIDED` — 2026-11-18, user approved execution.
+
+## D-026 — Local PGlite fallback is active for Phase 03
+
+- **Decision:** use embedded PGlite at `.data/pglite` as the active local adapter.
+- **Reasoning:** D-004 defined PGlite as the fallback if Docker fails; Docker binary exists but daemon is unavailable in this environment.
+- **Alternatives:** start Docker PostgreSQL on `55433`; use an external managed database.
+- **Consequences:** data persists across process restarts in the local PGlite directory; PostgreSQL adapter remains a future option, not active code.
+- **Status:** `DECIDED` — 2026-11-18, fallback condition satisfied.
+
+## D-027 — Context View persistence
+
+- **Decision:** add `contexts` and `context_members`; membership is an explicit ordered `item_id` list.
+- **Reasoning:** D-016 requires explicit assembly; no retrieval or inference in MVP.
+- **Alternatives:** tag-based membership; JSONB array on Context row; relation-only membership.
+- **Consequences:** adding/removing members is an explicit user action; Context Views are separate from Context Space.
+- **Status:** `DECIDED` — 2026-11-19, user approved Phase 04.
+
+## D-028 — Context API shape
+
+- **Decision:** `GET/POST/PATCH /api/contexts`, `GET /api/contexts/:id`, `POST/DELETE /api/contexts/:id/members`.
+- **Reasoning:** mirrors Phase 04 plan and existing item API contract pattern.
+- **Alternatives:** nested item routes; one generic mutation endpoint.
+- **Consequences:** context detail returns resolved member items for inspection.
+- **Status:** `DECIDED` — 2026-11-19, user approved Phase 04.
+
+## D-029 — Context UI scope
+
+- **Decision:** one Knowledge Context view with add/remove member and open-member actions; no graph or auto assembly.
+- **Reasoning:** Phase 02 UI rules and Phase 04 scope.
+- **Alternatives:** graph canvas; tag rules; multiple context types.
+- **Consequences:** demonstrates Context View concept with minimal UI.
+- **Status:** `DECIDED` — 2026-11-19, user approved Phase 04.
+
+## D-030 — Phase order: UI shell inserted as Phase 05
+
+- **Decision:** run the UI shell redesign (per the four screenshots in `ui-prototype/refs/`) as Phase 05; the previous Phase 05 (evaluation & integration prep) moves to Phase 06.
+- **Reasoning:** user instruction 2026-11-19 "制定计划，实现这个UI" explicitly requests this work now; the evaluation scenarios should run against the new shell anyway.
+- **Alternatives:** run evaluation first; treat the UI work as an untracked parallel track.
+- **Consequences:** roadmap row renumbered; Phase 06 depends on Phase 05 output; this is a recorded reorder, not a silent one.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-031 — Visual foundation: light shell
+
+- **Decision:** replace the dark "Quiet Computationalism" tokens with a light shell (white surfaces, rounded cards, grouped sidebar, pill controls) per `ui-prototype/refs/02` and `04`. `MVP_UI_SPECIFICATION.md` §1 tokens are superseded for the shell; its component behavior rules (§4–6) stay in force.
+- **Reasoning:** the design board and mockups are unambiguously light-theme; content conflicts are resolved as 01 = content, 02/04 = style.
+- **Alternatives:** keep dark tokens; ship a theme switch (two token sets).
+- **Consequences:** `tokens.css`, `base.css`, `app.module.css` restyled; screenshots from Phase 02–04 no longer match visually.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-032 — Sidebar structure and Sync placement
+
+- **Decision:** sidebar groups GENERAL (Overview, Recently), INFORMATION (Raw Information, Structured Objects), ORGANIZATION (Contexts, Sync), bottom cluster Settings + Documentation. Sync sits in ORGANIZATION as its own view.
+- **Reasoning:** the 01 board lists these as "Sidebar 真正的选项列表" plus the Sync addition; Sync is a page-level data feature, not a utility link.
+- **Alternatives:** Sync in the bottom cluster; a separate DATA group; extra rows from the 02 mock (Pipelines, Customers, …) — rejected, those are prototype filler.
+- **Consequences:** exactly 8 nav rows; the 02 mock's sidebar contents are not implemented.
+- **Status:** `DECIDED` — 2026-11-19, user instruction. See Q2 in `PHASE_05_UI_PLAN.md` if the user prefers the bottom cluster.
+
+## D-033 — Composer behavior without an LLM
+
+- **Decision:** implement the composer UI completely (Ask/Agent/Edit pills defaulting to Agent, provider chip `Local ▾`, model chip defaulting to Deepseek with Rym as the second option, mic button visual, black circular submit); submit captures the text as a `raw.document` item with `source_label` `composer:<mode>`. No LLM inference.
+- **Reasoning:** `DESIGN_BOUNDARIES.md` keeps LLM inference outside GSC; a capture action is a real GSC vertical slice instead of a dead button.
+- **Alternatives:** disabled submit; call Deepseek directly (needs keys and a provider boundary change).
+- **Consequences:** model wiring stays `DEFERRED`; the created items flow into Recently and Raw Information like any other raw item.
+- **Status:** `DECIDED` — 2026-11-19. See Q3 in `PHASE_05_UI_PLAN.md`.
+
+## D-034 — Animation layer and quality control
+
+- **Decision:** two effects per the 01 board: (a) mosaic tile overlay on page switch (~350 ms, skippable via Settings toggle), (b) mouse-following dot-grid background (pink/purple tint near the pointer) with quality levels Off/Low/Medium/High/Max persisted in `localStorage`, default Medium as shown in the reference.
+- **Reasoning:** both are literal requirements on the spec board; the board itself ships the Off/Max selector as part of the design.
+- **Alternatives:** CSS-only hover effect; no quality control; WebGL particle field (overkill).
+- **Consequences:** all effects are `pointer-events: none` and quality-gated; weak machines can set Off.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-035 — Canvas view scope
+
+- **Decision:** implement the 04 window as a Canvas view: command bar 「搜索或输入操作」 + `[+]` + panel toggle; empty state 「画布预览」 / 「打开文件...」 with `Ctrl O`; open file uses the existing `POST raw.filecontent` import; preview is a read-only card grid. Canvas is not a sidebar row (D-032's list is authoritative); it opens from Overview and `Ctrl+O`.
+- **Reasoning:** matches the screenshot literally while reusing the Phase 03 import path; keeps the sidebar list exactly as specified.
+- **Alternatives:** free-drag canvas document (out of scope); separate native window (web MVP is single-window); sidebar row (conflicts with the authoritative list).
+- **Consequences:** entry point placement is a flagged open question (Q1); canvas document format does not exist yet.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.

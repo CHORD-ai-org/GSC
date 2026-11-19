@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Phase 03 plan drafted (`PROPOSED`). No runnable app, schema, API, or persistence exists yet.
+**Status:** Phase 04 complete. Knowledge Context uses explicit, persistent member lists.
 
 ## Read first
 
@@ -36,6 +36,11 @@ GSC/
   MVP_UI_SPECIFICATION.md    screens S1-S7, tokens, components
   ui-prototype/index.html    interactive static prototype (in-memory)
   PHASE_03_PLAN.md           Phase 03 task cards and verification gates
+  PHASE_04_PLAN.md           Phase 04 task cards and verification gates
+  CONTEXT_VIEWS.md           Context Space vs Context View boundary
+  src/                       shared contracts, services, React app
+  server/                    node:http API, Drizzle schema, repositories
+  scripts/                   db-check and API smoke checks
   DESIGN_BOUNDARIES.md       in scope / out of scope / ownership
   THYLAS_REFERENCE.md        Thylas audit: verified vs assumed
   DEVELOPMENT_ROADMAP.md     Phase 00-05 plan and Phase 01/02 task cards
@@ -44,7 +49,19 @@ GSC/
   KNOWN_ISSUES.md            limitations and unresolved problems
 ```
 
-No `src/`, `server/`, package manifest, or tests exist yet. They are Phase 03 work. Open `ui-prototype/index.html` directly in a browser to view the static prototype.
+## Run locally
+
+```bash
+npm install
+npm run db:migrate
+npm run api       # http://localhost:8788
+npm run dev       # http://localhost:5174
+npm test
+npm run build
+npm run api:check # requires the API process
+```
+
+Phase 03 uses PGlite at `.data/pglite` (D-026). `ui-prototype/index.html` remains the earlier static prototype.
 
 ## Environment facts (verified locally, 2026-11-16)
 

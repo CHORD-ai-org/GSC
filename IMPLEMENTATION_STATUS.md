@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — What Actually Works
 
-Updated: 2026-11-18 (Phase 03 plan drafted).
+Updated: 2026-11-19 (Phase 04 complete).
 
 ## 1. Current phase
 
@@ -9,23 +9,23 @@ Updated: 2026-11-18 (Phase 03 plan drafted).
 | 00 — Inspection & foundation | COMPLETE, reviewed 2026-11-16 | 12 documents created; Phase 00 report delivered |
 | 01 — Information model & taxonomy | COMPLETE, 2026-11-16 | `INFORMATION_MODEL.md` finalized + 3 new taxonomy/model documents |
 | 02 — MVP interaction design | COMPLETE, 2026-11-16 | `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, static UI prototype |
-| 03 — Core implementation | NOT STARTED — plan `PROPOSED` | `PHASE_03_PLAN.md` drafted; no code, package manifest, schema, or API |
-| 04 — Context views | NOT STARTED | no views |
+| 03 — Core implementation | COMPLETE, 2026-11-18 | app, API, PGlite persistence, tests and verification pass |
+| 04 — Context views | COMPLETE, 2026-11-19 | explicit Knowledge Context, member add/remove, persistence and UI |
 | 05 — Evaluation & integration prep | NOT STARTED | no evaluation |
 
 ## 2. Implemented capabilities
 
 | Capability | Status |
 |---|---|
-| Persistent raw information | NOT IMPLEMENTED |
-| Structured objects | NOT IMPLEMENTED |
-| Relationships | NOT IMPLEMENTED |
-| Provenance / history | NOT IMPLEMENTED |
-| Browse / filter | NOT IMPLEMENTED |
-| Context views | NOT IMPLEMENTED |
-| Persistence layer | NOT IMPLEMENTED |
-| Validation | NOT IMPLEMENTED |
-| Tests | NOT IMPLEMENTED |
+| Persistent raw information | IMPLEMENTED |
+| Structured objects | IMPLEMENTED |
+| Relationships | IMPLEMENTED |
+| Provenance / history | IMPLEMENTED |
+| Browse / filter | IMPLEMENTED |
+| Context views | IMPLEMENTED — explicit Knowledge Context membership |
+| Persistence layer | IMPLEMENTED — PGlite |
+| Validation | IMPLEMENTED — shared contract checks |
+| Tests | IMPLEMENTED — 16 tests pass |
 | Thylas integration | NOT IMPLEMENTED (intentionally out of scope) |
 
 ## 3. Files created or changed in Phase 00
@@ -70,6 +70,36 @@ No files under `D:\github projects\Thylas` were modified.
 | `RELATIONSHIP_MODEL.md`, `INFORMATION_MODEL.md` | display rule and open-item sections finalized |
 | `DEVELOPMENT_ROADMAP.md`, `THINKING.md`, `README.md` | Phase 02 marked complete |
 
+### Phase 03
+
+| File | Change |
+|---|---|
+| `package.json`, `package-lock.json` | dependencies and npm scripts |
+| `tsconfig.json`, `vite.config.ts`, `vitest.config.ts`, `index.html`, `.env.example` | scaffold |
+| `src/lib/{api,items,relations,events}.ts` | shared contracts and validation |
+| `src/services/api.ts`, `src/app/App.tsx`, `src/app/app.module.css`, `src/components/ui.tsx`, `src/styles/*` | live React app |
+| `server/{config,http,router,index}.ts` | `node:http` API |
+| `server/persistence/{schema,client,migrate,reset}.ts`, `migrations/0000_init.sql` | Drizzle schema + PGlite persistence |
+| `server/repo/{items,relations,events}.ts`, `server/storage/local.ts` | data access and local file storage |
+| `src/lib/contracts.test.ts`, `server/router.test.ts`, `server/persistence/roundtrip.test.ts` | 16 tests |
+| `scripts/{api-checks,db-check}.mjs` | verification commands |
+| `DECISION_LOG.md` | D-022…D-025 `DECIDED`; D-026 added |
+
+### Phase 04
+
+| File | Change |
+|---|---|
+| `PHASE_04_PLAN.md` | new — P4-0…P4-4 task cards and verification gates |
+| `CONTEXT_VIEWS.md` | new — Context Space vs Context View boundary |
+| `src/lib/contexts.ts` | new — context DTOs and validation |
+| `server/repo/contexts.ts` | new — context create/update/list/get and explicit membership |
+| `server/persistence/schema.ts`, `migrations/0001_contexts.sql` | contexts + context_members tables |
+| `server/persistence/migrate.ts` | applies all SQL migrations |
+| `server/router.ts`, `src/services/api.ts` | context API and client service |
+| `src/app/App.tsx`, `app.module.css` | Contexts view, member add/remove, open member detail |
+| tests and smoke scripts | context contract, repo, route, API smoke coverage |
+| docs | README/ROADMAP/STATUS/KNOWN_ISSUES/THINKING/DECISION_LOG updated |
+
 ## 4. Verification performed
 
 | Check | Command / method | Result |
@@ -107,22 +137,44 @@ No files under `D:\github projects\Thylas` were modified.
 | Screenshot dimensions | PNG header bytes 16–23 | 1440×900 |
 | Workflow coverage | read `MVP_USER_FLOWS.md` | all 8 required workflows + 4 scenarios described |
 
-No build, test, or API verification was applicable — no application code exists. The prototype is static and in-memory.
+The Phase 02 statement above is historical; Phase 03 verification follows.
 
-### Phase 03 planning checks (2026-11-18)
+### Phase 03 checks (2026-11-18)
 
-| Check | Method | Result |
+| Check | Command / method | Result |
 |---|---|---|
-| Plan exists | `PHASE_03_PLAN.md` | 12 task cards P3-0…P3-11, dependency order, verification matrix |
-| No premature implementation | `git status --short` | no `src/`, `server/`, or package manifest created |
-| Proposal status | `PHASE_03_PLAN.md` §7 | D-022…D-025 marked `PROPOSED`, awaiting approval |
+| Types | `npm run check` | pass |
+| Tests | `npm test` | 3 files, 16 tests pass |
+| Build | `npm run build` | pass; `dist/` generated |
+| DB | `npm run db:migrate` + `node scripts/db-check.mjs` | 4 tables: events, item_content, items, relations |
+| API smoke | `npm run api:check` | 6 checks pass |
+| Vertical slice | API smoke + detail screenshot | raw → concept → derived_from → detail/history |
+| File import | POST `raw.filecontent` | file stored at `data/files/<id>.txt`; DB stores relative ref |
+| UI render | headless Chrome, 1440×900 | Library, detail, New form render with live API data |
+| UI defect fix | screenshot review + CSS patch | top bar/nav alignment fixed |
+| Restart | stop + restart API, query `/api/items?q=Smoke` | 2 items persisted |
+| No JSONB | `grep -c jsonb server/persistence/schema.ts` | 0 |
+
+### Phase 04 checks (2026-11-19)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types | `npm run check` | pass |
+| Tests | `npm test` | 3 files, 20 tests pass |
+| Build | `npm run build` | pass |
+| DB | `npm run db:migrate` + `node scripts/db-check.mjs` | 6 tables |
+| API smoke | `npm run api:check` | 10 checks pass |
+| Context repo | round-trip test | explicit add/remove/duplicate/update pass |
+| UI render | headless Chrome 1440×900 | Contexts list, context detail, 2 members, add picker render |
+| Member detail | click member row in screenshot flow | right panel shows item detail, relations and history |
+| Restart | API restart + GET context | context and members persist |
 
 ## 5. Assumptions still unverified
 
-- Whether Docker can actually run a PostgreSQL container here (binary present; no container started).
-- Whether the user accepts the proposed stack and standalone prototype UI shape.
-- Whether the five proposed object types survive Phase 01 review.
+- Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
+- PostgreSQL adapter for managed/deployment use; not implemented.
+- Phase 05 scenario evaluation has not yet been executed.
 
 ## 6. Next action
 
-Wait for user review of Phase 00. On approval: execute Phase 01 task cards P1-1 to P1-5, then update this file and produce the handoff report.
+Phase 05 — execute scenarios A–D, record observed results, known limitations and Thylas integration requirements. Do not start without user approval.

@@ -1,8 +1,8 @@
 # THINKING.md — Active Task
 
-> Last updated: 2026-11-18
+> Last updated: 2026-11-19
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Phase 03 plan drafted (`PROPOSED`). Awaiting approval before implementation.
+> Status: Phase 05 (UI shell & interaction layer) IN PROGRESS. Design input = 4 screenshots in `ui-prototype/refs/`.
 
 ## User approvals received 2026-11-16
 
@@ -11,6 +11,9 @@
 3. Recommended stack confirmed (`D-005` → `DECIDED`).
 4. UI placement: standalone app + Overview-style section (`D-010` → `DECIDED`).
 5. "开始执行Phase 02" — enter Phase 02 (interaction design + UI prototype; still no persistence code).
+6. "开始执行" — approve D-022…D-025 and execute Phase 03.
+7. "开始执行" — approve Phase 04 plan (D-027…D-029) on 2026-11-19.
+8. "制定计划，实现这个UI（记得把截图保存下来）" — 2026-11-19: plan + implement the new UI from four screenshots; D-030…D-035 recorded; former Phase 05 (evaluation) renumbered to Phase 06.
 
 ## Completed work
 
@@ -35,12 +38,18 @@
 - Local environment: Node v22.22.2, Docker 29.1.5 available; no reachable PostgreSQL; no container started.
 - Prototype verified at 1440×900 via headless Chrome: Library, New form, and Contexts screens render without overlap.
 
-## Phase 03 planning (2026-11-18)
+## Phase 03 completed (2026-11-18)
 
-`PHASE_03_PLAN.md` drafted with P3-0…P3-11, dependency order, verification matrix, risks, and open questions. No code written.
+Implemented app, shared contracts, `node:http` API, Drizzle schema, PGlite persistence, repositories, CRUD, relations, provenance/history, file import, filters, tests, API smoke and UI screenshots. Verified: check/test/build pass; 16 tests; 4 tables; restart persistence. Docker daemon unavailable → PGlite fallback `D-026`.
 
-Four proposals awaiting approval: D-022 schema (4 tables), D-023 API endpoints/shared modules, D-024 Docker ports, D-025 test scope.
+## Phase 04 completed (2026-11-19)
+
+Implemented P4-0…P4-4. `contexts` + `context_members` persist explicit Knowledge Context membership. UI supports create/edit context, add/remove members and opening member item detail. Verified: check/test/build pass; 20 tests; 6 tables; 10 API smoke checks; screenshots; restart persistence. `CONTEXT_VIEWS.md` defines the Context Space vs View boundary.
+
+## Phase 05 in progress (2026-11-19)
+
+Plan: `PHASE_05_UI_PLAN.md` (P5-0…P5-6, milestones M1–M6). Requirements read literally from `ui-prototype/refs/`: light shell with the real sidebar list + Sync, Overview composer (models Deepseek/Rym), Canvas window (搜索或输入操作 / 画布预览 / 打开文件 Ctrl+O), page-switch mosaic animation, mouse dot-grid background with quality Off/Low/Medium/High/Max. Open questions Q1–Q4 in plan §7 have defaults taken.
 
 ## Next action after approval
 
-Start P3-0 scaffold, then P3-1 DB, P3-2 contracts. First milestone: P3-7 vertical slice — create raw item → create Concept with source → reopen detail. Then P3-8…P3-11 and handoff.
+Phase 06 (formerly 05) — execute scenarios A–D with observed results, record limitations and Thylas integration requirements. Do not start without user approval.
