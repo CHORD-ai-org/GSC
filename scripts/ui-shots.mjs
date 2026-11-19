@@ -6,6 +6,8 @@ import path from 'node:path';
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9333;
 const BASE = process.argv[2] ?? 'http://localhost:5173/';
+const MODE = process.argv[3] === 'dark' ? 'dark' : 'light';
+const PREFIX = MODE === 'dark' ? 'dark-' : '';
 const OUT = path.resolve(process.cwd(), 'ui-prototype/shots');
 const PROFILE = path.resolve(process.cwd(), '.chrome-shot/profile-uishots');
 
@@ -81,7 +83,7 @@ try {
   async function shot(name) {
     await sleep(650);
     const { data } = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
-    const file = path.join(OUT, `${name}.png`);
+    const file = path.join(OUT, `${PREFIX}${name}.png`);
     writeFileSync(file, Buffer.from(data, 'base64'));
     console.log(`saved ${file}`);
   }
@@ -99,6 +101,10 @@ try {
 
   await send('Page.navigate', { url: BASE }, sessionId);
   await sleep(1800);
+
+  await clickText('Settings');
+  await clickText(MODE === 'dark' ? 'Dark' : 'Light');
+  await clickText('Overview');
 
   await shot('01-overview');
 
