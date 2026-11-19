@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-19
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Phase 05 (UI shell) IMPLEMENTED and verified; `DIVERGENCE_PLAN.md` (D1–D7, all `PROPOSED`) awaiting user pick.
+> Status: Phase 05 (UI shell) IMPLEMENTED + official logo + dark mode (D7, D-036). D1–D6 of `DIVERGENCE_PLAN.md` stay `PROPOSED` awaiting §4 answers.
 
 ## User approvals received 2026-11-16
 

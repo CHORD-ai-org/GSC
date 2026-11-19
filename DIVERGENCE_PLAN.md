@@ -1,6 +1,6 @@
 # DIVERGENCE_PLAN.md — 从现有结构发散的规划方向
 
-Status: `PROPOSED` — 2026-11-19。全部为候选方向，未获批不实施。配套代码现状见 `IMPLEMENTATION_STATUS.md`，边界见 `DESIGN_BOUNDARIES.md`。
+Status: `D7 DECIDED`（2026-11-19 用户指令「开始执行DIVERGENCE_PLAN.md；添加深色模式」）；D1–D6 仍为 `PROPOSED`，等 §4 三个问题的答复。配套代码现状见 `IMPLEMENTATION_STATUS.md`，边界见 `DESIGN_BOUNDARIES.md`。
 
 **一句话结论：** 现有结构里埋了 7 个还没用上的钩子，每个钩子都能长出一条真实的功能线；建议 P0 做 D2（Context 交付）和 D1（模型接入），它们正好是 Phase 06 评估需要的集成面。
 
@@ -65,12 +65,13 @@ Status: `PROPOSED` — 2026-11-19。全部为候选方向，未获批不实施�
 - 最小产出：多文件拖拽导入 + 全局剪贴板捕获。
 - 不做：OCR、二进制解析（`RAW_INFORMATION_TAXONOMY` 边界）。
 
-### D7 视觉体系：主题与背景样式（PROPOSED）
+### D7 视觉体系：主题与背景样式（DECIDED — 2026-11-19，深色模式部分执行中）
 
 - 场景：Settings 里切 Light/Dark；点阵背景除了质量档再加样式档（点阵/斜纹/纯色）。
 - 建在：`tokens.css` 单套 token、prefs 持久化、动画层。
 - 最小产出：dark token 集 + 主题开关。
 - 不做：自定义主题编辑器。
+- 范围注：本轮只做「深色模式」（dark token 集 + 主题开关）；背景样式档仍开放。
 
 ## 3. 优先级建议
 

@@ -269,3 +269,11 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** free-drag canvas document (out of scope); separate native window (web MVP is single-window); sidebar row (conflicts with the authoritative list).
 - **Consequences:** entry point placement is a flagged open question (Q1); canvas document format does not exist yet.
 - **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-036 — Dark mode (D7 of DIVERGENCE_PLAN)
+
+- **Decision:** implement the dark half of D7 now: dark token set behind `[data-theme='dark']` and a Light/Dark switch in Settings, persisted in `gsc.ui.prefs.v1`. The board's own dark palette informs the dark tokens; selected pills invert (accent white, dark text). Background-style presets (dot/diagonal/solid) stay `PROPOSED`.
+- **Reasoning:** user instruction 2026-11-19 "开始执行DIVERGENCE_PLAN.md；添加深色模式".
+- **Alternatives:** system-preference auto theme; two full theme files; theme editor.
+- **Consequences:** all colors flow through CSS variables (hardcoded `#fff` on accent surfaces replaced by `--on-accent`); dot-grid and mosaic tile colors become theme-aware.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.

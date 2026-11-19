@@ -202,6 +202,15 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Export builders | `src/lib/sync.test.ts` | JSON round-trip, Markdown relations/history, GSC-CONTEXT.md agent sections pass |
 | Note | screenshot tooling | headless Chrome needs `--disable-gpu --no-sandbox --hide-scrollbars` or captures come back blank (fixed in `scripts/ui-shots.mjs`) |
 
+### Phase 05 additions (2026-11-19 evening)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Official logo | `scripts/logo-trace.mjs` on `ui-prototype/refs/05-logo-official.png` | 53 rects, exact area coverage; `GscLogo.tsx` replaced; sidebar + Overview screenshots match the official mark |
+| Dark mode (D7, `D-036`) | `npm run check` / `npm run build` / `npm test` | pass; 23 tests |
+| Dark render | `node scripts/ui-shots.mjs http://localhost:5174/ dark` | 8 dark shots in `ui-prototype/shots/dark-*.png`; logo inverts via `currentColor`; pills/selection invert (accent white + `--on-accent` dark); dot-grid and mosaic tiles theme-aware |
+| Theme persistence | Settings → Dark → reload | `gsc.ui.prefs.v1` keeps `theme`; `[data-theme='dark']` applied on load |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
