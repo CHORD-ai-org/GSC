@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — What Actually Works
 
-Updated: 2026-11-19 (Phase 04 complete).
+Updated: 2026-11-19 (Phase 05 UI shell implemented, verification passed).
 
 ## 1. Current phase
 
@@ -11,7 +11,8 @@ Updated: 2026-11-19 (Phase 04 complete).
 | 02 — MVP interaction design | COMPLETE, 2026-11-16 | `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, static UI prototype |
 | 03 — Core implementation | COMPLETE, 2026-11-18 | app, API, PGlite persistence, tests and verification pass |
 | 04 — Context views | COMPLETE, 2026-11-19 | explicit Knowledge Context, member add/remove, persistence and UI |
-| 05 — Evaluation & integration prep | NOT STARTED | no evaluation |
+| 05 — UI shell & interaction layer | IMPLEMENTED, 2026-11-19 | light shell, Overview+Composer, Canvas, Sync, Settings, animations; see §4 checks |
+| 06 — Evaluation & integration prep | NOT STARTED | no evaluation (former Phase 05, renumbered by D-030) |
 
 ## 2. Implemented capabilities
 
@@ -100,6 +101,23 @@ No files under `D:\github projects\Thylas` were modified.
 | tests and smoke scripts | context contract, repo, route, API smoke coverage |
 | docs | README/ROADMAP/STATUS/KNOWN_ISSUES/THINKING/DECISION_LOG updated |
 
+### Phase 05
+
+| File | Change |
+|---|---|
+| `ui-prototype/refs/` | 4 design screenshots + README mapping (saved from user clipboard) |
+| `PHASE_05_UI_PLAN.md` | new — P5-0…P5-6 task cards, milestones, verification matrix, Q1–Q4 |
+| `src/styles/tokens.css`, `src/styles/base.css` | light theme tokens (D-031) |
+| `src/app/Sidebar.tsx`, `src/app/shell.module.css`, `src/components/GscLogo.tsx` | new — sidebar nav (real option list + Sync, D-032), blocky GSC mark |
+| `src/app/Composer.tsx` | new — Ask anything composer (Ask/Agent/Edit, Local, Deepseek/Rym, mic, submit) |
+| `src/app/CommandBar.tsx` | new — canvas command bar (搜索或输入操作, +, panel toggle) |
+| `src/views/views.tsx`, `src/views/views.module.css` | new — Overview, Canvas (empty state + card grid), Sync, Settings, Documentation |
+| `src/lib/prefs.ts` | new — UI prefs (animation quality, page transition, model) persisted in localStorage |
+| `src/lib/sync.ts`, `src/lib/sync.test.ts` | new — JSON / Markdown bundle / Claude Code·Codex export builders + 3 tests |
+| `src/components/animations.tsx`, `animations.module.css` | new — mosaic page transition + mouse dot-grid background (D-034) |
+| `src/app/App.tsx`, `app.module.css`, `src/components/ui.module.css` | shell routing, view migration, composer/file-import wiring, light restyle |
+| `scripts/ui-shots.mjs`, `scripts/ui-smoke.mjs`, `scripts/ui-debug.mjs` | new — CDP screenshot and smoke tooling |
+
 ## 4. Verification performed
 
 | Check | Command / method | Result |
@@ -168,6 +186,21 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | UI render | headless Chrome 1440×900 | Contexts list, context detail, 2 members, add picker render |
 | Member detail | click member row in screenshot flow | right panel shows item detail, relations and history |
 | Restart | API restart + GET context | context and members persist |
+
+### Phase 05 checks (2026-11-19)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types | `npm run check` | pass |
+| Tests | `npm test` | 4 files, 23 tests pass (20 + 3 new sync export tests) |
+| Build | `npm run build` | pass |
+| API smoke | `npm run api:check` | 10 checks pass |
+| UI screenshots | `node scripts/ui-shots.mjs http://localhost:5174/` | 8 shots at 1440×900 in `ui-prototype/shots/`: Overview+composer, Raw Information, Structured Objects, Contexts, Sync, Settings, Canvas empty, Canvas preview |
+| Design fidelity | screenshot review vs `ui-prototype/refs/` | sidebar groups match the spec board; composer matches the mock (Agent pill, Local, Deepseek, mic, black submit); Settings quality selector matches Off/Low/Medium/High/Max reference; canvas empty state matches 04 (搜索或输入操作 / 画布预览 / 打开文件… Ctrl O) |
+| Composer E2E | `node scripts/ui-smoke.mjs` | typed text → submit → `raw.document` created → appears in Recently (SMOKE PASS) |
+| Animation settings | Settings quality pills + transition toggle | state persists in `localStorage` (`gsc.ui.prefs.v1`); default Medium, transition On |
+| Export builders | `src/lib/sync.test.ts` | JSON round-trip, Markdown relations/history, GSC-CONTEXT.md agent sections pass |
+| Note | screenshot tooling | headless Chrome needs `--disable-gpu --no-sandbox --hide-scrollbars` or captures come back blank (fixed in `scripts/ui-shots.mjs`) |
 
 ## 5. Assumptions still unverified
 

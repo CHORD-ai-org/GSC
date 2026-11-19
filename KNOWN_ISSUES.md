@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Limitations and Unresolved Problems
 
-Updated: 2026-11-19 (Phase 04 complete).
+Updated: 2026-11-19 (Phase 05 UI shell in progress).
 
 ## Resolved in Phase 01
 
@@ -65,7 +65,19 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 | Context Space vs View boundary | `CONTEXT_VIEWS.md` |
 | Context persistence | `contexts` and `context_members` tables |
 
-## Risks to watch in Phase 05
+## Phase 05 — open questions and gaps
+
+| Item | State |
+|---|---|
+| Canvas entry point (Q1) | Default: not a sidebar row; opened from Overview 「画布预览」 and `Ctrl+O`. Overview opens the canvas window (empty state); the empty state's 「画布预览」 activates the card grid. Confirm placement if a sidebar row or separate window is wanted. |
+| Sync placement (Q2) | Default: `ORGANIZATION` group (Contexts, Sync). Alternative: bottom cluster with Settings/Documentation. |
+| Composer submit without an LLM (Q3) | Captures text as `raw.document` with `source_label` `composer:<mode> · <model>`. Model inference is `DEFERRED` (`D-033`). |
+| "Rym" spelling (Q4) | Copied literally from the design board; rename when a real model list exists. |
+| Mic button | Visual only; no voice capture. |
+| Page-switch mosaic animation | Plays via CSS overlay; not visible in static screenshots (see `ui-prototype/shots/`), verified by code review and build. |
+| `favicon.ico` | 404 in dev server console; cosmetic only. |
+
+## Risks to watch in Phase 06
 
 1. Claiming scenario success without observed results.
 2. Treating explicit Context Views as dynamic Context Assembly.

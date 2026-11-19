@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Phase 04 complete. Knowledge Context uses explicit, persistent member lists.
+**Status:** Phase 05 (UI shell) in progress. Light shell with Overview composer, Canvas, Sync export and animation layer; Phase 04 data capabilities intact.
 
 ## Read first
 
