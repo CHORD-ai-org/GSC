@@ -8,5 +8,6 @@ Saved 2026-11-19 from the user's clipboard screenshots. Authoritative input for 
 | `02-shell-overview-composer.png` | `Clipboard_Screenshot.png` | Shell style reference (UI prototype): grouped sidebar with icons and selected state, GSC blocky logo, Overview home reading 「下一步我们添加什么？」, bottom "Ask anything" composer with Ask / Agent / Edit pills, provider (Local ▾), model (Atlas ▾ placeholder → replaced by Deepseek / Rym), mic and black circular submit. |
 | `03-composer-detail-models.png` | `Clipboard_Screenshot-1.png` | Composer close-up + annotation: the model selector defaults to **Deepseek** and **Rym**. |
 | `04-canvas-window.png` | `Clipboard_Screenshot-3.png` | Canvas window: top command bar 「搜索或输入操作」 with [+] and panel-toggle buttons; empty state rows 「画布预览」 and 「打开文件...」 with `Ctrl O` hint. |
+| `05-logo-official.png` | `Clipboard_Screenshot.png` (2026-11-19 20:32) | The **official GSC logo** (1834x990 RGBA, black blocky monogram). Traced into SVG by `scripts/logo-trace.mjs` and used by `src/components/GscLogo.tsx` (53 rects, exact area coverage). |
 
 Reading rule (from the board annotation): screenshot 02 is the **style prototype**; screenshot 01 carries the **real sidebar option list**. Where the two conflict on content, 01 wins; where they conflict on visual style, 02 wins.

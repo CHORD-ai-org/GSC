@@ -1,30 +1,41 @@
+/**
+ * Official GSC logo, traced from `ui-prototype/refs/05-logo-official.png`
+ * (1834x990 RGBA) by `scripts/logo-trace.mjs`: bounding box 1686x889,
+ * 53 axis-aligned rects, exact area coverage (994022 px).
+ * Renders in `currentColor` so it works on any theme.
+ */
+
+const LOGO_RECTS: readonly (readonly [number, number, number, number])[] = [
+  [569, 0, 78, 232], [466, 1, 103, 231], [320, 2, 146, 231], [174, 3, 146, 231],
+  [7, 4, 167, 881], [0, 5, 7, 133], [1038, 5, 373, 232], [1411, 6, 274, 231],
+  [1685, 7, 1, 30], [647, 24, 1, 208], [1, 138, 6, 747], [648, 170, 1, 61],
+  [1037, 182, 1, 283], [0, 199, 1, 686], [466, 232, 46, 1], [792, 232, 245, 232],
+  [320, 233, 46, 1], [174, 234, 57, 652], [1038, 237, 241, 197], [1622, 237, 63, 1],
+  [1279, 241, 3, 19], [1279, 260, 2, 50], [791, 283, 1, 181], [1279, 310, 1, 43],
+  [550, 412, 208, 473], [1038, 434, 240, 31], [815, 464, 222, 1], [1046, 465, 232, 1],
+  [1046, 466, 231, 31], [1045, 479, 1, 407], [1046, 497, 230, 55], [1044, 535, 1, 351],
+  [1046, 552, 229, 52], [1043, 586, 1, 300], [1046, 604, 228, 282], [1042, 635, 1, 251],
+  [758, 653, 1, 232], [1038, 653, 4, 233], [231, 654, 177, 232], [759, 654, 269, 231],
+  [1274, 654, 170, 232], [408, 655, 142, 231], [1028, 655, 10, 231], [1444, 655, 241, 231],
+  [1685, 656, 1, 30], [172, 885, 2, 1], [550, 885, 97, 1], [792, 885, 236, 1],
+  [563, 886, 84, 1], [1116, 886, 153, 1], [1601, 886, 84, 1], [1167, 887, 102, 1],
+  [1223, 888, 46, 1],
+];
+
 export function GscLogo({ height = 32, className }: { height?: number; className?: string }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 96 32"
+      viewBox="0 0 1686 889"
       height={height}
       role="img"
       aria-label="GSC"
       fill="currentColor"
       style={{ display: 'block' }}
     >
-      {/* G */}
-      <rect x="0" y="0" width="28" height="8" />
-      <rect x="0" y="0" width="8" height="32" />
-      <rect x="0" y="24" width="28" height="8" />
-      <rect x="20" y="16" width="8" height="16" />
-      <rect x="12" y="16" width="12" height="8" />
-      {/* S */}
-      <rect x="34" y="0" width="28" height="8" />
-      <rect x="34" y="0" width="8" height="16" />
-      <rect x="34" y="12" width="28" height="8" />
-      <rect x="54" y="12" width="8" height="20" />
-      <rect x="34" y="24" width="28" height="8" />
-      {/* C */}
-      <rect x="68" y="0" width="28" height="8" />
-      <rect x="68" y="0" width="8" height="32" />
-      <rect x="68" y="24" width="28" height="8" />
+      {LOGO_RECTS.map(([x, y, w, h]) => (
+        <rect key={`${x}-${y}-${w}-${h}`} x={x} y={y} width={w} height={h} />
+      ))}
     </svg>
   );
 }
