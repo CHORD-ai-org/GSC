@@ -25,6 +25,7 @@ export type UiPrefs = {
   pageTransition: boolean;
   provider: string;
   defaultModel: ModelName;
+  workspaceName: string;
 };
 
 export const DEFAULT_PREFS: UiPrefs = {
@@ -33,6 +34,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   pageTransition: true,
   provider: 'Local',
   defaultModel: 'Deepseek',
+  workspaceName: 'GSC Workspace',
 };
 
 const STORAGE_KEY = 'gsc.ui.prefs.v1';
@@ -55,6 +57,9 @@ export function loadPrefs(): UiPrefs {
       pageTransition: typeof parsed.pageTransition === 'boolean' ? parsed.pageTransition : DEFAULT_PREFS.pageTransition,
       provider: typeof parsed.provider === 'string' && parsed.provider ? parsed.provider : DEFAULT_PREFS.provider,
       defaultModel: parsed.defaultModel === 'Rym' ? 'Rym' : DEFAULT_PREFS.defaultModel,
+      workspaceName: typeof parsed.workspaceName === 'string' && parsed.workspaceName.trim()
+        ? parsed.workspaceName
+        : DEFAULT_PREFS.workspaceName,
     };
   } catch {
     return { ...DEFAULT_PREFS };

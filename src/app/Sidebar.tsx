@@ -2,14 +2,16 @@ import { GscLogo } from '../components/GscLogo.tsx';
 import styles from './shell.module.css';
 
 export type ViewId =
-  | 'overview' | 'recently' | 'raw' | 'objects'
+  | 'start' | 'overview' | 'recently' | 'raw' | 'objects'
   | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas';
 
-type IconName = 'grid' | 'clock' | 'file' | 'box' | 'layers' | 'sync' | 'gear' | 'book';
+type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'layers' | 'sync' | 'gear' | 'book';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (name) {
+    case 'home':
+      return <svg {...common}><path d="M2.5 7.5L8 2.8l5.5 4.7V13H2.5z" /><path d="M6.2 13V9.2h3.6V13" /></svg>;
     case 'grid':
       return <svg {...common}><rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>;
     case 'clock':
@@ -33,6 +35,7 @@ type NavEntry = { id: ViewId; label: string; icon: IconName };
 
 const GROUPS: { label: string; items: NavEntry[] }[] = [
   { label: 'GENERAL', items: [
+    { id: 'start', label: 'Start', icon: 'home' },
     { id: 'overview', label: 'Overview', icon: 'grid' },
     { id: 'recently', label: 'Recently', icon: 'clock' },
   ] },

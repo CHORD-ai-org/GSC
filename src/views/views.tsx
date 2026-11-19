@@ -1,42 +1,7 @@
-import { Composer } from '../app/Composer.tsx';
 import { CommandBar } from '../app/CommandBar.tsx';
-import { GscLogo } from '../components/GscLogo.tsx';
-import type { ComposerMode, ModelName, UiPrefs, AnimationQuality } from '../lib/prefs.ts';
-import { ANIMATION_QUALITIES, QUALITY_LABELS } from '../lib/prefs.ts';
 import { ITEM_GLYPHS, ITEM_LABELS } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import styles from './views.module.css';
-
-export function OverviewView({
-  onSubmit,
-  onCanvas,
-  onOpenFile,
-}: {
-  onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
-  onCanvas: () => void;
-  onOpenFile: () => void;
-}) {
-  return (
-    <div className={styles.overview}>
-      <GscLogo height={64} className={styles.overviewLogo} />
-      <p className={styles.overviewQuestion}>下一步我们添加什么？</p>
-      <div className={styles.overviewComposer}>
-        <Composer onSubmit={onSubmit} />
-      </div>
-      <div className={styles.quickActions}>
-        <button type="button" className={styles.quickButton} onClick={onCanvas}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
-          画布预览
-        </button>
-        <button type="button" className={styles.quickButton} onClick={onOpenFile}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2.5h6l3.5 3.5v7.5H3z" /><path d="M9 2.5V6h3.5" /></svg>
-          打开文件...
-          <span className={styles.quickKey}>Ctrl O</span>
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export function CanvasView({
   items,
@@ -150,80 +115,6 @@ export function SyncView({
   );
 }
 
-export function SettingsView({ prefs, onChange }: { prefs: UiPrefs; onChange: (next: UiPrefs) => void }) {
-  return (
-    <div className={styles.page}>
-      <h1 className={styles.pageTitle}>Settings</h1>
-      <p className={styles.pageSub}>动画与界面偏好保存在本机浏览器中。</p>
-
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>主题</h2>
-        <div className={styles.settingRow}>
-          <div className={styles.qualityRow}>
-            {([true, false] as const).map((dark) => (
-              <button
-                key={String(dark)}
-                type="button"
-                className={`${styles.qualityPill} ${(prefs.theme === 'dark') === dark ? styles.on : ''}`}
-                onClick={() => onChange({ ...prefs, theme: dark ? 'dark' : 'light' })}
-              >
-                {dark ? 'Dark' : 'Light'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className={styles.hint}>深色 / 浅色界面。点阵背景与马赛克瓦片随主题换色。</div>
-      </div>
-
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>背景动画质量</h2>
-        <div className={styles.settingRow}>
-          <div className={styles.qualityRow}>
-            {ANIMATION_QUALITIES.map((q: AnimationQuality) => (
-              <button
-                key={q}
-                type="button"
-                className={`${styles.qualityPill} ${prefs.quality === q ? styles.on : ''}`}
-                onClick={() => onChange({ ...prefs, quality: q })}
-              >
-                {QUALITY_LABELS[q]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className={styles.hint}>鼠标拖动时的点阵背景动画密度与色彩强度。Off 完全关闭。</div>
-      </div>
-
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>页面切换动画</h2>
-        <div className={styles.settingRow}>
-          <div className={styles.qualityRow}>
-            {([true, false] as const).map((on) => (
-              <button
-                key={String(on)}
-                type="button"
-                className={`${styles.qualityPill} ${prefs.pageTransition === on ? styles.on : ''}`}
-                onClick={() => onChange({ ...prefs, pageTransition: on })}
-              >
-                {on ? 'On' : 'Off'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className={styles.hint}>切换侧栏页面时的马赛克瓦片动画。</div>
-      </div>
-
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>默认模型</h2>
-        <div className={styles.settingRow}>
-          <div className={styles.countLine} style={{ margin: 0 }}>Deepseek（默认）· Rym · provider: {prefs.provider}</div>
-        </div>
-        <div className={styles.hint}>模型默认为 Deepseek 和 Rym。真实推理接入属于后续阶段（见 DECISION_LOG D-033）。</div>
-      </div>
-    </div>
-  );
-}
-
 export function DocsView() {
   return (
     <div className={styles.page}>
@@ -233,9 +124,10 @@ export function DocsView() {
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>视图</h2>
         <ul className={styles.docsList}>
-          <li><strong>Overview</strong> — 首页。输入「Ask anything」把内容记录为原始信息；提供画布与文件入口。</li>
-          <li><strong>Recently</strong> — 按更新时间排序的最近条目。</li>
-          <li><strong>Raw Information</strong> — 原始信息（文档 / 消息 / 证据 / 文件内容）。</li>
+          <li><strong>Start</strong> — 起始页。输入「Ask anything」把内容记录为原始信息；提供画布与文件入口。</li>
+          <li><strong>Overview</strong> — Context Space 总入口：数量概览、最近更新、你的 Contexts。</li>
+          <li><strong>Recently</strong> — 按时间分组的最近访问与修改。</li>
+          <li><strong>Raw Information</strong> — 原始信息（文档 / 消息 / 证据 / 文件内容）列表与详情。</li>
           <li><strong>Structured Objects</strong> — 结构化对象（概念 / 假设 / 方法 / 决策 / 证据引用）。</li>
           <li><strong>Contexts</strong> — 显式组装的知识上下文视图。</li>
           <li><strong>Sync</strong> — 数据导出（JSON / Markdown / Claude Code·Codex 上下文）。</li>

@@ -1,25 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, EmptyState, Field, SectionLabel, Subhead } from '../components/ui.tsx';
+import type { ReactNode } from 'react';
+import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewId } from './Sidebar.tsx';
-import { CanvasView, DocsView, OverviewView, SettingsView, SyncView } from '../views/views.tsx';
+import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
+import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pages.tsx';
+import type { ContextIndexEntry } from '../views/pages.tsx';
+import { ContextCollection, ObjectCollection, RawCollection } from '../views/collections.tsx';
+import { ContextDetailView, ObjectDetailView, RawDetailView } from '../views/detail.tsx';
 import {
   DOMAINS,
-  ITEM_GLYPHS,
   ITEM_LABELS,
   ITEM_TYPES,
   OBJECT_TYPES,
-  RAW_TYPES,
   fieldKeysFor,
   isObjectType,
   statusesFor,
 } from '../lib/items.ts';
-import type { Domain, ItemDTO, ItemFields, ItemType, Origin, Status } from '../lib/items.ts';
+import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
 import { RELATION_KINDS } from '../lib/relations.ts';
 import type { RelationKind } from '../lib/relations.ts';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
 import { loadPrefs, savePrefs } from '../lib/prefs.ts';
+import { recordVisit, visitMap } from '../lib/visits.ts';
 import {
   buildAgentContext,
   buildJsonExport,
@@ -28,8 +32,7 @@ import {
 } from '../lib/sync.ts';
 import type { ExportSource } from '../lib/sync.ts';
 import * as api from '../services/api.ts';
-import type { ContextDetailResponse, ItemDetailResponse } from '../services/api.ts';
-import type { ContextDTO } from '../lib/contexts.ts';
+import type { ItemDetailResponse } from '../services/api.ts';
 import styles from './app.module.css';
 
 type Panel = 'none' | 'new' | 'edit' | 'link' | 'new-context' | 'edit-context';
@@ -45,12 +48,6 @@ const fieldLabels: Record<string, string> = {
 
 const multiline = new Set(['content_text', 'definition', 'notes', 'claim', 'reasoning', 'steps', 'intended_use', 'statement', 'alternatives', 'consequences']);
 
-const VIEW_TITLES: Partial<Record<ViewId, string>> = {
-  recently: 'Recently',
-  raw: 'Raw Information',
-  objects: 'Structured Objects',
-};
-
 function metaFrom(item?: ItemDTO) {
   return {
     title: item?.title ?? '',
@@ -62,26 +59,22 @@ function metaFrom(item?: ItemDTO) {
 }
 
 export default function App() {
-  const [view, setView] = useState<ViewId>('overview');
+  const [view, setView] = useState<ViewId>('start');
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
+  const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
+  const [relationIndex, setRelationIndex] = useState<Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }>>({});
+  const [visits, setVisits] = useState<Record<string, string | undefined>>(() => visitMap());
   const [selectedId, setSelectedId] = useState<string>('');
   const [detail, setDetail] = useState<ItemDetailResponse | undefined>();
+  const [contextId, setContextId] = useState('');
   const [panel, setPanel] = useState<Panel>('none');
   const [newType, setNewType] = useState<ItemType>('raw.document');
   const [form, setForm] = useState<Record<string, string>>({});
-  const [filterType, setFilterType] = useState('all');
-  const [filterDomain, setFilterDomain] = useState('all');
-  const [keyword, setKeyword] = useState('');
-  const [contexts, setContexts] = useState<ContextDTO[]>([]);
-  const [contextId, setContextId] = useState('');
-  const [contextDetail, setContextDetail] = useState<ContextDetailResponse | undefined>();
-  const [memberPick, setMemberPick] = useState('');
   const [error, setError] = useState('');
   const [canvasQuery, setCanvasQuery] = useState('');
   const [canvasPreviewing, setCanvasPreviewing] = useState(false);
-  const [canvasPanel, setCanvasPanel] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,28 +83,19 @@ export default function App() {
     setItems(result.items);
   }, []);
 
+  const loadContextIndex = useCallback(async () => {
+    const list = await api.listContexts();
+    const entries = await Promise.all(list.contexts.map(async (c) => (await api.getContext(c.id)).context));
+    setContexts(entries);
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     const result = await api.getItem(id);
     setDetail(result);
   }, []);
 
-  const loadContexts = useCallback(async () => {
-    const result = await api.listContexts();
-    setContexts(result.contexts);
-    if (!contextId && result.contexts[0]) setContextId(result.contexts[0].id);
-  }, [contextId]);
-
-  const loadContext = useCallback(async (id: string) => {
-    const result = await api.getContext(id);
-    setContextDetail(result);
-  }, []);
-
   useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => { void loadContexts(); }, [loadContexts]);
-  useEffect(() => {
-    if (!contextId) { setContextDetail(undefined); return; }
-    void loadContext(contextId);
-  }, [contextId, loadContext]);
+  useEffect(() => { void loadContextIndex(); }, [loadContextIndex]);
   useEffect(() => {
     if (!selectedId) { setDetail(undefined); return; }
     void loadDetail(selectedId);
@@ -120,6 +104,19 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = prefs.theme;
   }, [prefs.theme]);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const objectItems = items.filter((i) => i.type.startsWith('object.'));
+      const entries = await Promise.all(objectItems.map(async (i) => {
+        const d = await api.getItem(i.id);
+        return [i.id, d.relations] as const;
+      }));
+      if (alive) setRelationIndex(Object.fromEntries(entries));
+    })();
+    return () => { alive = false; };
+  }, [items]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -132,24 +129,21 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const visible = useMemo(() => {
-    let list = items;
-    if (view === 'raw') list = list.filter((item) => item.type.startsWith('raw.'));
-    else if (view === 'objects') list = list.filter((item) => item.type.startsWith('object.'));
-    if (filterType !== 'all') list = list.filter((item) => item.type === filterType);
-    if (filterDomain !== 'all') list = list.filter((item) => item.domain === filterDomain);
-    const q = keyword.trim().toLowerCase();
-    if (q) {
-      list = list.filter((item) => item.title.toLowerCase().includes(q)
-        || Object.values(item.fields).some((v) => typeof v === 'string' && v.toLowerCase().includes(q)));
+  const sourceCounts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [id, rel] of Object.entries(relationIndex)) {
+      let n = 0;
+      for (const r of rel.outgoing) {
+        const target = items.find((i) => i.id === r.to_id);
+        if (target && target.type.startsWith('raw.')) n += 1;
+      }
+      out[id] = n;
     }
-    if (view === 'recently') {
-      list = [...list].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 20);
-    }
-    return list;
-  }, [items, view, filterType, filterDomain, keyword]);
+    return out;
+  }, [relationIndex, items]);
 
   const selected = detail?.item;
+  const selectedContext = contexts.find((c) => c.id === contextId);
 
   function updatePrefs(next: UiPrefs) {
     setPrefs(next);
@@ -162,10 +156,34 @@ export default function App() {
     setView(next);
   }
 
-  function openNew() {
+  function markVisited(id: string) {
+    recordVisit(id);
+    setVisits(visitMap());
+  }
+
+  function selectItem(id: string) {
+    setSelectedId(id);
+    setPanel('none');
+    markVisited(id);
+  }
+
+  function openItemInPage(id: string) {
+    const item = items.find((i) => i.id === id);
+    selectItem(id);
+    if (item) go(item.type.startsWith('raw.') ? 'raw' : 'objects');
+  }
+
+  function openContextInPage(id: string) {
+    setContextId(id);
+    setPanel('none');
+    markVisited(id);
+    go('contexts');
+  }
+
+  function openNew(type: ItemType) {
     setPanel('new');
-    setNewType('raw.document');
-    setForm({ title: '', domain: 'knowledge', origin: 'user', source_label: '' });
+    setNewType(type);
+    setForm({ title: '', domain: 'knowledge', origin: 'user', source_label: '', status: statusesFor(type)[0] });
   }
 
   function openEdit() {
@@ -191,20 +209,18 @@ export default function App() {
       setError('');
       const fields: ItemFields = {};
       for (const key of fieldKeysFor(newType)) if (form[key]) fields[key] = form[key];
-      const body = {
+      const result = await api.createItem({
         type: newType,
         title: form.title,
         domain: form.domain,
         origin: form.origin,
         source_label: form.source_label,
         fields,
-      };
-      const result = await api.createItem(body);
+      });
       if (!result.item) throw new Error('Unexpected create response');
-      const created = result.item;
-      setPanel('none');
-      setSelectedId(created.id);
       await refresh();
+      selectItem(result.item.id);
+      go(result.item.type.startsWith('raw.') ? 'raw' : 'objects');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Create failed');
     }
@@ -254,14 +270,29 @@ export default function App() {
     }
   }
 
+  async function deleteSelected() {
+    if (!selected) return;
+    if (!window.confirm('Delete this item? Its relations and history will be removed.')) return;
+    try {
+      setError('');
+      await api.deleteItem(selected.id);
+      setSelectedId('');
+      setPanel('none');
+      await refresh();
+      await loadContextIndex();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
+
   function openNewContext() {
     setPanel('new-context');
     setForm({ title: 'Knowledge Context', subject: '', scope: '', purpose: '' });
   }
 
   function openEditContext() {
-    if (!contextDetail) return;
-    const c = contextDetail.context;
+    const c = selectedContext;
+    if (!c) return;
     setPanel('edit-context');
     setForm({ title: c.title, subject: c.subject, scope: c.scope, purpose: c.purpose });
   }
@@ -282,8 +313,7 @@ export default function App() {
       const saved = result.context;
       setPanel('none');
       setContextId(saved.id);
-      await loadContexts();
-      await loadContext(saved.id);
+      await loadContextIndex();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Context save failed');
     }
@@ -297,8 +327,7 @@ export default function App() {
         ? await api.addContextMember(contextId, itemId)
         : await api.removeContextMember(contextId, itemId);
       if (!result.context) throw new Error('Unexpected member response');
-      setMemberPick('');
-      await loadContext(contextId);
+      await loadContextIndex();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Member update failed');
     }
@@ -326,7 +355,6 @@ export default function App() {
       if (result.item) {
         setSelectedId(result.item.id);
         setCanvasPreviewing(true);
-        setCanvasPanel(true);
       }
       if (view !== 'canvas') go('canvas');
     } catch (e) {
@@ -348,7 +376,6 @@ export default function App() {
       });
       if (!result.item) throw new Error('Unexpected create response');
       await refresh();
-      setSelectedId(result.item.id);
       go('recently');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Capture failed');
@@ -357,9 +384,7 @@ export default function App() {
 
   async function collectExport(): Promise<ExportSource> {
     const details = await Promise.all(items.map((item) => api.getItem(item.id)));
-    const ctxList = await api.listContexts();
-    const ctxDetails = await Promise.all(ctxList.contexts.map(async (c) => (await api.getContext(c.id)).context));
-    return { details, contexts: ctxDetails, exportedAt: new Date().toISOString() };
+    return { details, contexts, exportedAt: new Date().toISOString() };
   }
 
   async function runExport(build: (source: ExportSource) => { filename: string; mime: string; content: string }) {
@@ -382,175 +407,137 @@ export default function App() {
     return items.filter((x) => isObjectType(x.type) && x.id !== selected.id);
   }, [form.kind, items, selected]);
 
-  const typeOptions: readonly ItemType[] = view === 'raw' ? RAW_TYPES : view === 'objects' ? OBJECT_TYPES : ITEM_TYPES;
-  const showDetailAside = view === 'raw' || view === 'objects' || view === 'recently' || view === 'contexts' || (view === 'canvas' && canvasPanel);
-
-  function renderDataView() {
+  function formPage(content: ReactNode) {
     return (
-      <div className={styles.split}>
-        <section className={styles.colMain}>
-          {panel === 'new' ? (
-            <NewForm
-              type={newType}
-              form={form}
-              items={items}
-              error={error}
-              onType={(t) => { setNewType(t); setForm((f) => ({ ...f, status: statusesFor(t)[0] })); }}
-              onField={setField}
-              onFile={onFile}
-              onCancel={() => setPanel('none')}
-              onSave={() => void saveNew()}
-            />
-          ) : (
-            <>
-              <div className={styles.titleRow}>
-                <SectionLabel title={VIEW_TITLES[view] ?? 'Information'} count={`${visible.length} items`} />
-                <Button primary onClick={openNew}>New</Button>
-              </div>
-              <div className={styles.toolbar}>
-                <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                  <option value="all">All types</option>
-                  {typeOptions.map((type) => <option key={type} value={type}>{ITEM_LABELS[type]}</option>)}
-                </select>
-                <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
-                  <option value="all">All domains</option>
-                  {DOMAINS.map((domain) => <option key={domain} value={domain}>{domain}</option>)}
-                </select>
-                <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Filter by title or text" />
-              </div>
-              <div className={styles.list}>
-                {visible.length === 0 ? (
-                  <EmptyState title="No items yet. Create a raw item or object." hint="Use New in the view header." />
-                ) : visible.map((item) => (
-                  <button
-                    key={item.id}
-                    className={`${styles.row} ${selectedId === item.id ? styles.selected : ''}`}
-                    onClick={() => { setSelectedId(item.id); setPanel('none'); }}
-                  >
-                    <span className={styles.glyph}>{ITEM_GLYPHS[item.type]}</span>
-                    <span className={styles.rowMain}>
-                      <span className={styles.rowTitle}>{item.title}</span>
-                      <span className={styles.rowMeta}>{ITEM_LABELS[item.type]} · {item.domain} · {item.id}</span>
-                    </span>
-                    <span className={styles.rowStatus}>{item.status}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-        {renderDetailAside()}
+      <div className={styles.formPage}>
+        {content}
       </div>
     );
   }
 
-  function renderDetailAside() {
-    if (!showDetailAside) return null;
-    return (
-      <aside className={styles.colDetail}>
-        {error && panel !== 'new' && panel !== 'new-context' && panel !== 'edit-context' ? <div className={styles.error}>{error}</div> : null}
-        {!selected ? (
-          <EmptyState
-            title="No item selected."
-            hint={view === 'contexts' ? 'Click a member row to inspect it.' : 'Select a row to inspect it.'}
-          />
-        ) : panel === 'edit' ? (
-          <Editor
-            item={selected}
-            form={form}
-            onField={setField}
-            onCancel={() => setPanel('none')}
-            onSave={() => void saveEdit()}
-          />
-        ) : panel === 'link' ? (
-          <Linker
-            form={form}
-            targets={linkTargets}
-            onField={setField}
-            onCancel={() => setPanel('none')}
-            onSave={() => void saveLink()}
-          />
-        ) : (
-          <Detail
-            detail={detail}
-            onEdit={openEdit}
-            onLink={openLink}
-            onOpen={(id) => { setSelectedId(id); setPanel('none'); }}
-          />
-        )}
-      </aside>
+  function renderItemPage(kind: 'raw' | 'objects') {
+    if (panel === 'new') {
+      return formPage(
+        <NewForm
+          type={newType}
+          form={form}
+          items={items}
+          error={error}
+          onType={(t) => { setNewType(t); setForm((f) => ({ ...f, status: statusesFor(t)[0] })); }}
+          onField={setField}
+          onFile={onFile}
+          onCancel={() => setPanel('none')}
+          onSave={() => void saveNew()}
+        />,
+      );
+    }
+    if (selected && panel === 'edit') {
+      return formPage(
+        <Editor item={selected} form={form} onField={setField} onCancel={() => setPanel('none')} onSave={() => void saveEdit()} />,
+      );
+    }
+    if (selected && panel === 'link') {
+      return formPage(
+        <Linker form={form} targets={linkTargets} onField={setField} onCancel={() => setPanel('none')} onSave={() => void saveLink()} />,
+      );
+    }
+    if (selectedId) {
+      const shared = {
+        detail,
+        items,
+        contextIndex: contexts,
+        onBack: () => setSelectedId(''),
+        onEdit: openEdit,
+        onDelete: () => void deleteSelected(),
+        onOpenItem: openItemInPage,
+        onOpenContext: openContextInPage,
+      };
+      return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
+    }
+    return kind === 'raw' ? (
+      <RawCollection items={items} onNew={() => openNew('raw.document')} onSelect={selectItem} />
+    ) : (
+      <ObjectCollection items={items} sourceCounts={sourceCounts} onNew={() => openNew('object.concept')} onSelect={selectItem} />
     );
   }
 
   function renderMain() {
     switch (view) {
-      case 'overview':
+      case 'start':
         return (
-          <OverviewView
+          <StartView
             onSubmit={submitComposer}
             onCanvas={() => go('canvas')}
             onOpenFile={() => fileInputRef.current?.click()}
           />
         );
+      case 'overview':
+        return (
+          <OverviewPage
+            items={items}
+            contexts={contexts}
+            onNew={() => openNew('raw.document')}
+            onOpenItem={openItemInPage}
+            onOpenContext={openContextInPage}
+            onSeeAll={() => go('raw')}
+          />
+        );
+      case 'recently':
+        return (
+          <RecentlyPage
+            items={items}
+            contexts={contexts}
+            visits={visits}
+            onOpenItem={openItemInPage}
+            onOpenContext={openContextInPage}
+          />
+        );
+      case 'raw':
+        return renderItemPage('raw');
+      case 'objects':
+        return renderItemPage('objects');
+      case 'contexts':
+        if (panel === 'new-context' || panel === 'edit-context') {
+          return formPage(
+            <ContextForm
+              form={form}
+              error={error}
+              editing={panel === 'edit-context'}
+              onField={setField}
+              onCancel={() => setPanel('none')}
+              onSave={() => void saveContext()}
+            />,
+          );
+        }
+        if (contextId) {
+          return (
+            <ContextDetailView
+              detail={selectedContext}
+              items={items}
+              onBack={() => setContextId('')}
+              onEdit={openEditContext}
+              onAdd={(id) => void changeMember('add', id)}
+              onRemove={(id) => void changeMember('remove', id)}
+              onOpenItem={openItemInPage}
+            />
+          );
+        }
+        return <ContextCollection contexts={contexts} onNew={openNewContext} onSelect={(id) => { setContextId(id); markVisited(id); }} />;
       case 'canvas':
         return (
-          <div className={styles.split} style={canvasPanel ? undefined : { gridTemplateColumns: '1fr' }}>
-            <div className={styles.body} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <CanvasView
-                items={items}
-                query={canvasQuery}
-                onQuery={setCanvasQuery}
-                selectedId={selectedId}
-                panelOpen={canvasPanel}
-                onTogglePanel={() => setCanvasPanel((open) => !open)}
-                onNew={() => { go('raw'); openNew(); }}
-                onOpenFile={() => fileInputRef.current?.click()}
-                onPreview={() => setCanvasPreviewing(true)}
-                previewing={canvasPreviewing}
-                onOpenItem={(id) => { setSelectedId(id); setPanel('none'); setCanvasPanel(true); }}
-              />
-            </div>
-            {canvasPanel ? renderDetailAside() : null}
-          </div>
-        );
-      case 'contexts':
-        return (
-          <div className={styles.split}>
-            <section className={styles.colMain}>
-              {panel === 'new-context' || panel === 'edit-context' ? (
-                <ContextForm
-                  form={form}
-                  error={error}
-                  editing={panel === 'edit-context'}
-                  onField={setField}
-                  onCancel={() => setPanel('none')}
-                  onSave={() => void saveContext()}
-                />
-              ) : (
-                <>
-                  <div className={styles.titleRow}>
-                    <SectionLabel title="Contexts" count={`${contexts.length} views`} />
-                    <Button primary onClick={openNewContext}>New context</Button>
-                  </div>
-                  <ContextPanel
-                    contexts={contexts}
-                    selectedId={contextId}
-                    detail={contextDetail}
-                    items={items}
-                    memberPick={memberPick}
-                    error={error}
-                    onSelect={(id) => { setContextId(id); setMemberPick(''); }}
-                    onEdit={openEditContext}
-                    onPick={setMemberPick}
-                    onAdd={(id) => void changeMember('add', id)}
-                    onRemove={(id) => void changeMember('remove', id)}
-                    onOpenItem={(id) => { setSelectedId(id); setPanel('none'); }}
-                  />
-                </>
-              )}
-            </section>
-            {renderDetailAside()}
-          </div>
+          <CanvasView
+            items={items}
+            query={canvasQuery}
+            onQuery={setCanvasQuery}
+            selectedId={selectedId}
+            panelOpen={canvasPreviewing}
+            onTogglePanel={() => setCanvasPreviewing((v) => !v)}
+            onNew={() => { go('raw'); openNew('raw.document'); }}
+            onOpenFile={() => fileInputRef.current?.click()}
+            onPreview={() => setCanvasPreviewing(true)}
+            previewing={canvasPreviewing}
+            onOpenItem={openItemInPage}
+          />
         );
       case 'sync':
         return (
@@ -564,11 +551,20 @@ export default function App() {
           />
         );
       case 'settings':
-        return <SettingsView prefs={prefs} onChange={updatePrefs} />;
+        return (
+          <SettingsPage
+            prefs={prefs}
+            onChange={updatePrefs}
+            itemCount={items.length}
+            contextCount={contexts.length}
+            onExportJson={() => void runExport(buildJsonExport)}
+            onExportMarkdown={() => void runExport(buildMarkdownBundle)}
+            onExportAgent={() => void runExport(buildAgentContext)}
+            onManageData={() => go('sync')}
+          />
+        );
       case 'docs':
         return <DocsView />;
-      default:
-        return renderDataView();
     }
   }
 
@@ -578,7 +574,10 @@ export default function App() {
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
       <div className={styles.app}>
         <Sidebar view={view} onNavigate={go} />
-        <main className={styles.main}>{renderMain()}</main>
+        <main className={styles.main}>
+          {error && panel === 'none' ? <div className={styles.errorBar}>{error}</div> : null}
+          {renderMain()}
+        </main>
       </div>
       <input
         ref={fileInputRef}
@@ -671,7 +670,6 @@ function NewForm({
   return (
     <>
       <SectionLabel title="New item" />
-      <div className={styles.error} style={{ display: error ? undefined : 'none' }}>{error}</div>
       <Field label="Type">
         <select value={type} onChange={(e) => onType(e.target.value as ItemType)}>
           <optgroup label="Raw information">
@@ -780,162 +778,6 @@ function ContextForm({
         <Button onClick={onCancel}>Cancel</Button>
       </div>
       <div className={styles.note}>Context membership is edited after the context is created.</div>
-    </>
-  );
-}
-
-function ContextPanel({
-  contexts, selectedId, detail, items, memberPick, error,
-  onSelect, onEdit, onPick, onAdd, onRemove, onOpenItem,
-}: {
-  contexts: ContextDTO[];
-  selectedId: string;
-  detail?: ContextDetailResponse;
-  items: ItemDTO[];
-  memberPick: string;
-  error: string;
-  onSelect: (id: string) => void;
-  onEdit: () => void;
-  onPick: (id: string) => void;
-  onAdd: (id: string) => void;
-  onRemove: (id: string) => void;
-  onOpenItem: (id: string) => void;
-}) {
-  const context = detail?.context;
-  const ids = context?.member_ids ?? [];
-  const candidates = items.filter((item) => !ids.includes(item.id));
-  return (
-    <>
-      {error ? <div className={styles.error}>{error}</div> : null}
-      <div className={styles.list}>
-        {contexts.length === 0 ? (
-          <EmptyState title="No context views yet." hint="Use New context in the view header." />
-        ) : contexts.map((c) => (
-          <button
-            key={c.id}
-            className={`${styles.row} ${selectedId === c.id ? styles.selected : ''}`}
-            onClick={() => onSelect(c.id)}
-          >
-            <span className={styles.glyph}>CTX</span>
-            <span className={styles.rowMain}>
-              <span className={styles.rowTitle}>{c.title}</span>
-              <span className={styles.rowMeta}>{c.subject} · {c.id}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-      {context ? (
-        <>
-          <div className={styles.panelKicker}>{context.id}</div>
-          <div className={styles.panelTitle}>{context.title}</div>
-          <div className={styles.actions}>
-            <Button small onClick={onEdit}>Edit</Button>
-          </div>
-          <div className={styles.ctxMeta}>
-            <span>Subject</span><span>{context.subject}</span>
-            <span>Scope</span><span>{context.scope}</span>
-            <span>Purpose</span><span>{context.purpose}</span>
-          </div>
-          <Subhead title="Members · explicit selection" count={ids.length} />
-          <div className={styles.list}>
-            {ids.length === 0 ? <div className={styles.empty}>No members yet.</div> : ids.map((id) => {
-              const item = items.find((x) => x.id === id);
-              return (
-                <div key={id} className={styles.row}>
-                  <span className={styles.glyph}>{item ? ITEM_GLYPHS[item.type] : '??'}</span>
-                  <button className={styles.rowMain} style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', color: 'inherit', cursor: 'pointer' }} onClick={() => onOpenItem(id)}>
-                    <span className={styles.rowTitle}>{item?.title ?? id}</span>
-                    <span className={styles.rowMeta}>{item ? `${ITEM_LABELS[item.type]} · ${id}` : id}</span>
-                  </button>
-                  <button className={styles.ctxRemove} onClick={() => onRemove(id)}>Remove</button>
-                </div>
-              );
-            })}
-          </div>
-          <Subhead title="Add member" />
-          <div className={styles.stackRow}>
-            <select value={memberPick} onChange={(e) => onPick(e.target.value)}>
-              <option value="">— select an item —</option>
-              {candidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-            </select>
-            <Button small onClick={() => memberPick && onAdd(memberPick)}>Add</Button>
-          </div>
-          <div className={styles.note}>Explicit membership only. No tags, inference or retrieval.</div>
-        </>
-      ) : (
-        <EmptyState title="No context selected." hint="Select a context view above." />
-      )}
-    </>
-  );
-}
-
-function Detail({
-  detail, onEdit, onLink, onOpen,
-}: {
-  detail?: ItemDetailResponse;
-  onEdit: () => void;
-  onLink: () => void;
-  onOpen: (id: string) => void;
-}) {
-  if (!detail) return <EmptyState title="No item selected." hint="Select a row to inspect it." />;
-  const { item, relations, events } = detail;
-  const derived = relations.outgoing.find((r) => r.kind === 'derived_from');
-  const values = Object.entries(item.fields).filter(([, v]) => typeof v === 'string' && v.trim());
-  const relationRow = (r: { id: string; kind: RelationKind; to_id: string; from_id: string; note: string }, incoming: boolean) => {
-    const targetId = incoming ? r.from_id : r.to_id;
-    const prefix = r.kind === 'supports' ? '+ ' : r.kind === 'challenges' ? '− ' : '';
-    return (
-      <div key={r.id} className={styles.relRow}>
-        <button className={styles.relKind} style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', color: 'inherit', cursor: 'pointer' }} onClick={() => onOpen(targetId)}>
-          {prefix}{r.kind}
-        </button>
-        <span className={styles.relTitle}>{targetId}</span>
-        {r.note ? <span className={styles.relNote}>{r.note}</span> : null}
-      </div>
-    );
-  };
-  return (
-    <>
-      <div className={styles.panelKicker}>{item.id}</div>
-      <div className={styles.panelTitle}>{item.title}</div>
-      <div className={styles.rowMeta}>{ITEM_LABELS[item.type]} · {item.status}</div>
-      <div className={styles.actions}>
-        <Button small onClick={onEdit}>Edit</Button>
-        <Button small onClick={onLink}>Link</Button>
-      </div>
-      {values.map(([key, value]) => (
-        <div className={styles.fieldBlock} key={key}>
-          <div className={styles.fieldLabel}>{fieldLabels[key] ?? key}</div>
-          <div className={styles.fieldValue}>{value}</div>
-        </div>
-      ))}
-      <Subhead title="Provenance" />
-      <div className={styles.fieldBlock}>
-        <div className={styles.fieldLabel}>Origin</div>
-        <div className={styles.fieldValue}>{item.origin}{item.source_label ? ` · ${item.source_label}` : ''}</div>
-      </div>
-      <div className={styles.fieldBlock}>
-        <div className={styles.fieldLabel}>Derived from</div>
-        <div className={`${styles.fieldValue} ${derived ? '' : styles.muted}`}>
-          {derived ? <button style={{ background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }} onClick={() => onOpen(derived.to_id)}>{derived.to_id}</button> : 'Independently created'}
-        </div>
-      </div>
-      <div className={styles.fieldBlock}>
-        <div className={styles.fieldLabel}>Created / updated</div>
-        <div className={styles.fieldValue}>{item.created_at} · {item.updated_at}</div>
-      </div>
-      <Subhead title="Outgoing" count={relations.outgoing.length} />
-      {relations.outgoing.map((r) => relationRow(r, false))}
-      <Subhead title="Incoming" count={relations.incoming.length} />
-      {relations.incoming.map((r) => relationRow(r, true))}
-      <div className={styles.note}>Stance only; not verification.</div>
-      <Subhead title="History" count={events.length} />
-      {events.map((event) => (
-        <div className={styles.histRow} key={event.id}>
-          <span className={styles.histTime}>{event.at}</span>
-          <span className={styles.histDetail}>{event.actor} · {event.action} — {event.detail}</span>
-        </div>
-      ))}
     </>
   );
 }
