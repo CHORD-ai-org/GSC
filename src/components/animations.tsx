@@ -32,21 +32,21 @@ export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
     const pointer = { x: -9999, y: -9999 };
     let raf = 0;
 
-    function resize() {
+    const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(window.innerWidth * dpr);
       canvas.height = Math.floor(window.innerHeight * dpr);
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+    };
 
-    function onMove(e: PointerEvent) {
+    const onMove = (e: PointerEvent) => {
       pointer.x = e.clientX;
       pointer.y = e.clientY;
-    }
+    };
 
-    function frame(now: number) {
+    const frame = (now: number) => {
       const w = window.innerWidth;
       const h = window.innerHeight;
       ctx.clearRect(0, 0, w, h);
@@ -79,7 +79,7 @@ export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
         }
       }
       raf = requestAnimationFrame(frame);
-    }
+    };
 
     resize();
     window.addEventListener('resize', resize);

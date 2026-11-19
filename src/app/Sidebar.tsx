@@ -70,7 +70,6 @@ export function Sidebar({ view, onNavigate }: { view: ViewId; onNavigate: (id: V
     <nav className={styles.sidebar}>
       <div className={styles.brand}>
         <GscLogo height={18} />
-        <span className={styles.brandName}>GSC</span>
       </div>
       {GROUPS.map((group) => (
         <div className={styles.group} key={group.label}>

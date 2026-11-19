@@ -485,7 +485,7 @@ export default function App() {
         return (
           <OverviewView
             onSubmit={submitComposer}
-            onCanvas={() => { setCanvasPreviewing(true); go('canvas'); }}
+            onCanvas={() => go('canvas')}
             onOpenFile={() => fileInputRef.current?.click()}
           />
         );
