@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-19
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Phase 05 (UI shell & interaction layer) IN PROGRESS. Design input = 4 screenshots in `ui-prototype/refs/`.
+> Status: Phase 05 (UI shell) IMPLEMENTED and verified; `DIVERGENCE_PLAN.md` (D1–D7, all `PROPOSED`) awaiting user pick.
 
 ## User approvals received 2026-11-16
 
@@ -52,4 +52,4 @@ Plan: `PHASE_05_UI_PLAN.md` (P5-0…P5-6, milestones M1–M6). Requirements read
 
 ## Next action after approval
 
-Phase 06 (formerly 05) — execute scenarios A–D with observed results, record limitations and Thylas integration requirements. Do not start without user approval.
+User to pick from `DIVERGENCE_PLAN.md` §4 (priority order, D1 provider form, D2 delivery form), then write task cards for the chosen direction(s). Phase 06 (formerly 05) — execute scenarios A–D with observed results — stays gated on user approval.

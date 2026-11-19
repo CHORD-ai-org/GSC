@@ -108,7 +108,7 @@ No files under `D:\github projects\Thylas` were modified.
 | `ui-prototype/refs/` | 4 design screenshots + README mapping (saved from user clipboard) |
 | `PHASE_05_UI_PLAN.md` | new — P5-0…P5-6 task cards, milestones, verification matrix, Q1–Q4 |
 | `src/styles/tokens.css`, `src/styles/base.css` | light theme tokens (D-031) |
-| `src/app/Sidebar.tsx`, `src/app/shell.module.css`, `src/components/GscLogo.tsx` | new — sidebar nav (real option list + Sync, D-032), blocky GSC mark |
+| `src/app/Sidebar.tsx`, `src/app/shell.module.css`, `src/components/GscLogo.tsx` | new — sidebar nav (real option list + Sync, D-032); logo = official mark traced from `ui-prototype/refs/05-logo-official.png` via `scripts/logo-trace.mjs` (53 exact rects) |
 | `src/app/Composer.tsx` | new — Ask anything composer (Ask/Agent/Edit, Local, Deepseek/Rym, mic, submit) |
 | `src/app/CommandBar.tsx` | new — canvas command bar (搜索或输入操作, +, panel toggle) |
 | `src/views/views.tsx`, `src/views/views.module.css` | new — Overview, Canvas (empty state + card grid), Sync, Settings, Documentation |
