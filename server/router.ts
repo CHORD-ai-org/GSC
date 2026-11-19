@@ -13,7 +13,7 @@ import {
   validateUpdateContextBody,
 } from '../src/lib/contexts.ts';
 import { readJson, sendApiError, sendJson } from './http.ts';
-import { createItem, getItem, listItems, updateItem } from './repo/items.ts';
+import { createItem, deleteItem, getItem, listItems, updateItem } from './repo/items.ts';
 import { createRelation, listRelations } from './repo/relations.ts';
 import { listEvents } from './repo/events.ts';
 import {
@@ -98,6 +98,16 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         sendJson(res, 200, { ok: true, item });
+        return;
+      }
+
+      if (detailMatch && req.method === 'DELETE') {
+        const removed = await deleteItem(db, detailMatch[1]);
+        if (!removed) {
+          sendApiError(res, apiError('not_found', 'Item not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
         return;
       }
 

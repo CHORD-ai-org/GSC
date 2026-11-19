@@ -78,6 +78,40 @@ describe('API routes', () => {
     expect(result.json.kind).toBe('not_found');
   });
 
+  it('deletes an item and cascades its relations and events', async () => {
+    const raw = await call('POST', '/api/items', {
+      type: 'raw.document',
+      title: 'Paper',
+      domain: 'knowledge',
+      origin: 'user',
+      fields: { content_text: 'text' },
+    });
+    const obj = await call('POST', '/api/items', {
+      type: 'object.concept',
+      title: 'Concept',
+      domain: 'knowledge',
+      origin: 'user',
+      fields: { definition: 'def' },
+    });
+    await call('POST', '/api/relations', {
+      kind: 'derived_from',
+      from_id: obj.json.item.id,
+      to_id: raw.json.item.id,
+    });
+
+    const deleted = await call('DELETE', `/api/items/${raw.json.item.id}`);
+    expect(deleted.status).toBe(200);
+    expect(deleted.json.deleted).toBe(true);
+
+    const gone = await call('GET', `/api/items/${raw.json.item.id}`);
+    expect(gone.status).toBe(404);
+    const survivor = await call('GET', `/api/items/${obj.json.item.id}`);
+    expect(survivor.json.relations.outgoing).toHaveLength(0);
+
+    const again = await call('DELETE', `/api/items/${raw.json.item.id}`);
+    expect(again.status).toBe(404);
+  });
+
   it('creates a context, adds members and returns context detail', async () => {
     const raw = await call('POST', '/api/items', {
       type: 'raw.document', title: 'Source', domain: 'knowledge', origin: 'user',

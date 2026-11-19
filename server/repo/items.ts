@@ -153,3 +153,11 @@ export async function itemExists(db: Database, id: string): Promise<boolean> {
   const [row] = await db.select({ id: items.id }).from(items).where(eq(items.id, id)).limit(1);
   return Boolean(row);
 }
+
+export async function deleteItem(db: Database, id: string): Promise<boolean> {
+  const existing = await itemExists(db, id);
+  if (!existing) return false;
+  // item_content, relations, events and context_members cascade on items.id (schema FKs).
+  await db.delete(items).where(eq(items.id, id));
+  return true;
+}

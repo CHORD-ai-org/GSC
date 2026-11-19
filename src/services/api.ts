@@ -17,12 +17,14 @@ export type MutationResponse =
   | { ok: true; context: ContextDTO | ContextDetailDTO; item?: undefined; relation?: undefined };
 export type ContextListResponse = { ok: true; contexts: ContextDTO[] };
 export type ContextDetailResponse = { ok: true; context: ContextDetailDTO };
+export type DeleteItemResponse = { ok: true; deleted: true };
 export type ApiResponse =
   | ItemListResponse
   | ItemDetailResponse
   | MutationResponse
   | ContextListResponse
   | ContextDetailResponse
+  | DeleteItemResponse
   | ApiError;
 
 async function request<T extends ApiResponse>(path: string, init?: RequestInit): Promise<T> {
@@ -62,6 +64,10 @@ export function updateItem(id: string, body: unknown): Promise<MutationResponse>
     method: 'PATCH',
     body: JSON.stringify(body),
   });
+}
+
+export function deleteItem(id: string): Promise<DeleteItemResponse> {
+  return request<DeleteItemResponse>(`/api/items/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function createRelation(body: unknown): Promise<MutationResponse> {
