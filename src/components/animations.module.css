@@ -1,0 +1,21 @@
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+.mosaic{position:fixed;inset:0;z-index:60;pointer-events:none;display:grid;gap:8px;padding:12px}
+.tile{
+  border-radius:10px;
+  background-color:#FFFFFF;
+  background-image:
+    radial-gradient(circle at 28% 36%, rgba(120,120,132,.38), rgba(120,120,132,0) 62%),
+    radial-gradient(circle at 74% 70%, rgba(150,150,162,.28), rgba(150,150,162,0) 58%);
+  box-shadow:0 1px 2px rgba(16,16,20,.06);
+  opacity:0;
+  transform:scale(.82);
+  filter:blur(2px);
+  animation:tileSweep 440ms cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes tileSweep{
+  0%{opacity:0;transform:scale(.82);filter:blur(2px)}
+  38%{opacity:.92;transform:scale(1);filter:blur(6px)}
+  70%{opacity:.75;transform:scale(1.02);filter:blur(3px)}
+  100%{opacity:0;transform:scale(1.06);filter:blur(0)}
+}
