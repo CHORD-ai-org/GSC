@@ -99,36 +99,59 @@ try {
     await sleep(550);
   }
 
+  async function clickSel(selector) {
+    const escaped = selector.replace(/'/g, "\\'");
+    await evalJs(`(() => {
+      const target = document.querySelector('${escaped}');
+      if (target) target.click();
+      return Boolean(target);
+    })()`);
+    await sleep(650);
+  }
+
   await send('Page.navigate', { url: BASE }, sessionId);
   await sleep(1800);
 
   await clickText('Settings');
   await clickText(MODE === 'dark' ? 'Dark' : 'Light');
-  await clickText('Overview');
+  await clickText('Start');
+  await shot('01-start');
 
-  await shot('01-overview');
+  await clickText('Overview');
+  await shot('02-overview');
+
+  await clickText('Recently');
+  await shot('03-recently');
 
   await clickText('Raw Information');
-  await shot('02-raw-information');
+  await shot('04-raw-list');
+  await clickSel('button[class*="listRow"]');
+  await shot('05-raw-detail');
+  await clickSel('button[class*="backButton"]');
 
   await clickText('Structured Objects');
-  await shot('03-structured-objects');
+  await shot('06-objects-list');
+  await clickSel('button[class*="listRow"]');
+  await shot('07-object-detail');
+  await clickSel('button[class*="backButton"]');
 
   await clickText('Contexts');
-  await shot('04-contexts');
+  await shot('08-contexts-list');
+  await clickSel('button[class*="listRow"]');
+  await shot('09-context-detail');
 
   await clickText('Sync');
-  await shot('05-sync');
+  await shot('10-sync');
 
   await clickText('Settings');
-  await shot('06-settings');
+  await shot('11-settings');
 
-  await clickText('Overview');
+  await clickText('Start');
   await clickText('画布预览');
-  await shot('07-canvas-empty');
+  await shot('12-canvas-empty');
 
   await clickText('画布预览');
-  await shot('08-canvas-preview');
+  await shot('13-canvas-preview');
 
   await send('Target.closeTarget', { targetId });
   ws.close();
