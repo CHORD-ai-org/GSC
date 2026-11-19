@@ -277,3 +277,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** system-preference auto theme; two full theme files; theme editor.
 - **Consequences:** all colors flow through CSS variables (hardcoded `#fff` on accent surfaces replaced by `--on-accent`); dot-grid and mosaic tile colors become theme-aware.
 - **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-037 — Start rename and the new Overview
+
+- **Decision:** the composer home (logo + 「下一步我们添加什么？」) becomes **Start**; the user plan's **Overview** is a new page — Context Space entry with Space Summary / Recently Updated / Your Contexts. Sidebar GENERAL: Start, Overview, Recently.
+- **Reasoning:** user instruction 2026-11-19 "把现在的overview页面改名为Start" plus the layout plan §2 (Overview must be a navigable entry, not a monitoring dashboard).
+- **Alternatives:** keep one Overview; name the composer home "Home".
+- **Consequences:** `VIEW_TITLES`/docs updated; the composer page keeps all Phase 05 behavior under the new name.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-038 — Two page modes (Collection vs Object Detail)
+
+- **Decision:** lists (Raw/Objects/Contexts/Recently) use Collection View (compact rows, search, filters, column headers); details use full-width Object Detail View with ordered identity blocks. No uniform card dashboard.
+- **Reasoning:** user plan §9; objects need different display density and information structure.
+- **Alternatives:** right detail panel for everything (Phase 05 behavior); card grid.
+- **Consequences:** the 340px aside is removed; clicking a row opens the detail page with a back control; New/Edit/Link panels stay inline.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-039 — Object Detail structure and item deletion
+
+- **Decision:** Object Detail blocks: Header (name/type/edit/delete) · Definition · Properties · Relationships (list) · Sources · Contexts. Add `DELETE /api/items/:id` with cascade over item_content, relations, events.
+- **Reasoning:** user plan §5 ("Header：名称、类型、编辑、删除"); the four identity questions (what/from where/related/which contexts) map to these blocks.
+- **Alternatives:** soft delete via status (no `deleted` status in the taxonomy); no delete at all.
+- **Consequences:** API contract gains one route (documented in D-023 scope); relations to a deleted item disappear with it.
+- **Status:** `DECIDED` — 2026-11-19, user instruction.
+
+## D-040 — Recently visit tracking stays client-side
+
+- **Decision:** distinguish 最近访问 vs 最近修改 using a localStorage visit log (`src/lib/visits.ts`); no schema change.
+- **Reasoning:** user plan §3 wants both visible and distinguishable; adding `last_accessed_at` to items would change the Phase 03 contract and persistence for a UI concern.
+- **Alternatives:** new column + migration; drop the distinction.
+- **Consequences:** visit history is per-browser and can be cleared; modification history remains the authoritative record (events).
+- **Status:** `DECIDED` — 2026-11-19.

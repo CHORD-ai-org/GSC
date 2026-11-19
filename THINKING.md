@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-19
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Phase 05 (UI shell) IMPLEMENTED + official logo + dark mode (D7, D-036). D1–D6 of `DIVERGENCE_PLAN.md` stay `PROPOSED` awaiting §4 answers.
+> Status: Layout v2 (UI_LAYOUT_PLAN L1–L6) IMPLEMENTED — Start rename, new Overview, Collection/Object Detail modes, delete endpoint, Recently visit tags, Settings nav. D1–D6 of `DIVERGENCE_PLAN.md` stay `PROPOSED`.
 
 ## User approvals received 2026-11-16
 

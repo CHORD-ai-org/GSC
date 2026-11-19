@@ -211,6 +211,30 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Dark render | `node scripts/ui-shots.mjs http://localhost:5174/ dark` | 8 dark shots in `ui-prototype/shots/dark-*.png`; logo inverts via `currentColor`; pills/selection invert (accent white + `--on-accent` dark); dot-grid and mosaic tiles theme-aware |
 | Theme persistence | Settings → Dark → reload | `gsc.ui.prefs.v1` keeps `theme`; `[data-theme='dark']` applied on load |
 
+### Layout v2 (2026-11-19 night, `UI_LAYOUT_PLAN.md` L1–L6)
+
+| File | Change |
+|---|---|
+| `UI_LAYOUT_PLAN.md` | new — L1–L7 task cards, two page modes, milestones |
+| `src/pages` → `src/views/pages.tsx` | StartView (composer home, renamed), OverviewPage (space entry), RecentlyPage (time groups + visited/updated), SettingsPage (secondary nav) |
+| `src/views/collections.tsx` | new — RawCollection / ObjectCollection / ContextCollection (Collection View) |
+| `src/views/detail.tsx` | new — RawDetailView / ObjectDetailView / ContextDetailView (Object Detail View) |
+| `src/lib/format.ts`, `src/lib/visits.ts` | new — relative time / time groups; client-side visit log |
+| `server/repo/items.ts`, `server/router.ts`, `src/services/api.ts` | `DELETE /api/items/:id` with FK cascade; `api.deleteItem` |
+| `src/app/App.tsx`, `Sidebar.tsx`, `views.tsx`, `views.module.css` | routing (Start/Overview/Recently), relation index, source counts, delete flow |
+| `scripts/ui-shots.mjs` | list→detail→back flow; 13 shots per theme |
+
+### Layout v2 checks (2026-11-19)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 24 tests pass (incl. delete cascade: item + relations/events gone, 404 on repeat) |
+| API smoke | `npm run api:check` | 10 checks pass |
+| Screenshots | `node scripts/ui-shots.mjs http://localhost:5174/ light` + `dark` | 13 shots per theme in `ui-prototype/shots/` |
+| Fidelity | screenshot review vs `UI_LAYOUT_PLAN.md` §2 | Overview = header + 3 counts + Recently Updated + Your Contexts; Raw/Object detail = required blocks verbatim (raw content not summarized); Context detail = Definition above / Members below; Recently = time groups + 访问/修改 tags; Settings = secondary nav |
+| Dark spot-check | `dark-07-object-detail.png` | new pages theme-aware |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
