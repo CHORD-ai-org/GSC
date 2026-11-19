@@ -117,6 +117,9 @@ export default function App() {
     void loadDetail(selectedId);
   }, [selectedId, loadDetail]);
   useEffect(() => { setError(''); }, [panel]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = prefs.theme;
+  }, [prefs.theme]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -571,7 +574,7 @@ export default function App() {
 
   return (
     <>
-      <DotGridBackground quality={prefs.quality} />
+      <DotGridBackground quality={prefs.quality} theme={prefs.theme} />
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
       <div className={styles.app}>
         <Sidebar view={view} onNavigate={go} />

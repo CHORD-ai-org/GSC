@@ -16,7 +16,11 @@ export type ComposerMode = (typeof COMPOSER_MODES)[number];
 export const MODELS = ['Deepseek', 'Rym'] as const;
 export type ModelName = (typeof MODELS)[number];
 
+export const THEMES = ['light', 'dark'] as const;
+export type ThemeMode = (typeof THEMES)[number];
+
 export type UiPrefs = {
+  theme: ThemeMode;
   quality: AnimationQuality;
   pageTransition: boolean;
   provider: string;
@@ -24,6 +28,7 @@ export type UiPrefs = {
 };
 
 export const DEFAULT_PREFS: UiPrefs = {
+  theme: 'light',
   quality: 'medium',
   pageTransition: true,
   provider: 'Local',
@@ -43,6 +48,7 @@ export function loadPrefs(): UiPrefs {
     if (!raw) return { ...DEFAULT_PREFS };
     const parsed = JSON.parse(raw) as Partial<UiPrefs>;
     return {
+      theme: parsed.theme === 'dark' ? 'dark' : DEFAULT_PREFS.theme,
       quality: ANIMATION_QUALITIES.includes(parsed.quality as AnimationQuality)
         ? (parsed.quality as AnimationQuality)
         : DEFAULT_PREFS.quality,

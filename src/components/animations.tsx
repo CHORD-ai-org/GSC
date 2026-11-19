@@ -11,15 +11,21 @@ const CFG: Record<Exclude<AnimationQuality, 'off'>, QualityConfig> = {
   max: { cell: 21, tint: 270, drift: 1, dash: 10, soft: 1 },
 };
 
-const BASE_RGB: [number, number, number] = [228, 228, 234];
-const TINT_RGB: [number, number, number] = [214, 148, 240];
+const BASE_RGB: Record<'light' | 'dark', [number, number, number]> = {
+  light: [228, 228, 234],
+  dark: [58, 58, 68],
+};
+const TINT_RGB: Record<'light' | 'dark', [number, number, number]> = {
+  light: [214, 148, 240],
+  dark: [222, 150, 255],
+};
 
 /**
  * Mouse-following dot-grid background (spec board annotation:
  * "拖动鼠标时要有这样的背景动画" with quality Off/Low/Medium/High/Max).
  * Purely decorative: never captures pointer events.
  */
-export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
+export function DotGridBackground({ quality, theme }: { quality: AnimationQuality; theme: 'light' | 'dark' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -29,6 +35,8 @@ export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const cfg = CFG[quality as Exclude<AnimationQuality, 'off'>];
+    const baseRgb = BASE_RGB[theme];
+    const tintRgb = TINT_RGB[theme];
     const pointer = { x: -9999, y: -9999 };
     let raf = 0;
 
@@ -66,9 +74,9 @@ export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
             f = f * f * (3 - 2 * f);
           }
           const len = cfg.dash + f * cfg.dash * 1.7;
-          const r = Math.round(BASE_RGB[0] + (TINT_RGB[0] - BASE_RGB[0]) * f);
-          const g = Math.round(BASE_RGB[1] + (TINT_RGB[1] - BASE_RGB[1]) * f);
-          const b = Math.round(BASE_RGB[2] + (TINT_RGB[2] - BASE_RGB[2]) * f);
+          const r = Math.round(baseRgb[0] + (tintRgb[0] - baseRgb[0]) * f);
+          const g = Math.round(baseRgb[1] + (tintRgb[1] - baseRgb[1]) * f);
+          const b = Math.round(baseRgb[2] + (tintRgb[2] - baseRgb[2]) * f);
           ctx.strokeStyle = `rgba(${r},${g},${b},${0.5 + f * 0.5})`;
           ctx.lineWidth = 2 + f * 1.4;
           ctx.lineCap = 'round';
@@ -90,7 +98,7 @@ export function DotGridBackground({ quality }: { quality: AnimationQuality }) {
       window.removeEventListener('resize', resize);
       window.removeEventListener('pointermove', onMove);
     };
-  }, [quality]);
+  }, [quality, theme]);
 
   if (quality === 'off') return null;
   return <canvas ref={canvasRef} className={styles.bg} aria-hidden="true" />;

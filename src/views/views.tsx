@@ -157,6 +157,25 @@ export function SettingsView({ prefs, onChange }: { prefs: UiPrefs; onChange: (n
       <p className={styles.pageSub}>动画与界面偏好保存在本机浏览器中。</p>
 
       <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>主题</h2>
+        <div className={styles.settingRow}>
+          <div className={styles.qualityRow}>
+            {([true, false] as const).map((dark) => (
+              <button
+                key={String(dark)}
+                type="button"
+                className={`${styles.qualityPill} ${(prefs.theme === 'dark') === dark ? styles.on : ''}`}
+                onClick={() => onChange({ ...prefs, theme: dark ? 'dark' : 'light' })}
+              >
+                {dark ? 'Dark' : 'Light'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.hint}>深色 / 浅色界面。点阵背景与马赛克瓦片随主题换色。</div>
+      </div>
+
+      <div className={styles.section}>
         <h2 className={styles.sectionTitle}>背景动画质量</h2>
         <div className={styles.settingRow}>
           <div className={styles.qualityRow}>

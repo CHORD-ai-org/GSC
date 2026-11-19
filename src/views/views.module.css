@@ -42,7 +42,7 @@
 /* Settings */
 .qualityRow{display:flex;gap:2px;background:var(--pill-track);border-radius:999px;padding:3px;width:max-content}
 .qualityPill{border:0;background:transparent;color:var(--ink-2);border-radius:999px;padding:5px 14px;font:inherit;font-size:12px;cursor:pointer}
-.qualityPill.on{background:var(--accent);color:#fff;font-weight:600}
+.qualityPill.on{background:var(--accent);color:var(--on-accent);font-weight:600}
 .settingRow{display:flex;align-items:center;gap:16px;margin-bottom:12px}
 .settingLabel{width:180px;flex:none;color:var(--ink-2);font-size:12px}
 

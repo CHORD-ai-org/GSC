@@ -36,7 +36,7 @@
 .composerSpacer{flex:1}
 .iconButton{width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:999px;background:var(--pill-track);color:var(--ink-2);cursor:pointer}
 .iconButton:hover{color:var(--ink)}
-.submitButton{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:999px;background:var(--accent);color:#fff;cursor:pointer}
+.submitButton{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:999px;background:var(--accent);color:var(--on-accent);cursor:pointer}
 .submitButton:disabled{opacity:.35;cursor:default}
 
 /* Command bar (canvas window: 搜索或输入操作 / + / panel) */
