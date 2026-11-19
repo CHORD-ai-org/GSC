@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, like, or } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { events, itemContent, items } from '../persistence/schema.ts';
 import type {
@@ -12,7 +12,7 @@ import type {
   Status,
   UpdateItemBody,
 } from '../../src/lib/items.ts';
-import { defaultStatus, fieldKeysFor } from '../../src/lib/items.ts';
+import { defaultStatus, fieldKeysFor, itemTextForFilter } from '../../src/lib/items.ts';
 
 type ItemRow = typeof items.$inferSelect;
 type ContentRow = typeof itemContent.$inferSelect;
@@ -58,16 +58,15 @@ export async function listItems(
   const conditions = [];
   if (filters.type) conditions.push(eq(items.type, filters.type));
   if (filters.domain) conditions.push(eq(items.domain, filters.domain));
-  if (filters.q) {
-    const pattern = `%${filters.q.toLowerCase()}%`;
-    conditions.push(or(like(items.title, pattern), like(items.source_label, pattern)));
-  }
   const rows = await db
     .select()
     .from(items)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(items.updated_at));
-  return rows.map((row) => toDTO(row));
+  const all = rows.map((row) => toDTO(row));
+  if (!filters.q) return all;
+  const needle = filters.q.toLowerCase();
+  return all.filter((item) => itemTextForFilter(item).includes(needle));
 }
 
 export async function getItem(db: Database, id: string): Promise<ItemDTO | undefined> {

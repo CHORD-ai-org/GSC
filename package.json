@@ -11,7 +11,8 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "node --env-file-if-exists=.env.local server/persistence/migrate.ts",
-    "db:reset": "node --env-file-if-exists=.env.local server/persistence/reset.ts"
+    "db:reset": "node --env-file-if-exists=.env.local server/persistence/reset.ts",
+    "api:check": "node scripts/api-checks.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",

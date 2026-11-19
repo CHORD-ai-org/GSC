@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const items = pgTable('items', {
   id: text('id').primaryKey(),
@@ -56,4 +56,23 @@ export const events = pgTable('events', {
   detail: text('detail').notNull().default(''),
 });
 
-export const schema = { items, itemContent, relations, events };
+export const contexts = pgTable('contexts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  subject: text('subject').notNull(),
+  scope: text('scope').notNull(),
+  purpose: text('purpose').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+export const contextMembers = pgTable('context_members', {
+  context_id: text('context_id').notNull().references(() => contexts.id, { onDelete: 'cascade' }),
+  item_id: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  added_at: timestamp('added_at', { withTimezone: true }).notNull(),
+  position: integer('position').notNull().default(0),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.context_id, table.item_id] }),
+}));
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers };

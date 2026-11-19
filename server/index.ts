@@ -5,7 +5,7 @@ import { migrate } from './persistence/migrate.ts';
 import { createApiRouter } from './router.ts';
 
 const config = readConfig(process.env);
-const handle = getDatabase(config.pgliteDir);
+const handle = await getDatabase(config.pgliteDir);
 await migrate();
 const router = createApiRouter(config, handle.db);
 

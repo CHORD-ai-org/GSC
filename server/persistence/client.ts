@@ -6,8 +6,7 @@ export type DatabaseOptions = {
   dataDir?: string;
 };
 
-export function createDatabase(options: DatabaseOptions = {}) {
-  const client = options.dataDir ? new PGlite(options.dataDir) : new PGlite();
+function wrap(client: PGlite) {
   const db = drizzle(client, { schema });
   return {
     client,
@@ -17,13 +16,24 @@ export function createDatabase(options: DatabaseOptions = {}) {
   };
 }
 
-export type DatabaseHandle = ReturnType<typeof createDatabase>;
+export function createDatabase(options: DatabaseOptions = {}) {
+  return wrap(options.dataDir ? new PGlite(options.dataDir) : new PGlite());
+}
+
+export async function openDatabase(options: DatabaseOptions = {}) {
+  const client = options.dataDir
+    ? await PGlite.create(options.dataDir)
+    : await PGlite.create();
+  return wrap(client);
+}
+
+export type DatabaseHandle = ReturnType<typeof wrap>;
 export type Database = DatabaseHandle['db'];
 
 let shared: DatabaseHandle | undefined;
 
-export function getDatabase(dataDir?: string): DatabaseHandle {
-  if (!shared) shared = createDatabase({ dataDir });
+export async function getDatabase(dataDir?: string): Promise<DatabaseHandle> {
+  if (!shared) shared = await openDatabase({ dataDir });
   return shared;
 }
 
