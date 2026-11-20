@@ -1,6 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import * as api from '../services/api.ts';
+import type { SearchHit } from '../services/api.ts';
 import styles from './command.module.css';
+
+const RECENT_KEY = 'gsc.search.recent';
+function loadRecent(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as string[]; } catch { return []; }
+}
+function pushRecent(q: string) {
+  try {
+    const list = [q, ...loadRecent().filter((x) => x !== q)].slice(0, 5);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch { /* ignore */ }
+}
+
+function Highlighted({ text, q }: { text: string; q: string }) {
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0 || !q) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: 'transparent', color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>
+        {text.slice(idx, idx + q.length)}
+      </mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
 
 /* P4 INTERACTION_UX_PLAN: global command palette (Ctrl+K).
    Three action kinds: jump to page, open an item, run a command. */
@@ -18,15 +45,32 @@ export function CommandPalette({
   open,
   items,
   onClose,
+  onOpenHit,
+  onCreateFromQuery,
 }: {
   open: boolean;
   items: PaletteItem[];
   onClose: () => void;
+  onOpenHit?: (hit: SearchHit) => void;
+  onCreateFromQuery?: (q: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [recent, setRecent] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  /* T201: debounced global search */
+  useEffect(() => {
+    setRecent(loadRecent());
+    const q = query.trim();
+    if (q.length < 1) { setHits([]); return; }
+    const timer = setTimeout(() => {
+      api.search(q).then((r) => setHits(r.hits)).catch(() => setHits([]));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -59,13 +103,13 @@ export function CommandPalette({
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setCursor((c) => Math.min(c + 1, filtered.length - 1));
+      setCursor((c) => Math.min(c + 1, rows.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setCursor((c) => Math.max(c - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const item = filtered[cursor];
+      const item = rows[cursor];
       if (item) {
         item.run();
         onClose();
@@ -75,6 +119,40 @@ export function CommandPalette({
       onClose();
     }
   }
+
+  /* T201: search hits become first-class palette rows when query is live */
+  const searching = query.trim().length > 0;
+  const hitItems: PaletteItem[] = hits.map((h) => ({
+    id: `hit-${h.id}-${h.kind}`,
+    group: h.group === 'items' ? '信息' : h.group === 'objects' ? '对象' : h.group === 'clusters' ? '关联组' : '上下文',
+    label: h.title,
+    hint: h.snippet,
+    run: () => { pushRecent(query.trim()); onOpenHit?.(h); },
+  }));
+  const createItem: PaletteItem | null = searching && hits.length === 0 ? {
+    id: 'hit-create',
+    group: '动作',
+    label: `新建为信息：“${query.trim()}”`,
+    run: () => { pushRecent(query.trim()); onCreateFromQuery?.(query.trim()); },
+  } : null;
+  const rows: PaletteItem[] = searching
+    ? [...hitItems, ...(createItem ? [createItem] : []), ...filtered.slice(0, 6)]
+    : (filtered.length ? filtered : recent.map((q) => ({
+        id: `recent-${q}`,
+        group: '最近搜索',
+        label: q,
+        run: () => setQuery(q),
+      })));
+
+  const groupedRows: [string, PaletteItem[]][] = (() => {
+    const map = new Map<string, PaletteItem[]>();
+    for (const item of rows) {
+      const list = map.get(item.group) ?? [];
+      list.push(item);
+      map.set(item.group, list);
+    }
+    return [...map.entries()];
+  })();
 
   let flatIndex = -1;
 
@@ -93,9 +171,9 @@ export function CommandPalette({
           <kbd className={styles.kbd}>esc</kbd>
         </div>
         <div className={styles.list} ref={listRef}>
-          {filtered.length === 0 ? (
+          {rows.length === 0 ? (
             <div className={styles.empty}>无匹配结果</div>
-          ) : grouped.map(([group, list]) => (
+          ) : groupedRows.map(([group, list]) => (
             <div key={group}>
               <div className={styles.groupLabel}>{group}</div>
               {list.map((item) => {
@@ -106,11 +184,15 @@ export function CommandPalette({
                     key={item.id}
                     type="button"
                     className={`${styles.row} ${active ? styles.active : ''}`}
-                    onMouseEnter={() => setCursor(filtered.indexOf(item))}
-                    onClick={() => { item.run(); onClose(); }}
+                    onMouseEnter={() => setCursor(rows.indexOf(item))}
+                    onClick={() => {
+                      if (searching && item.id.startsWith('hit-') && item.id !== 'hit-create') pushRecent(query.trim());
+                      item.run();
+                      onClose();
+                    }}
                   >
                     {item.icon ? <span className={styles.rowIcon}>{item.icon}</span> : null}
-                    <span className={styles.rowLabel}>{item.label}</span>
+                    <span className={styles.rowLabel}>{searching ? <Highlighted text={item.label} q={query.trim()} /> : item.label}</span>
                     {item.hint ? <span className={styles.rowHint}>{item.hint}</span> : null}
                   </button>
                 );

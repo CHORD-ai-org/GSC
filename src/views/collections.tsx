@@ -8,6 +8,7 @@ import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
 import { EmptyState, KeyHintBar } from '../components/ui.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
+import { useWindowed } from '../lib/useWindowed.ts';
 import { Glyph } from '../components/Glyph.tsx';
 import type { GlyphKind } from '../components/Glyph.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
@@ -133,6 +134,7 @@ export function RawCollection({
       .filter((i) => matches(i, q)),
     [items, q, type, dim, tagDims],
   );
+  const { visible: winRows, sentinelRef, hasMore } = useWindowed(rows);
   return (
     <div className={styles.page}>
       <PageHead
@@ -160,7 +162,7 @@ export function RawCollection({
           <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
         ) : (
           <div className={styles.gridView}>
-            {rows.map((item) => (
+            {winRows.map((item) => (
               <GridCard
                 key={item.id}
                 glyph={<Glyph kind={item.type} />}
@@ -179,7 +181,7 @@ export function RawCollection({
           <div className={styles.list}>
             {rows.length === 0 ? (
               <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
-            ) : rows.map((item) => (
+            ) : winRows.map((item) => (
               <div key={item.id} className={styles.rowWrap}>
                 <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
                   <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
@@ -196,6 +198,7 @@ export function RawCollection({
           </div>
         </>
       )}
+      <div ref={sentinelRef} style={{ height: 1 }} />
       <KeyHintBar />
     </div>
   );
@@ -233,6 +236,7 @@ export function ObjectCollection({
       .filter((i) => matches(i, q)),
     [items, q, tab, dim, tagDims],
   );
+  const { visible: winRows, sentinelRef, hasMore } = useWindowed(rows);
   return (
     <div className={styles.page}>
       <PageHead
@@ -263,7 +267,7 @@ export function ObjectCollection({
           <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
         ) : (
           <div className={styles.gridView}>
-            {rows.map((item) => (
+            {winRows.map((item) => (
               <GridCard
                 key={item.id}
                 glyph={<Glyph kind={item.type} />}
@@ -282,7 +286,7 @@ export function ObjectCollection({
           <div className={styles.list}>
             {rows.length === 0 ? (
               <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
-            ) : rows.map((item) => (
+            ) : winRows.map((item) => (
               <div key={item.id} className={styles.rowWrap}>
                 <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
                   <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
@@ -299,6 +303,7 @@ export function ObjectCollection({
           </div>
         </>
       )}
+      <div ref={sentinelRef} style={{ height: 1 }} />
       <KeyHintBar />
     </div>
   );

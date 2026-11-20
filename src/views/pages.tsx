@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Composer } from '../app/Composer.tsx';
 import { NewsPanel } from '../components/NewsPanel.tsx';
 import { GscLogo } from '../components/GscLogo.tsx';
@@ -21,10 +21,12 @@ import type { ReactNode } from 'react';
 import { useI18n, useRelativeTime, useT } from '../lib/i18n.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
 import { GridCard } from './collections.tsx';
+import { NewsAdmin } from '../components/NewsAdmin.tsx';
 import { Glyph } from '../components/Glyph.tsx';
 import type { GlyphKind } from '../components/Glyph.tsx';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
 import type { LlmPublicConfig } from '../services/api.ts';
+import * as api from '../services/api.ts';
 import styles from './views.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
@@ -463,7 +465,7 @@ export function RecentlyPage({
 
 /* ── Settings: secondary navigation ───────────────────────────────────── */
 
-type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'privacy';
+type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'news' | 'privacy';
 
 const SETTINGS_NAV: { id: SettingsSection; labelKey: string }[] = [
   { id: 'general', labelKey: 'settings.general' },
@@ -472,8 +474,43 @@ const SETTINGS_NAV: { id: SettingsSection; labelKey: string }[] = [
   { id: 'connections', labelKey: 'settings.connections' },
   { id: 'model', labelKey: 'settings.model' },
   { id: 'tags', labelKey: 'settings.tags' },
+  { id: 'news', labelKey: 'settings.news' },
   { id: 'privacy', labelKey: 'settings.privacy' },
 ];
+
+/* T203 trash panel (Settings → 数据) */
+function TrashPanel() {
+  const t = useT();
+  const toast = useToast();
+  const [items, setItems] = useState<ItemDTO[]>([]);
+  const load = useCallback(() => {
+    void api.listTrash().then((r) => setItems(r.items)).catch(() => setItems([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className={styles.settingBlock}>
+      <div className={styles.settingCaption}>{t('trash.title')}</div>
+      <p className={styles.hint} style={{ margin: '0 0 8px' }}>{t('trash.desc')}</p>
+      {items.length === 0 ? (
+        <div className={styles.hint}>{t('trash.empty')}</div>
+      ) : items.map((item) => (
+        <div key={item.id} className={styles.refRow}>
+          <span className={styles.refKind}>{ITEM_LABELS[item.type]}</span>
+          <span className={styles.kvValue}>{item.title}</span>
+          <button type="button" className={styles.secondaryButton} onClick={() => {
+            void api.restoreItem(item.id).then(() => { toast(t('trash.restored')); load(); });
+          }}>{t('trash.restore')}</button>
+          <button type="button" className={styles.dangerButton} onClick={() => {
+            if (window.confirm(t('trash.purgeConfirm'))) {
+              void api.purgeItem(item.id).then(() => { toast(t('trash.purged')); load(); });
+            }
+          }}>{t('trash.purge')}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SettingsPage({
   prefs,
@@ -662,6 +699,7 @@ export function SettingsPage({
                 <button type="button" className={styles.downloadButton} onClick={onExportAgent}>{t('common.download')}</button>
               </div>
             </div>
+            <TrashPanel />
           </>
         ) : section === 'connections' ? (
           <>
@@ -723,6 +761,12 @@ export function SettingsPage({
                 </button>
               </div>
             </div>
+          </>
+        ) : section === 'news' ? (
+          <>
+            <h1 className={styles.pageTitle}>{t('settings.news')}</h1>
+            <p className={styles.pageSub}>{t('settings.newsSub')}</p>
+            <NewsAdmin />
           </>
         ) : (
           <>
@@ -942,6 +986,9 @@ export function UserView({
   itemCount,
   contextCount,
   onOpenSettings,
+  account,
+  onExportBackup,
+  onDeleteAccount,
 }: {
   prefs: UiPrefs;
   onChange: (next: UiPrefs) => void;
@@ -950,10 +997,14 @@ export function UserView({
   itemCount: number;
   contextCount: number;
   onOpenSettings: () => void;
+  account?: { id: string; name: string; created_at: string } | null;
+  onExportBackup?: () => void;
+  onDeleteAccount?: () => Promise<void>;
 }) {
   const t = useT();
+  const toast = useToast();
   const { lang, setLang } = useI18n();
-  const initial = (prefs.workspaceName.trim()[0] ?? 'G').toUpperCase();
+  const initial = ((account?.name ?? prefs.workspaceName).trim()[0] ?? 'G').toUpperCase();
 
   return (
     <div className={styles.page}>
@@ -967,6 +1018,28 @@ export function UserView({
 
       <div className={styles.section}>
         <SectionLabel title={t('user.account')} />
+        {account ? (
+          <div className={styles.settingBlock}>
+            <div className={styles.settingCaption}>{t('acc.card')}</div>
+            <div className={styles.settingValue}>{account.name} · {t('acc.createdAt', { date: account.created_at.slice(0, 10) })} · {t('acc.localAccount')}</div>
+            {onDeleteAccount ? (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  if (!window.confirm(t('acc.deleteConfirm1'))) return;
+                  onExportBackup?.();
+                  if (window.confirm(t('acc.deleteConfirm2'))) {
+                    void onDeleteAccount().then(() => toast(t('acc.deleted')));
+                  }
+                }}
+              >
+                {t('acc.deleteAccount')}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className={styles.userCardGrid}>
           <div className={styles.settingBlock}>
             <div className={styles.settingCaption}>{t('user.workspace')}</div>

@@ -15,6 +15,7 @@ import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection }
 import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
 import { TagEditor } from '../components/TagEditor.tsx';
 import { useT } from '../lib/i18n.tsx';
+import { useToast } from '../components/Toast.tsx';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { LlmPublicConfig } from '../services/api.ts';
 import type { ClusterIndexEntry } from '../views/detail.tsx';
@@ -38,6 +39,7 @@ import { loadPrefs, savePrefs } from '../lib/prefs.ts';
 import { recordVisit, visitMap } from '../lib/visits.ts';
 import { loadSampleWorkspace, clearSampleWorkspace } from '../lib/sample.ts';
 import { Onboarding, isOnboardingDone } from '../components/Onboarding.tsx';
+import { AccountSetup } from '../components/AccountSetup.tsx';
 import {
   buildAgentContext,
   buildJsonExport,
@@ -74,6 +76,7 @@ function metaFrom(item?: ItemDTO) {
 
 export default function App() {
   const t = useT();
+  const toast = useToast();
   const [view, setView] = useState<ViewId>('start');
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
@@ -279,6 +282,16 @@ export default function App() {
   const [onboarding, setOnboarding] = useState(() => !isOnboardingDone());
   const [onboardingReplay, setOnboardingReplay] = useState(false);
 
+  /* T103: local account — created on first launch, gates onboarding */
+  const [account, setAccount] = useState<{ id: string; name: string; created_at: string } | null>(null);
+  const [accountChecked, setAccountChecked] = useState(false);
+  useEffect(() => {
+    void api.listUsers().then((r) => {
+      setAccount(r.users?.[0] ?? null);
+      setAccountChecked(true);
+    }).catch(() => setAccountChecked(true));
+  }, []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -436,14 +449,22 @@ export default function App() {
 
   async function deleteSelected() {
     if (!selected) return;
-    if (!window.confirm('Delete this item? Its relations and history will be removed.')) return;
+    if (!window.confirm('Delete this item? It goes to the trash and can be restored.')) return;
     try {
       setError('');
-      await api.deleteItem(selected.id);
+      const deletedId = selected.id;
+      await api.deleteItem(deletedId);
       setSelectedId('');
       setPanel('none');
       await refresh();
       await loadContextIndex();
+      /* T203: 6-second undo window */
+      toast(t('trash.deleted'), 'ok', {
+        label: t('trash.undo'),
+        run: () => {
+          void api.restoreItem(deletedId).then(() => refresh());
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Delete failed');
     }
@@ -1121,6 +1142,18 @@ export default function App() {
             itemCount={items.length}
             contextCount={contexts.length}
             onOpenSettings={() => go('settings')}
+            account={account}
+            onExportBackup={() => void runExport(buildJsonExport)}
+            onDeleteAccount={async () => {
+              /* clear data first — items hold FKs to the user */
+              await clearSampleWorkspace();
+              if (account) await api.deleteUser(account.id);
+              await refresh();
+              await loadClusterIndex();
+              await loadContextIndex();
+              setAccount(null);
+              go('start');
+            }}
             profileBlock={
               <TagEditor
                 definitions={tagDefinitions.filter((d) => d.id === 'tag_user_profile')}
@@ -1141,7 +1174,15 @@ export default function App() {
     <>
       {view === 'start' ? <DotGridBackground quality={prefs.quality} theme={prefs.theme} /> : null}
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
-      {onboarding || onboardingReplay ? (
+      {accountChecked && !account ? (
+        <AccountSetup
+          onCreate={async (name) => {
+            const r = await api.createUser(name);
+            setAccount(r.user);
+            await loadTags();
+          }}
+        />
+      ) : account && (onboarding || onboardingReplay) ? (
         <Onboarding
           onSkip={() => { setOnboarding(false); setOnboardingReplay(false); }}
           onLoadSample={async () => {
@@ -1164,7 +1205,19 @@ export default function App() {
           }}
         />
       ) : null}
-      <CommandPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette
+        open={paletteOpen}
+        items={paletteItems}
+        onClose={() => setPaletteOpen(false)}
+        onOpenHit={(hit) => {
+          if (hit.group === 'clusters') { setClusterId(hit.id); markVisited(hit.id); go('clusters'); }
+          else if (hit.group === 'contexts') { openContextInPage(hit.id); }
+          else { openItemInPage(hit.id); }
+        }}
+        onCreateFromQuery={(q) => {
+          void submitComposer({ text: q, mode: 'agent', model: 'MiMo', provider: 'Local' });
+        }}
+      />
       <div className={styles.app}>
         <Sidebar view={view} onNavigate={go} workspaceName={prefs.workspaceName} />
         <main className={styles.main}>
