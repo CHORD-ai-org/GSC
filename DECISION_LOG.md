@@ -317,3 +317,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** keep v0.1 and archive v0.2 separately; fold long-range plans into DEVELOPMENT_ROADMAP.
 - **Consequences:** vision vocabulary (Chunk/Cluster/Meta Tag/Light Up/Sync-as-source) does **not** match current code (items/contexts/export-Sync); the mapping table in `plans/README.md` §0 is authoritative for the drift, and PLAN-1 must resolve it before other tracks build on the model. Note the Sync naming collision: current Sync page = export.
 - **Status:** `DECIDED` — 2026-11-20 (documentation only; plan contents stay `PROPOSED`).
+
+## D-042 — Chunk is the umbrella term; raw/object duality kept (PLAN-1 Q1)
+
+- **Decision:** "Chunk" becomes the product term for any information unit. Implementation keeps the existing dual classes (`items` rows of `raw.*` and `object.*` with typed content) and the Chunk concept maps to both, documented in `INFORMATION_MODEL.md` §11.
+- **Reasoning:** the raw/object split already implements Vision §10-1 "Preserve Before Interpreting" (original content immutable, interpretation separate); merging into one table would rewrite schema, API, UI and both taxonomy docs for no user-visible gain, violating change discipline.
+- **Alternatives:** single `chunks` table with a kind column (rejected — large churn, blurs the raw/derived boundary); alias types (rejected — two names for one row).
+- **Consequences:** product copy and future docs say "Chunk"; API and schema keep `items`; PLAN-5's fused Chunk view becomes a linked raw↔object presentation, not a schema merge.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-1".
+
+## D-043 — Semantic Name is `title` (PLAN-1 Q2)
+
+- **Decision:** the Semantic Name of a Chunk is the existing `title` field. No new column. Machine proposals for naming arrive through the proposal layer (D-044) and land as `title` updates on acceptance.
+- **Reasoning:** `title` already carries "short human label" semantics; adding a parallel `semantic_name` duplicates identity and creates two names to reconcile.
+- **Alternatives:** new `semantic_name` column with `title` demoted to auto label (rejected — migration churn, two sources of truth).
+- **Consequences:** `INFORMATION_MODEL.md` §5 table annotates `title` as the Semantic Name; PLAN-1 A1-2 drops its "new field or rename" branch.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-1".
+
+## D-044 — Proposals are an independent table (PLAN-1 Q3)
+
+- **Decision:** machine-suggested organization (semantic names, classification, meta tags, associations, cluster membership) lives in a `proposals` table with `pending / accepted / rejected` lifecycle, target item, optional related item, proposed value, rationale and source (`agent` / `detector`).
+- **Reasoning:** events are an append-only record of what happened; proposals are undecided things awaiting governance (Vision §10-4). Overloading events would conflate history with pending intent.
+- **Alternatives:** new event actions (rejected — no lifecycle state); JSONB queue file (rejected — system of record rule).
+- **Consequences:** new table + endpoints in PLAN-1; the review-queue UI stays with PLAN-4; accepted proposals write through normal update paths so history records the change.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-1".
+
+## D-045 — Clusters land now; sidebar and Overview gain the entry
+
+- **Decision:** implement `clusters` + `cluster_members` (a Chunk may belong to multiple Clusters). Sidebar `ORGANIZATION` becomes Clusters, Contexts, Sync; Overview gains an "Existing Clusters" section per Vision §7.
+- **Reasoning:** PLAN-1 B1-2 explicitly calls for Clusters in the sidebar and Overview; the Vision dashboard list orders Clusters before Contexts.
+- **Alternatives:** clusters as a tag flavor of contexts (rejected — Vision §5.3 keeps them distinct: association vs purpose view); defer UI to a later plan (rejected — B1-2 is in PLAN-1 scope).
+- **Consequences:** the D-032 sidebar list (from the earlier UI spec) is amended by this decision; Cluster identity is `title` + `description`; membership is explicit, multi-homed, never inferred.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-1".

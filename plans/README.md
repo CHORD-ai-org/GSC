@@ -7,9 +7,9 @@ Status: 全部 `PROPOSED` — 2026-11-20 制定，未逐条获批前不进入实
 
 | Vision 术语 | 当前代码/文档 | 关系 |
 |---|---|---|
-| Chunk（语义命名的信息单元） | `items`（raw.* 原始 + object.* 对象） | **未对齐**：Vision 的 Chunk = 原始内容+语义名一体；现在是两类条目。PLAN-1 负责裁决 |
-| Semantic Name | `items.title` | 雏形已有，缺「机器提议 vs 用户确认」区分 |
-| Cluster（关联分组） | 无对应 | 全新结构。现有 `contexts` ≠ Cluster |
+| Chunk（语义命名的信息单元） | `items`（raw.* 原始 + object.* 对象） | ✅ 已裁决（D-042）：Chunk=统称，双类保留，映射见 `INFORMATION_MODEL.md` §11 |
+| Semantic Name | `items.title` | ✅ 已裁决（D-043）：即 `title`，机器命名走提案层 |
+| Cluster（关联分组） | `clusters` + `cluster_members`（PLAN-1 实现中） | ✅ 已裁决（D-045）：多归属、显式成员 |
 | Context（目的性视图） | `contexts` + 显式成员 | 已对齐 ✓ |
 | Meta Tag | `domain` 单选字段 | 雏形；缺定义/取值/作用域三层（PLAN-8） |
 | Light Up（主动采集） | Composer 捕获 / 文件导入 / New 表单 | 雏形；缺管线 3–7 步（PLAN-2） |

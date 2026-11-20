@@ -1,6 +1,6 @@
 # INFORMATION_MODEL.md — Finalized Conceptual Model
 
-Status: `DECIDED` — Phase 01, finalized 2026-11-16 after user approval. This is a conceptual model, not a physical schema. Persistence shape is a Phase 03 decision.
+Status: `DECIDED` — Phase 01, finalized 2026-11-16 after user approval. Extended 2026-11-20 with Vision v0.2 alignment (§11–13, D-042…D-045). This is a conceptual model, not a physical schema.
 
 ## 1. Authority and scope
 
@@ -114,3 +114,50 @@ Membership is never inferred from tags, embeddings, or relation traversal. A Con
 Closed in Phase 01: object set (5 types), status vocabulary, relation kinds including `supports` / `challenges`, file storage location, Context membership rule. See `DECISION_LOG.md`.
 
 Closed in Phase 02: inline form layout (D-019), literal substring keyword filter (D-020), text-label stance display (D-021). No conceptual questions remain open before Phase 03.
+
+## 11. Vision v0.2 terminology alignment — `DECIDED` (2026-11-20, D-042…D-043)
+
+`PRODUCT_VISION.md` v0.2 vocabulary maps onto this model as follows. This table resolves the drift recorded in `plans/README.md` §0.
+
+| Vision term | Maps to | Rule |
+|---|---|---|
+| **Chunk** | any persisted item (`raw.*` or `object.*`) | Umbrella product term for an information unit. The raw/object duality is the internal structure that enforces "Preserve Before Interpreting": raw content is immutable and never replaced by interpretation |
+| **Semantic Name** | `items.title` | One name per Chunk (D-043). Machine-proposed names arrive as proposals (§13) and land via normal updates on acceptance |
+| **Cluster** | §12 below | New structure; not a Context |
+| **Context** | §8 | unchanged |
+| **Meta Tag** | future (PLAN-8); today `domain` is the only descriptor | Three layers (definition / value / scope) are planned, not present |
+| **Light Up / Sync (acquisition)** | item creation paths (user / import / agent) | Pipeline stages beyond ingestion live in PLAN-2/3 |
+
+## 12. Cluster — `DECIDED` (2026-11-20, D-045)
+
+A Cluster is a named group of Chunks organized around a common subject, project, or activity.
+
+| Field | Meaning |
+|---|---|
+| `id`, `title`, `description` | identity and label |
+| `created_at`, `updated_at` | timestamps |
+| `item_ids` | explicit member list; **a Chunk may belong to multiple Clusters** |
+
+Rules:
+
+- A Cluster describes an *association* among information; a Context describes an *intentional view* for a purpose. They are different structures and may hold different members.
+- Membership is explicit and user-confirmed. Never inferred from tags, embeddings, or relation traversal (Detector may propose, §13).
+- A Cluster is not a folder, not a project workspace, and owns no content; it references Chunks.
+
+## 13. Proposal layer — `DECIDED` (2026-11-20, D-044)
+
+Machine-suggested organization is stored as **proposals**, never written directly as authoritative data.
+
+| Field | Values / meaning |
+|---|---|
+| `kind` | `semantic_name` \| `classification` \| `meta_tag` \| `association` \| `cluster` |
+| `target_id`, `related_id?` | the Chunk the proposal concerns; optional counterpart (association target, cluster candidate) |
+| `proposed_value`, `rationale` | what is suggested and why |
+| `source` | `agent` \| `detector` |
+| `status` | `pending` → `accepted` / `rejected` |
+
+Rules:
+
+- Agent interprets and proposes; Detector observes and marks candidates. Neither writes user data directly (Vision §10-4).
+- Accepting a proposal applies it through the normal update path, so history records one ordinary event; rejecting leaves data untouched. Proposals are append-only; resolution stamps `resolved_at`.
+- Original content is never in a proposal's authority — proposals enrich identity and organization, not source text.
