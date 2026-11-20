@@ -5,3 +5,10 @@
 .logo[data-brand='x']{background:var(--brand-x)}
 .logo[data-brand='mimo']{background:var(--brand-mimo)}
 .logo[data-brand='deepseek']{background:var(--brand-deepseek)}
+.logo[data-brand='openai']{background:var(--brand-openai)}
+.logo[data-brand='claude']{background:var(--brand-claude)}
+.logo[data-brand='gemini']{background:var(--brand-gemini)}
+.logo[data-brand='kimi']{background:var(--brand-kimi)}
+.logo[data-brand='qwen']{background:var(--brand-qwen)}
+.logo[data-brand='zhipu']{background:var(--brand-zhipu)}
+.logo[data-brand='grok']{background:var(--brand-grok)}

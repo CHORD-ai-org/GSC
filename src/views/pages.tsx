@@ -684,20 +684,41 @@ export function SettingsPage({
 const MODEL_SUGGESTIONS: Record<string, string[]> = {
   mimo: ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o'],
+  claude: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5'],
+  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  kimi: ['kimi-k2-0711-preview', 'moonshot-v1-128k'],
+  qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo'],
+  zhipu: ['glm-4.6', 'glm-4.5-air'],
+  grok: ['grok-4', 'grok-3-mini'],
   custom: [],
 };
 
-type ProviderId = 'mimo' | 'deepseek' | 'custom';
+type ProviderId = 'mimo' | 'deepseek' | 'openai' | 'claude' | 'gemini' | 'kimi' | 'qwen' | 'zhipu' | 'grok' | 'custom';
 
 const PROVIDERS: { id: ProviderId; brand: BrandKind | null; labelKey: string; descKey: string; base: string }[] = [
   { id: 'mimo', brand: 'mimo', labelKey: 'model.providerMimo', descKey: 'model.providerMimoDesc', base: 'https://token-plan-cn.xiaomimimo.com/v1' },
   { id: 'deepseek', brand: 'deepseek', labelKey: 'model.providerDeepseek', descKey: 'model.providerDeepseekDesc', base: 'https://api.deepseek.com/v1' },
+  { id: 'openai', brand: 'openai', labelKey: 'model.providerOpenai', descKey: 'model.providerOpenaiDesc', base: 'https://api.openai.com/v1' },
+  { id: 'claude', brand: 'claude', labelKey: 'model.providerClaude', descKey: 'model.providerClaudeDesc', base: 'https://api.anthropic.com/v1' },
+  { id: 'gemini', brand: 'gemini', labelKey: 'model.providerGemini', descKey: 'model.providerGeminiDesc', base: 'https://generativelanguage.googleapis.com/v1beta/openai' },
+  { id: 'kimi', brand: 'kimi', labelKey: 'model.providerKimi', descKey: 'model.providerKimiDesc', base: 'https://api.moonshot.cn/v1' },
+  { id: 'qwen', brand: 'qwen', labelKey: 'model.providerQwen', descKey: 'model.providerQwenDesc', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { id: 'zhipu', brand: 'zhipu', labelKey: 'model.providerZhipu', descKey: 'model.providerZhipuDesc', base: 'https://open.bigmodel.cn/api/paas/v4' },
+  { id: 'grok', brand: 'grok', labelKey: 'model.providerGrok', descKey: 'model.providerGrokDesc', base: 'https://api.x.ai/v1' },
   { id: 'custom', brand: null, labelKey: 'model.providerCustom', descKey: 'model.providerCustomDesc', base: '' },
 ];
 
 function detectProvider(base: string): ProviderId {
   if (base.includes('xiaomimimo') || base.includes('mimo')) return 'mimo';
   if (base.includes('deepseek')) return 'deepseek';
+  if (base.includes('openai.com')) return 'openai';
+  if (base.includes('anthropic')) return 'claude';
+  if (base.includes('googleapis')) return 'gemini';
+  if (base.includes('moonshot')) return 'kimi';
+  if (base.includes('dashscope') || base.includes('qwen')) return 'qwen';
+  if (base.includes('bigmodel') || base.includes('zhipu')) return 'zhipu';
+  if (base.includes('x.ai')) return 'grok';
   return 'custom';
 }
 

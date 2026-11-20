@@ -272,7 +272,7 @@
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
 /* ── Settings v2 (P2 INTERACTION_UX_PLAN): provider cards, key badge, check line ── */
-.providerRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;max-width:620px}
+.providerRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-width:860px}
 .providerCard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:14px 14px;cursor:pointer;font:inherit;text-align:left;transition:border-color .15s,box-shadow .15s}
 .providerCard:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card)}
 .providerCard.on{border-color:var(--accent);box-shadow:var(--shadow-card)}

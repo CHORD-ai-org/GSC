@@ -2,7 +2,8 @@ import styles from './brand.module.css';
 
 /* P0 INTERACTION_UX_PLAN: real third-party logos (public/brands/*.svg).
    Monochrome SVGs tinted by per-brand CSS variables — theme-aware. */
-export type BrandKind = 'github' | 'notion' | 'googledrive' | 'x' | 'mimo' | 'deepseek';
+export type BrandKind = 'github' | 'notion' | 'googledrive' | 'x' | 'mimo' | 'deepseek'
+  | 'openai' | 'claude' | 'gemini' | 'kimi' | 'qwen' | 'zhipu' | 'grok';
 
 export const BRAND_LABELS: Record<BrandKind, string> = {
   github: 'GitHub',
@@ -11,6 +12,13 @@ export const BRAND_LABELS: Record<BrandKind, string> = {
   x: 'X',
   mimo: 'Xiaomi MiMo',
   deepseek: 'DeepSeek',
+  openai: 'OpenAI',
+  claude: 'Claude',
+  gemini: 'Google Gemini',
+  kimi: 'Kimi',
+  qwen: 'Qwen',
+  zhipu: 'Zhipu / GLM',
+  grok: 'Grok',
 };
 
 export function BrandLogo({ kind, size = 20, className }: { kind: BrandKind; size?: number; className?: string }) {

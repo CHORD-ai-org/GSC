@@ -39,6 +39,13 @@
   --brand-x:#000000;
   --brand-mimo:#FF6900;
   --brand-deepseek:#4D6BFE;
+  --brand-openai:#10A37F;
+  --brand-claude:#D97757;
+  --brand-gemini:#1B72E8;
+  --brand-kimi:#16191E;
+  --brand-qwen:#615CED;
+  --brand-zhipu:#3859FF;
+  --brand-grok:#000000;
 }
 
 [data-theme='dark']{
@@ -76,4 +83,11 @@
   --brand-x:#FFFFFF;
   --brand-mimo:#FF8A3D;
   --brand-deepseek:#8EA9FF;
+  --brand-openai:#34D399;
+  --brand-claude:#E8A088;
+  --brand-gemini:#8AB4F8;
+  --brand-kimi:#E4E8ED;
+  --brand-qwen:#A5A0F5;
+  --brand-zhipu:#7C9CFF;
+  --brand-grok:#FFFFFF;
 }
