@@ -69,6 +69,11 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 
 | Item | State |
 |---|---|
+| GSC Agent real model calls | proposer is stub-tested only — this environment has no LLM network/key. Set `GSC_LLM_BASE_URL`/`GSC_LLM_API_KEY`/`GSC_LLM_MODEL` in `.env.local` and use 「Agent 建议」 to verify. |
+| listItems fields bug (fixed 2026-11-20) | `listItems` previously returned empty `fields` (no content join) — broke content keyword search (D-020) and detector similarity. Fixed; regression covered by detector tests. |
+
+| Item | State |
+|---|---|
 | GitHub Sync real-network verification | adapter tested with stubbed fetch only — this environment cannot reach api.github.com. Run `Sync now` against a real `owner/repo` + token when network is available. |
 | Notion / Drive / X sources (PLAN-3 B3-1) | blocked on OAuth app credentials + network; connect form accepts them but sync returns a contract error until adapters land. Brand logos are letter badges until official assets can be vendored. |
 | Migration idempotency | migrations re-run every startup; files 0002–0004 now use `IF NOT EXISTS` — keep new migrations idempotent. |

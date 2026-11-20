@@ -1,6 +1,6 @@
 # PLAN-4 — 智能层：GSC Agent 与 Detector
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §4 · 依赖：PLAN-1（proposal 层）、PLAN-2（管线消费端）、模型接入（`DIVERGENCE_PLAN` D1）
+Status: `A4-1/B4-1/B4-2 已执行` — 2026-11-20（用户「开始执行PLAN-4」）。裁决：D-052 OpenAI 兼容 provider（一并回答 D1）、D-053 统一提案队列（+dedupe/metadata 类型）、D-054 接受语义分种类+单进程手动触发。B4-1 的真实模型调用待网络与 key（桩测通过）；C4-1（主题建组/体检报告）未做。 · 源：`PRODUCT_VISION.md` §4 · 依赖：PLAN-1 ✓
 
 ## 目标场景
 

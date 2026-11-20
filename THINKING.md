@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: PLAN-3 A3-1/A3-2 已执行（Sync=源采集/Export=导出，sources 表 + GitHub 适配器，D-049…D-051）。B3-1 待凭据与外网；C3-1 调度未做。PLAN-4…PLAN-8 仍 PROPOSED。
+> Status: PLAN-4 A4-1/B4-1/B4-2 已执行（Agent 提议 + Detector 巡检 + 提案队列，D-052…D-054；D1 provider 一并拍板）。真实模型调用待 GSC_LLM_* 配置；C4-1 未做。PLAN-5…PLAN-8 仍 PROPOSED。
 
 ## User approvals received 2026-11-16
 

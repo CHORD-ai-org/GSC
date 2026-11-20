@@ -302,6 +302,30 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Screenshots | `ui-prototype/shots/18-sync-sources.png`, `19-export.png` | connect form + source card (six elements) + Export page render |
 | Real-network note | api.github.com unreachable in this environment | GitHub sync verified with stubbed fetch; real-source verification pending (KNOWN_ISSUES) |
 
+### PLAN-4 execution (2026-11-20, A4-1/B4-1/B4-2)
+
+| File | Change |
+|---|---|
+| `src/lib/proposals.ts` | kinds +`dedupe`/`metadata`; `isApplicableProposalKind` (D-054) |
+| `server/config.ts`, `.env.example` | `GSC_LLM_BASE_URL/API_KEY/MODEL` (D-052) |
+| `server/agent/llm.ts` | OpenAI-compatible chat adapter + JSON extraction |
+| `server/agent/proposer.ts` | GSC Agent: semantic name / classification suggestions with quoted rationale |
+| `server/agent/detector.ts` | Detector: dedupe (word-set similarity ≥0.8), association candidates, provenance-gap findings; skips already-pending |
+| `server/repo/proposals.ts` | `resolveProposalApplying` — accept semantics per kind (D-054) |
+| `server/router.ts` | `POST /api/agent/propose`, `POST /api/agent/detect`; resolve route applies via repo |
+| `src/views/lightup.tsx`, `pages.tsx` | 提案队列 tab (accept/reject, resolve-only notes, 运行 Detector) + 「Agent 建议」fills review rows; Overview「Review Queue」section |
+| `server/repo/items.ts` | **fix:** `listItems` joins item_content — fields were empty (broke content keyword filter D-020 and detector similarity) |
+
+### PLAN-4 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 41 tests pass (6 new: detector dedupe 100% on constructed pairs, pending-dedupe, similarity, JSON extraction, accept→title+history, reject→no-op) |
+| Detector live | `POST /api/agent/detect` on dev DB | 82 candidates (36 dedupe / 36 association / 10 metadata) |
+| Screenshots | `ui-prototype/shots/20-review-queue.png` | queue tab with rows, accept/reject, resolve-only notes verified |
+| LLM note | no network/key in this environment | proposer verified with stub only; real calls pending `GSC_LLM_*` config (KNOWN_ISSUES) |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).

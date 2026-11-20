@@ -421,3 +421,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** apply-all on accept (rejected — meta tags/dedupe have no model to write yet); background scheduler (rejected — C4-1 territory).
 - **Consequences:** accepting a semantic_name records an ordinary `updated` event; unapplied kinds carry a visible "resolve-only" note; detection dedupes against existing pending proposals.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-4".
+
+## D-055 — Semantic color dictionary (PLAN-5 Q1)
+
+- **Decision:** four fixed semantic colors in `tokens.css` (both themes): `--sem-original` 原文灰 (#6B7280 / dark #9CA3AF), `--sem-confirmed` 用户确认绿 (#16A34A / #4ADE80), `--sem-machine` 机器提议紫 (#9333EA / #C084FC), `--sem-alert` 异常红 (#DC2626 / #F87171). Every color use carries a text label (accessibility: color never sole encoding).
+- **Reasoning:** PLAN-5 Q1 deferred the palette until PLAN-1 settled categories — done (D-042); the board's requirement is stable, meaningful color semantics.
+- **Alternatives:** per-type rainbow palette (rejected — arbitrary assignment ban in Vision §8).
+- **Consequences:** `SemTag` chips on detail blocks and list rows; legend on Overview and Documentation.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行05".
+
+## D-056 — Activity density map on Overview; click a day filters Recently
+
+- **Decision:** the GitHub-contributions-style density map (PLAN-5 Q2 → Overview) shows the last 12 weeks; cell intensity = activity count; event segments colored by the dictionary: created = 原文灰, updated = 确认绿, pending machine proposals = 机器紫. Clicking a day jumps to Recently filtered to that day.
+- **Reasoning:** PLAN-5 Q2 recommended Overview (Vision §7 "organization activity"); the verification matrix requires click-to-filter.
+- **Alternatives:** map on Recently (rejected — per plan recommendation); click-to-drill in place (deferred to C5-1).
+- **Consequences:** `RecentlyPage` accepts a day filter with a removable chip; map buckets built from `created_at` / `updated_at` / pending proposals.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行05".
+
+## D-057 — Membership badges stay neutral; linked raw↔object view (PLAN-5 B5-2)
+
+- **Decision:** Cluster/Context membership is shown as neutral pill badges (text + distinct icon) on list rows and detail headers — the four semantic colors stay reserved for state. Per D-042 (no schema merge), the B5-2 "融合详情" branch becomes a linked pairing: every detail page gains a paired-jump chip (raw → derived objects, object → sources) on top of the existing Sources/被引用 blocks.
+- **Reasoning:** Vision §8 forbids arbitrary color assignment; membership is identity, not state. The pairing chip answers "where is the other half of this Chunk" in one click.
+- **Alternatives:** membership ribbon colors per cluster (rejected — unstable semantics); merging detail pages (rejected — D-042).
+- **Consequences:** badge component with ⊘/◈-style icons; `SemTag` covers state only.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行05".
