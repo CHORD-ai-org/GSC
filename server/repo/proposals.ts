@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { desc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { proposals } from '../persistence/schema.ts';
+import { updateItem } from './items.ts';
+import { createRelation } from './relations.ts';
+import { addClusterMember, createCluster } from './clusters.ts';
 import type {
   CreateProposalBody,
   ProposalDTO,
@@ -67,4 +70,39 @@ export async function resolveProposal(
     .set({ status, resolved_at: new Date() })
     .where(eq(proposals.id, id));
   return getProposal(db, id);
+}
+
+/**
+ * D-054: acceptance applies only well-defined kinds —
+ * semantic_name → title update; association → related_to relation;
+ * cluster → new Cluster with the target (and related) as members.
+ * The rest are review-marked only.
+ */
+export async function resolveProposalApplying(
+  db: Database,
+  id: string,
+  status: 'accepted' | 'rejected',
+): Promise<ProposalDTO | undefined> {
+  const existing = await getProposal(db, id);
+  if (!existing) return undefined;
+  const resolved = await resolveProposal(db, id, status);
+  if (!resolved || status !== 'accepted') return resolved;
+  if (existing.kind === 'semantic_name') {
+    await updateItem(db, existing.target_id, { title: existing.proposed_value });
+  } else if (existing.kind === 'association' && existing.related_id) {
+    await createRelation(db, {
+      kind: 'related_to',
+      from_id: existing.target_id,
+      to_id: existing.related_id,
+      note: `proposal ${existing.id}`,
+    });
+  } else if (existing.kind === 'cluster') {
+    const cluster = await createCluster(db, {
+      title: existing.proposed_value,
+      description: `From proposal ${existing.id}`,
+    });
+    await addClusterMember(db, cluster.id, existing.target_id);
+    if (existing.related_id) await addClusterMember(db, cluster.id, existing.related_id);
+  }
+  return resolved;
 }

@@ -6,12 +6,17 @@
 import { eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { items, itemContent } from '../persistence/schema.ts';
-import { itemTextForFilter } from '../../src/lib/items.ts';
 import type { ItemDTO } from '../../src/lib/items.ts';
 import { listItems } from '../repo/items.ts';
 import { createProposal, listProposals } from '../repo/proposals.ts';
 
 const DEDUPE_THRESHOLD = 0.8;
+
+/** Compare title + content only — ids and labels must not dilute similarity. */
+function comparableText(item: ItemDTO): string {
+  const fields = Object.values(item.fields).filter((v): v is string => typeof v === 'string');
+  return [item.title, ...fields].join(' ');
+}
 
 function tokens(text: string): Set<string> {
   return new Set(
@@ -40,7 +45,7 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
   const report: DetectionReport = { dedupe: 0, metadata: 0, association: 0 };
 
   const texts = new Map<string, string>();
-  for (const item of all) texts.set(item.id, itemTextForFilter(item));
+  for (const item of all) texts.set(item.id, comparableText(item));
 
   for (let i = 0; i < all.length; i += 1) {
     for (let j = i + 1; j < all.length; j += 1) {

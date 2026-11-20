@@ -33,7 +33,7 @@ import {
   removeClusterMember,
   updateCluster,
 } from './repo/clusters.ts';
-import { createProposal, listProposals, resolveProposal } from './repo/proposals.ts';
+import { createProposal, listProposals, resolveProposalApplying } from './repo/proposals.ts';
 import {
   validateAddClusterMemberBody,
   validateCreateClusterBody,
@@ -58,7 +58,6 @@ import {
 import { runGithubSync } from './sync/github.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
-import { isApplicableProposalKind } from '../src/lib/proposals.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
 import { dirname } from 'node:path';
 import { fetchUrlText } from './ingest/html.ts';
@@ -430,35 +429,10 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid resolve proposal body'));
           return;
         }
-        const existing = (await listProposals(db)).find((p) => p.id === proposalMatch[1]);
-        if (!existing) {
-          sendApiError(res, apiError('not_found', 'Proposal not found'));
-          return;
-        }
-        const proposal = await resolveProposal(db, proposalMatch[1], body.status);
+        const proposal = await resolveProposalApplying(db, proposalMatch[1], body.status);
         if (!proposal) {
           sendApiError(res, apiError('not_found', 'Proposal not found'));
           return;
-        }
-        // D-054: acceptance applies only well-defined kinds; the rest are review-marked.
-        if (body.status === 'accepted' && isApplicableProposalKind(existing.kind)) {
-          if (existing.kind === 'semantic_name') {
-            await updateItem(db, existing.target_id, { title: existing.proposed_value });
-          } else if (existing.kind === 'association' && existing.related_id) {
-            await createRelation(db, {
-              kind: 'related_to',
-              from_id: existing.target_id,
-              to_id: existing.related_id,
-              note: `proposal ${existing.id}`,
-            });
-          } else if (existing.kind === 'cluster') {
-            const cluster = await createCluster(db, {
-              title: existing.proposed_value,
-              description: `From proposal ${existing.id}`,
-            });
-            await addClusterMember(db, cluster.id, existing.target_id);
-            if (existing.related_id) await addClusterMember(db, cluster.id, existing.related_id);
-          }
         }
         sendJson(res, 200, { ok: true, proposal });
         return;

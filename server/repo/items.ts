@@ -63,7 +63,10 @@ export async function listItems(
     .from(items)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(items.updated_at));
-  const all = rows.map((row) => toDTO(row));
+  // join typed content in memory so `fields` and the keyword filter see it (D-020)
+  const contents = await db.select().from(itemContent);
+  const contentById = new Map(contents.map((c) => [c.item_id, c]));
+  const all = rows.map((row) => toDTO(row, contentById.get(row.id)));
   if (!filters.q) return all;
   const needle = filters.q.toLowerCase();
   return all.filter((item) => itemTextForFilter(item).includes(needle));

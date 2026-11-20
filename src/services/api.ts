@@ -31,6 +31,11 @@ export type SourceListResponse = { ok: true; sources: SourceDTO[] };
 export type SourceDetailResponse = { ok: true; source: SourceDTO };
 export type DeleteSourceResponse = { ok: true; deleted: true };
 export type SourceSyncResponse = { ok: true; result: SyncResult };
+export type AgentSuggestResponse = {
+  ok: true;
+  suggestions: { index: number; semantic_name: string; classification: string; rationale: string }[];
+};
+export type AgentDetectResponse = { ok: true; report: { dedupe: number; metadata: number; association: number } };
 export type ApiResponse =
   | ItemListResponse
   | ItemDetailResponse
@@ -48,6 +53,8 @@ export type ApiResponse =
   | SourceDetailResponse
   | DeleteSourceResponse
   | SourceSyncResponse
+  | AgentSuggestResponse
+  | AgentDetectResponse
   | ApiError;
 
 async function request<T extends ApiResponse>(path: string, init?: RequestInit): Promise<T> {
@@ -208,4 +215,12 @@ export function deleteSource(id: string): Promise<DeleteSourceResponse> {
 
 export function syncSource(id: string): Promise<SourceSyncResponse> {
   return request<SourceSyncResponse>(`/api/sources/${encodeURIComponent(id)}/sync`, { method: 'POST' });
+}
+
+export function proposeSuggestions(chunks: { title: string; content: string }[]): Promise<AgentSuggestResponse> {
+  return request<AgentSuggestResponse>('/api/agent/propose', { method: 'POST', body: JSON.stringify({ chunks }) });
+}
+
+export function runDetect(): Promise<AgentDetectResponse> {
+  return request<AgentDetectResponse>('/api/agent/detect', { method: 'POST' });
 }
