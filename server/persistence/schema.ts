@@ -173,4 +173,40 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
   pk: primaryKey({ columns: [table.key, table.endpoint] }),
 }));
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys };
+export const sourceSnapshots = pgTable('source_snapshots', {
+  id: text('id').primaryKey(),
+  source_id: text('source_id').references(() => sources.id, { onDelete: 'set null' }),
+  external_id: text('external_id').notNull(),
+  url: text('url').notNull().default(''),
+  canonical_url: text('canonical_url').notNull().default(''),
+  title: text('title').notNull().default(''),
+  content_text: text('content_text').notNull().default(''),
+  author: text('author').notNull().default(''),
+  published_at: text('published_at').notNull().default(''),
+  site_name: text('site_name').notNull().default(''),
+  description: text('description').notNull().default(''),
+  content_hash: text('content_hash').notNull().default(''),
+  extractor_version: text('extractor_version').notNull().default('1'),
+  status: text('status').notNull().default('ok'),
+  error: text('error').notNull().default(''),
+  retrieved_at: timestamp('retrieved_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  identity: uniqueIndex('source_snapshots_identity').on(table.external_id, table.content_hash),
+}));
+
+export const captureTasks = pgTable('capture_tasks', {
+  id: text('id').primaryKey(),
+  source_id: text('source_id'),
+  kind: text('kind').notNull().default('web'),
+  url: text('url').notNull().default(''),
+  status: text('status').notNull().default('pending'),
+  stage: text('stage').notNull().default('queued'),
+  retry_count: integer('retry_count').notNull().default(0),
+  last_error: text('last_error').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+  claimed_at: timestamp('claimed_at', { withTimezone: true }),
+  completed_at: timestamp('completed_at', { withTimezone: true }),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks };
