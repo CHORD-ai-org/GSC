@@ -14,6 +14,7 @@
     "db:migrate": "node --env-file-if-exists=.env.local server/persistence/migrate.ts",
     "db:reset": "node --env-file-if-exists=.env.local server/persistence/reset.ts",
     "api:check": "node scripts/api-checks.mjs",
+    "llm:check": "node --env-file-if-exists=.env.local scripts/llm-check.mjs",
     "db:backup": "node scripts/db-backup.mjs",
     "db:restore": "node scripts/db-restore.mjs"
   },

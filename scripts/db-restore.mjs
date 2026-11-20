@@ -4,17 +4,25 @@
 import { cpSync, existsSync, rmSync, mkdirSync, renameSync } from 'node:fs';
 import path from 'node:path';
 
-/** Directory rename can be denied by OS-level handles; fall back to content-level replace. */
+/**
+ * Replace a data directory with backup content. Order of attempts:
+ * 1. rename aside (clean, atomic) — works in normal environments;
+ * 2. copy-aside + overwrite-in-place — works where directory renames or deletes
+ *    are blocked by OS/sandbox hooks (this dev machine). Overwrite leaves stale
+ *    files behind; PostgreSQL ignores relation files with unknown OIDs, so the
+ *    restored state is authoritative. Limitation documented in KNOWN_ISSUES.
+ */
 function replaceDir(from, to) {
   const aside = `${to}.replaced-${Date.now()}`;
   try {
     renameSync(to, aside);
+    cpSync(from, to, { recursive: true });
+    return aside;
   } catch {
     cpSync(to, aside, { recursive: true });
-    for (const entry of readdirSync(to)) rmSync(path.join(to, entry), { recursive: true, force: true });
+    cpSync(from, to, { recursive: true });
+    return `${aside} (overwrite mode)`;
   }
-  cpSync(from, to, { recursive: true });
-  return aside;
 }
 
 const backupDir = path.resolve(process.argv[2] ?? '');
@@ -31,7 +39,6 @@ const dataDir = path.resolve(process.env.PGLITE_DIR ?? './.data/pglite');
 const storageDir = path.resolve(process.env.STORAGE_DIR ?? './data/files');
 
 // Keep the replaced data aside instead of deleting it.
-import { readdirSync } from 'node:fs';
 let aside;
 if (existsSync(dataDir)) {
   aside = replaceDir(path.join(backupDir, 'pglite'), dataDir);

@@ -13,7 +13,7 @@ export const QUALITY_LABELS: Record<AnimationQuality, string> = {
 export const COMPOSER_MODES = ['ask', 'agent', 'edit'] as const;
 export type ComposerMode = (typeof COMPOSER_MODES)[number];
 
-export const MODELS = ['Deepseek', 'Rym'] as const;
+export const MODELS = ['MiMo', 'Deepseek', 'Rym'] as const;
 export type ModelName = (typeof MODELS)[number];
 
 export const THEMES = ['light', 'dark'] as const;
@@ -33,7 +33,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   quality: 'medium',
   pageTransition: true,
   provider: 'Local',
-  defaultModel: 'Deepseek',
+  defaultModel: 'MiMo',
   workspaceName: 'GSC Workspace',
 };
 
@@ -56,7 +56,9 @@ export function loadPrefs(): UiPrefs {
         : DEFAULT_PREFS.quality,
       pageTransition: typeof parsed.pageTransition === 'boolean' ? parsed.pageTransition : DEFAULT_PREFS.pageTransition,
       provider: typeof parsed.provider === 'string' && parsed.provider ? parsed.provider : DEFAULT_PREFS.provider,
-      defaultModel: parsed.defaultModel === 'Rym' ? 'Rym' : DEFAULT_PREFS.defaultModel,
+      defaultModel: (MODELS as readonly string[]).includes(parsed.defaultModel as string)
+        ? (parsed.defaultModel as ModelName)
+        : DEFAULT_PREFS.defaultModel,
       workspaceName: typeof parsed.workspaceName === 'string' && parsed.workspaceName.trim()
         ? parsed.workspaceName
         : DEFAULT_PREFS.workspaceName,

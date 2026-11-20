@@ -1,7 +1,14 @@
 /**
  * OpenAI-compatible chat-completions adapter (D-052). Config-driven so
- * Deepseek (default) and local endpoints (llama.cpp / Ollama / LM Studio)
- * all work through `GSC_LLM_BASE_URL`. Fetch is injectable for tests.
+ * Xiaomi MiMo (default), Deepseek and local endpoints (llama.cpp / Ollama /
+ * LM Studio) all work through `GSC_LLM_BASE_URL`. Fetch is injectable for tests.
+ *
+ * MiMo notes (https://mimo.mi.com/docs/zh-CN/api/chat/openai-api):
+ * - endpoint https://api.xiaomimimo.com/v1/chat/completions, OpenAI-compatible;
+ * - accepts either `Authorization: Bearer` or `api-key` header — we send both;
+ * - deep thinking can be disabled with `thinking: { type: 'disabled' }`;
+ * - replies may carry `reasoning_content` alongside `content` — we read `content`
+ *   only and never surface the reasoning trace.
  */
 import type { Config } from '../config.ts';
 
@@ -14,24 +21,45 @@ export type LlmResult = {
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+function isLocalEndpoint(baseUrl: string): boolean {
+  return /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/.test(baseUrl);
+}
+
 export async function chatComplete(
   config: Config,
   messages: ChatMessage[],
   fetchImpl: FetchLike = fetch,
 ): Promise<LlmResult> {
-  if (!config.llmApiKey && config.llmBaseUrl.includes('deepseek.com')) {
+  // Cloud endpoints need a key; local ones (llama.cpp/Ollama) typically do not.
+  if (!config.llmApiKey && !isLocalEndpoint(config.llmBaseUrl)) {
     throw new Error('GSC_LLM_API_KEY is not configured');
   }
+  const isMimo = config.llmBaseUrl.includes('xiaomimimo.com');
   const res = await fetchImpl(`${config.llmBaseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(config.llmApiKey ? { authorization: `Bearer ${config.llmApiKey}` } : {}),
+      ...(config.llmApiKey
+        ? { authorization: `Bearer ${config.llmApiKey}`, 'api-key': config.llmApiKey }
+        : {}),
     },
-    body: JSON.stringify({ model: config.llmModel, messages, temperature: 0 }),
+    body: JSON.stringify({
+      model: config.llmModel,
+      messages,
+      temperature: 0,
+      // MiMo: skip deep thinking for fast, cheap structured suggestions.
+      ...(isMimo ? { thinking: { type: 'disabled' } } : {}),
+    }),
   });
-  if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
-  const body = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string };
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`LLM HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`);
+  }
+  const body = (await res.json()) as {
+    choices?: { message?: { content?: string; reasoning_content?: string } }[];
+    model?: string;
+  };
+  // Only the answer content is used; reasoning_content is never read or logged.
   const content = body.choices?.[0]?.message?.content ?? '';
   return { content, model: body.model ?? config.llmModel };
 }

@@ -25,9 +25,10 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     dbAdapter: 'pglite',
     pgliteDir: resolve(env.PGLITE_DIR ?? './.data/pglite'),
     storageDir: resolve(env.STORAGE_DIR ?? './data/files'),
-    llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.deepseek.com/v1',
+    // Xiaomi MiMo (OpenAI-compatible) is the default provider; override via env.
+    llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
     llmApiKey: env.GSC_LLM_API_KEY ?? '',
-    llmModel: env.GSC_LLM_MODEL ?? 'deepseek-chat',
+    llmModel: env.GSC_LLM_MODEL ?? 'mimo-v2.6-flash',
     // O1-7: explicit CORS allowlist; empty = same-origin only (browser blocks cross-origin)
     corsOrigins: (env.GSC_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     // O1-3: dev/test escape hatch for loopback ingestion; production must stay off
