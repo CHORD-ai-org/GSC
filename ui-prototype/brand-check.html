@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>brand check</title>
+<style>
+  :root{
+    --bg:#FFFFFF;--ink:#171717;
+    --brand-github:#181717;--brand-notion:#191919;--brand-googledrive:#1A73E8;
+    --brand-x:#000000;--brand-mimo:#FF6900;--brand-deepseek:#4D6BFE;
+    color-scheme:light;
+  }
+  [data-theme='dark']{
+    --bg:#0B0B0D;--ink:#ECECEF;
+    --brand-github:#ECECEF;--brand-notion:#ECECEF;--brand-googledrive:#8AB4F8;
+    --brand-x:#FFFFFF;--brand-mimo:#FF8A3D;--brand-deepseek:#8EA9FF;
+    color-scheme:dark;
+  }
+  body{margin:0;padding:40px;background:var(--bg);color:var(--ink);font:14px system-ui}
+  .row{display:flex;gap:32px;align-items:center;flex-wrap:wrap}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px}
+  .logo{display:inline-block;mask-size:contain;mask-repeat:no-repeat;mask-position:center;-webkit-mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;background:var(--ink)}
+  .logo[data-brand='github']{background:var(--brand-github)}
+  .logo[data-brand='notion']{background:var(--brand-notion)}
+  .logo[data-brand='googledrive']{background:var(--brand-googledrive)}
+  .logo[data-brand='x']{background:var(--brand-x)}
+  .logo[data-brand='mimo']{background:var(--brand-mimo)}
+  .logo[data-brand='deepseek']{background:var(--brand-deepseek)}
+</style>
+</head>
+<body>
+<h3>brand logos (mask + brand color)</h3>
+<div class="row" id="row"></div>
+<script>
+  const kinds = ['github','notion','googledrive','x','mimo','deepseek'];
+  const row = document.getElementById('row');
+  for (const k of kinds) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const logo = document.createElement('span');
+    logo.className = 'logo';
+    logo.dataset.brand = k;
+    logo.style.width = '48px';
+    logo.style.height = '48px';
+    logo.style.webkitMaskImage = `url(../public/brands/${k}.svg)`;
+    logo.style.maskImage = `url(../public/brands/${k}.svg)`;
+    const label = document.createElement('span');
+    label.textContent = k;
+    cell.appendChild(logo);
+    cell.appendChild(label);
+    row.appendChild(cell);
+  }
+</script>
+</body>
+</html>
