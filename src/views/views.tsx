@@ -1,7 +1,108 @@
 import { CommandBar } from '../app/CommandBar.tsx';
+import { useState } from 'react';
 import { ITEM_GLYPHS, ITEM_LABELS } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
+import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
+import { SOURCE_FREQUENCIES, SOURCE_KINDS } from '../lib/sources.ts';
 import styles from './views.module.css';
+
+const BRAND: Record<SourceKind, { letter: string; color: string }> = {
+  github: { letter: 'G', color: '#181717' },
+  notion: { letter: 'N', color: '#000000' },
+  drive: { letter: 'D', color: '#4285F4' },
+  x: { letter: 'X', color: '#000000' },
+};
+
+export function SyncView({
+  sources,
+  busy,
+  error,
+  onCreate,
+  onTogglePause,
+  onDelete,
+  onSync,
+  onFrequency,
+}: {
+  sources: SourceDTO[];
+  busy: boolean;
+  error: string;
+  onCreate: (body: { kind: SourceKind; label: string; scope: string; frequency: SourceFrequency; token: string }) => Promise<void>;
+  onTogglePause: (source: SourceDTO) => Promise<void>;
+  onDelete: (source: SourceDTO) => Promise<void>;
+  onSync: (source: SourceDTO) => Promise<void>;
+  onFrequency: (source: SourceDTO, frequency: SourceFrequency) => Promise<void>;
+}) {
+  const [kind, setKind] = useState<SourceKind>('github');
+  const [label, setLabel] = useState('');
+  const [scope, setScope] = useState('issues');
+  const [token, setToken] = useState('');
+
+  return (
+    <div className={styles.page}>
+      <h1 className={styles.pageTitle}>Sync</h1>
+      <p className={styles.pageSub}>连接外部信息源，持续采集进 GSC（Vision §3.2）。同步条目以 <code>sync:&lt;kind&gt;:&lt;ref&gt;</code> 来源标记进入原始信息。</p>
+
+      <div className={styles.section}>
+        <h2 className={styles.blockTitle}>连接信息源</h2>
+        <div className={styles.toolbar}>
+          <select className={styles.select} value={kind} onChange={(e) => setKind(e.target.value as SourceKind)}>
+            {SOURCE_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input className={styles.search} placeholder={kind === 'github' ? 'owner/repo' : '源标识（B3-1 待官方接入）'} value={label} onChange={(e) => setLabel(e.target.value)} />
+          <input className={styles.search} placeholder="同步范围（scope），如 issues" value={scope} onChange={(e) => setScope(e.target.value)} />
+          <input className={styles.search} type="password" placeholder="访问令牌（存本机 .data/secrets.json）" value={token} onChange={(e) => setToken(e.target.value)} />
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={busy || !label.trim()}
+            onClick={async () => {
+              await onCreate({ kind, label: label.trim(), scope, frequency: 'manual', token });
+              setLabel('');
+              setToken('');
+            }}
+          >
+            连接
+          </button>
+        </div>
+        <div className={styles.hint}>
+          v1 仅 GitHub 适配器可同步（issues → raw 条目，按 source_label 去重）。Notion / Drive / X 的官方接入（OAuth + 品牌素材）在 B3-1，需要凭据与外网。
+        </div>
+      </div>
+
+      {error ? <div className={styles.hint} style={{ color: 'var(--error)' }}>{error}</div> : null}
+
+      <div className={styles.section}>
+        <h2 className={styles.blockTitle}>已连接的源</h2>
+        {sources.length === 0 ? (
+          <div className={styles.emptyLine}>还没有连接任何源。在上方添加第一个。</div>
+        ) : sources.map((source) => (
+          <div key={source.id} className={styles.sourceCard}>
+            <div className={styles.sourceBadge} style={{ background: BRAND[source.kind].color }}>{BRAND[source.kind].letter}</div>
+            <div className={styles.sourceMain}>
+              <div className={styles.rowTitle}>{source.label} <span className={styles.rowType}>· {source.kind}</span></div>
+              <div className={styles.rowType}>
+                范围 {source.scope || '—'} · 状态 {source.status} · 上次同步 {source.last_sync_at ? source.last_sync_at.slice(0, 16).replace('T', ' ') : '从未'}
+                {source.last_error ? ` · 错误：${source.last_error}` : ''}
+              </div>
+            </div>
+            <select
+              className={styles.select}
+              value={source.frequency}
+              onChange={(e) => void onFrequency(source, e.target.value as SourceFrequency)}
+            >
+              {SOURCE_FREQUENCIES.map((f) => <option key={f} value={f}>{f === 'daily' ? '每日（调度在 C3-1）' : '手动'}</option>)}
+            </select>
+            <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void onSync(source)}>Sync now</button>
+            <button type="button" className={styles.secondaryButton} onClick={() => void onTogglePause(source)}>
+              {source.status === 'paused' ? '恢复' : '暂停'}
+            </button>
+            <button type="button" className={styles.removeButton} onClick={() => void onDelete(source)}>断开</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function CanvasView({
   items,
@@ -71,7 +172,7 @@ export function CanvasView({
   );
 }
 
-export function SyncView({
+export function ExportView({
   itemCount,
   contextCount,
   onExportJson,
@@ -129,8 +230,10 @@ export function DocsView() {
           <li><strong>Recently</strong> — 按时间分组的最近访问与修改。</li>
           <li><strong>Raw Information</strong> — 原始信息（文档 / 消息 / 证据 / 文件内容）列表与详情。</li>
           <li><strong>Structured Objects</strong> — 结构化对象（概念 / 假设 / 方法 / 决策 / 证据引用）。</li>
+          <li><strong>Clusters</strong> — 关联分组（多归属，显式成员）。</li>
           <li><strong>Contexts</strong> — 显式组装的知识上下文视图。</li>
-          <li><strong>Sync</strong> — 数据导出（JSON / Markdown / Claude Code·Codex 上下文）。</li>
+          <li><strong>Sync</strong> — 外部信息源连接与持续采集（GitHub issues 等）。</li>
+          <li><strong>Export</strong> — 数据导出（JSON / Markdown / Claude Code·Codex 上下文）。</li>
         </ul>
       </div>
 

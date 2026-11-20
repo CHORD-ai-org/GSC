@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import type { ContextIndexEntry } from './pages.tsx';
+import type { ClusterIndexEntry } from './detail.tsx';
 import { relativeTime } from '../lib/format.ts';
 import styles from './views.module.css';
 
@@ -132,6 +133,48 @@ export function ObjectCollection({
             <span className={styles.rowTitle}>{item.title}</span>
             <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {sourceCounts[item.id] ?? 0} sources</span>
             <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ClusterCollection({
+  clusters, onNew, onSelect,
+}: {
+  clusters: ClusterIndexEntry[];
+  onNew: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const rows = useMemo(
+    () => clusters.filter((c) => !q.trim()
+      || c.title.toLowerCase().includes(q.trim().toLowerCase())
+      || c.description.toLowerCase().includes(q.trim().toLowerCase())),
+    [clusters, q],
+  );
+  return (
+    <div className={styles.page}>
+      <PageHead
+        title="Clusters"
+        count={rows.length}
+        action={<button type="button" className={styles.primaryButton} onClick={onNew}>+ New Cluster</button>}
+      />
+      <p className={styles.pageSub}>Groups of related information — association, not a view.</p>
+      <div className={styles.toolbar}>
+        <input className={styles.search} placeholder="Find a cluster..." value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      <ListHeader cols={['Name', 'Description', 'Members · Updated']} />
+      <div className={styles.list}>
+        {rows.length === 0 ? (
+          <div className={styles.emptyLine}>No clusters yet. Use + New Cluster to group related Chunks.</div>
+        ) : rows.map((c) => (
+          <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
+            <span className={styles.rowGlyph}>CLU</span>
+            <span className={styles.rowTitle}>{c.title}</span>
+            <span className={styles.rowType}>{c.description || '—'}</span>
+            <span className={styles.rowTime}>{c.member_ids.length} members · {relativeTime(c.updated_at)}</span>
           </button>
         ))}
       </div>

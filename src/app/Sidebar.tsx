@@ -2,10 +2,10 @@ import { GscLogo } from '../components/GscLogo.tsx';
 import styles from './shell.module.css';
 
 export type ViewId =
-  | 'start' | 'overview' | 'recently' | 'raw' | 'objects'
-  | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas';
+  | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
+  | 'clusters' | 'contexts' | 'sync' | 'export' | 'settings' | 'docs' | 'canvas';
 
-type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'layers' | 'sync' | 'gear' | 'book';
+type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -20,10 +20,14 @@ function Icon({ name }: { name: IconName }) {
       return <svg {...common}><path d="M4 2h5l3 3v9H4z" /><path d="M9 2v3h3" /><path d="M6 8.5h4M6 11h4" /></svg>;
     case 'box':
       return <svg {...common}><path d="M8 2l5 2.6v5.8L8 13l-5-2.6V4.6z" /><path d="M3 4.6L8 7.2l5-2.6M8 7.2V13" /></svg>;
+    case 'cluster':
+      return <svg {...common}><circle cx="4.5" cy="5" r="2" /><circle cx="11.5" cy="5" r="2" /><circle cx="8" cy="11.5" r="2" /><path d="M6 6.2L7.2 9.7M10 6.2L8.8 9.7" /></svg>;
     case 'layers':
       return <svg {...common}><path d="M8 2l6 3-6 3-6-3z" /><path d="M2 8.6l6 3 6-3" /></svg>;
     case 'sync':
       return <svg {...common}><path d="M13 6.5A5.2 5.2 0 0 0 3.6 5.2" /><path d="M3 2.8v2.6h2.6" /><path d="M3 9.5a5.2 5.2 0 0 0 9.4 1.3" /><path d="M13 13.2v-2.6h-2.6" /></svg>;
+    case 'export':
+      return <svg {...common}><path d="M8 2.5v7M5 6.5l3 3 3-3" /><path d="M3 10.5v2h10v-2" /></svg>;
     case 'gear':
       return <svg {...common}><circle cx="8" cy="8" r="2.4" /><path d="M8 2.2v1.6M8 12.2v1.6M2.2 8h1.6M12.2 8h1.6M3.9 3.9l1.1 1.1M11 11l1.1 1.1M12.1 3.9L11 5M5 11l-1.1 1.1" /></svg>;
     case 'book':
@@ -44,8 +48,10 @@ const GROUPS: { label: string; items: NavEntry[] }[] = [
     { id: 'objects', label: 'Structured Objects', icon: 'box' },
   ] },
   { label: 'ORGANIZATION', items: [
+    { id: 'clusters', label: 'Clusters', icon: 'cluster' },
     { id: 'contexts', label: 'Contexts', icon: 'layers' },
     { id: 'sync', label: 'Sync', icon: 'sync' },
+    { id: 'export', label: 'Export', icon: 'export' },
   ] },
 ];
 

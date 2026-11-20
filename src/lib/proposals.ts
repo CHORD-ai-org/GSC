@@ -4,6 +4,8 @@ export const PROPOSAL_KINDS = [
   'meta_tag',
   'association',
   'cluster',
+  'dedupe',
+  'metadata',
 ] as const;
 
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
@@ -46,6 +48,11 @@ function nonEmptyString(value: unknown): value is string {
 
 export function isProposalKind(value: unknown): value is ProposalKind {
   return typeof value === 'string' && (PROPOSAL_KINDS as readonly string[]).includes(value);
+}
+
+/** Kinds whose acceptance writes data today (D-054). The rest are review-marked only. */
+export function isApplicableProposalKind(kind: ProposalKind): boolean {
+  return kind === 'semantic_name' || kind === 'association' || kind === 'cluster';
 }
 
 export function validateCreateProposalBody(value: unknown): value is CreateProposalBody {

@@ -2,9 +2,12 @@ import type { ReactNode } from 'react';
 import { Button, Subhead } from '../components/ui.tsx';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
 import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
+import type { ClusterDTO } from '../lib/clusters.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import styles from './views.module.css';
+
+export type ClusterIndexEntry = ClusterDTO & { member_ids: string[] };
 
 const fieldLabels: Record<string, string> = {
   content_text: 'Content', author: 'Author', locator: 'Locator', filename: 'Filename',
@@ -289,6 +292,75 @@ export function ObjectDetailView({
           <span className={styles.kvValue}>{event.actor} · {event.action} — {event.detail}</span>
         </div>
       ))}
+    </DetailShell>
+  );
+}
+
+export function ClusterDetailView({
+  detail, items, onBack, onEdit, onDelete, onAdd, onRemove, onOpenItem,
+}: {
+  detail?: ClusterIndexEntry;
+  items: ItemDTO[];
+  onBack: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onAdd: (itemId: string) => void;
+  onRemove: (itemId: string) => void;
+  onOpenItem: (id: string) => void;
+}) {
+  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>Loading…</div></div>;
+  const candidates = items.filter((item) => !detail.member_ids.includes(item.id));
+  return (
+    <DetailShell
+      kicker={`Cluster · ${detail.id}`}
+      title={detail.title}
+      onBack={onBack}
+      actions={<><Button small onClick={onEdit}>Edit</Button><Button small onClick={onDelete}>Delete</Button></>}
+    >
+      <Block title="Cluster Definition">
+        <div className={styles.kv}>
+          <div className={styles.kvRow}>
+            <span className={styles.kvLabel}>TITLE</span>
+            <span className={styles.kvValue}>{detail.title}</span>
+          </div>
+          <div className={styles.kvRow}>
+            <span className={styles.kvLabel}>DESCRIPTION</span>
+            <span className={styles.kvValue}>{detail.description || '—'}</span>
+          </div>
+        </div>
+        <div className={styles.hint}>A Cluster is an association structure. It owns no content; members keep their own identity and provenance.</div>
+      </Block>
+
+      <Block title="Members">
+        <div className={styles.list}>
+          {detail.member_ids.length === 0 ? (
+            <div className={styles.emptyLine}>No members yet. Use Add Items below.</div>
+          ) : detail.member_ids.map((id) => {
+            const item = items.find((x) => x.id === id);
+            return (
+              <div className={styles.listRow} key={id}>
+                <span className={styles.rowGlyph}>{item ? ITEM_GLYPHS[item.type] : '??'}</span>
+                <button type="button" className={styles.linkButton} onClick={() => onOpenItem(id)}>
+                  {item?.title ?? id}
+                </button>
+                <span className={styles.rowType}>{item ? ITEM_LABELS[item.type] : id}</span>
+                <button type="button" className={styles.removeButton} onClick={() => onRemove(id)}>Remove</button>
+              </div>
+            );
+          })}
+        </div>
+        <div className={styles.addRow}>
+          <select className={styles.settingInput} id="cluster-add-picker" defaultValue="">
+            <option value="">+ Add Items — select a Chunk —</option>
+            {candidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+          <Button small onClick={() => {
+            const picker = document.getElementById('cluster-add-picker') as HTMLSelectElement | null;
+            if (picker?.value) { onAdd(picker.value); picker.value = ''; }
+          }}>Add</Button>
+        </div>
+        <div className={styles.hint}>Explicit membership; a Chunk may belong to multiple Clusters.</div>
+      </Block>
     </DetailShell>
   );
 }

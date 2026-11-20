@@ -20,10 +20,12 @@ export function StartView({
   onSubmit,
   onCanvas,
   onOpenFile,
+  onLightUp,
 }: {
   onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
   onCanvas: () => void;
   onOpenFile: () => void;
+  onLightUp: () => void;
 }) {
   return (
     <div className={styles.overview}>
@@ -33,6 +35,10 @@ export function StartView({
         <Composer onSubmit={onSubmit} />
       </div>
       <div className={styles.quickActions}>
+        <button type="button" className={styles.quickButton} onClick={onLightUp}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 2.5v7M5 6l3-3.5L11 6" /><path d="M3 10.5v2h10v-2" /></svg>
+          Light Up
+        </button>
         <button type="button" className={styles.quickButton} onClick={onCanvas}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
           画布预览
@@ -52,16 +58,20 @@ export function StartView({
 export function OverviewPage({
   items,
   contexts,
+  clusters,
   onNew,
   onOpenItem,
   onOpenContext,
+  onOpenCluster,
   onSeeAll,
 }: {
   items: ItemDTO[];
   contexts: ContextIndexEntry[];
+  clusters: (ContextIndexEntry | { id: string; title: string; description: string; created_at: string; updated_at: string; member_ids: string[] })[];
   onNew: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
+  onOpenCluster: (id: string) => void;
   onSeeAll: () => void;
 }) {
   const rawCount = items.filter((i) => i.type.startsWith('raw.')).length;
@@ -69,6 +79,10 @@ export function OverviewPage({
   const recent = useMemo(
     () => [...items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 6),
     [items],
+  );
+  const recentClusters = useMemo(
+    () => [...clusters].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4),
+    [clusters],
   );
   const recentContexts = useMemo(
     () => [...contexts].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4),
@@ -108,6 +122,22 @@ export function OverviewPage({
               <span className={styles.rowTitle}>{item.title}</span>
               <span className={styles.rowType}>{ITEM_LABELS[item.type]}</span>
               <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title="Existing Clusters" count={`${clusters.length}`} />
+        <div className={styles.list}>
+          {recentClusters.length === 0 ? (
+            <div className={styles.emptyLine}>No clusters yet. Group related Chunks from Clusters.</div>
+          ) : recentClusters.map((c) => (
+            <button key={c.id} type="button" className={styles.listRow} onClick={() => onOpenCluster(c.id)}>
+              <span className={styles.rowGlyph}>CLU</span>
+              <span className={styles.rowTitle}>{c.title}</span>
+              <span className={styles.rowType}>{c.member_ids.length} members</span>
+              <span className={styles.rowTime}>{relativeTime(c.updated_at)}</span>
             </button>
           ))}
         </div>

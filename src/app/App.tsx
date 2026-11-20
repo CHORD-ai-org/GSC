@@ -4,11 +4,15 @@ import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewId } from './Sidebar.tsx';
-import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
+import { CanvasView, DocsView, ExportView, SyncView } from '../views/views.tsx';
+import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pages.tsx';
 import type { ContextIndexEntry } from '../views/pages.tsx';
-import { ContextCollection, ObjectCollection, RawCollection } from '../views/collections.tsx';
-import { ContextDetailView, ObjectDetailView, RawDetailView } from '../views/detail.tsx';
+import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
+import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
+import type { ClusterIndexEntry } from '../views/detail.tsx';
+import { LightUpView } from '../views/lightup.tsx';
+import type { SegmentRow } from '../views/lightup.tsx';
 import {
   DOMAINS,
   ITEM_LABELS,
@@ -35,7 +39,7 @@ import * as api from '../services/api.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
 import styles from './app.module.css';
 
-type Panel = 'none' | 'new' | 'edit' | 'link' | 'new-context' | 'edit-context';
+type Panel = 'none' | 'new' | 'edit' | 'link' | 'new-context' | 'edit-context' | 'new-cluster' | 'edit-cluster';
 
 const fieldLabels: Record<string, string> = {
   content_text: 'Content', author: 'Author', locator: 'Locator', filename: 'Filename',
@@ -64,6 +68,8 @@ export default function App() {
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
+  const [clusters, setClusters] = useState<ClusterIndexEntry[]>([]);
+  const [clusterId, setClusterId] = useState('');
   const [relationIndex, setRelationIndex] = useState<Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }>>({});
   const [visits, setVisits] = useState<Record<string, string | undefined>>(() => visitMap());
   const [selectedId, setSelectedId] = useState<string>('');
@@ -76,6 +82,9 @@ export default function App() {
   const [canvasQuery, setCanvasQuery] = useState('');
   const [canvasPreviewing, setCanvasPreviewing] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [lightupBusy, setLightupBusy] = useState(false);
+  const [sources, setSources] = useState<SourceDTO[]>([]);
+  const [sourceBusy, setSourceBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -89,6 +98,17 @@ export default function App() {
     setContexts(entries);
   }, []);
 
+  const loadClusterIndex = useCallback(async () => {
+    const list = await api.listClusters();
+    const entries = await Promise.all(list.clusters.map(async (c) => (await api.getCluster(c.id)).cluster));
+    setClusters(entries);
+  }, []);
+
+  const loadSources = useCallback(async () => {
+    const list = await api.listSources();
+    setSources(list.sources);
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     const result = await api.getItem(id);
     setDetail(result);
@@ -96,6 +116,8 @@ export default function App() {
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => { void loadContextIndex(); }, [loadContextIndex]);
+  useEffect(() => { void loadClusterIndex(); }, [loadClusterIndex]);
+  useEffect(() => { void loadSources(); }, [loadSources]);
   useEffect(() => {
     if (!selectedId) { setDetail(undefined); return; }
     void loadDetail(selectedId);
@@ -144,6 +166,7 @@ export default function App() {
 
   const selected = detail?.item;
   const selectedContext = contexts.find((c) => c.id === contextId);
+  const selectedCluster = clusters.find((c) => c.id === clusterId);
 
   function updatePrefs(next: UiPrefs) {
     setPrefs(next);
@@ -290,6 +313,61 @@ export default function App() {
     setForm({ title: 'Knowledge Context', subject: '', scope: '', purpose: '' });
   }
 
+  function openNewCluster() {
+    setPanel('new-cluster');
+    setForm({ title: '', description: '' });
+  }
+
+  function openEditCluster() {
+    const c = selectedCluster;
+    if (!c) return;
+    setPanel('edit-cluster');
+    setForm({ title: c.title, description: c.description });
+  }
+
+  async function saveCluster() {
+    try {
+      setError('');
+      const body = { title: form.title, description: form.description };
+      const result = panel === 'edit-cluster' && clusterId
+        ? await api.updateCluster(clusterId, body)
+        : await api.createCluster(body);
+      if (!result.cluster) throw new Error('Unexpected cluster response');
+      const saved = result.cluster;
+      setPanel('none');
+      setClusterId(saved.id);
+      await loadClusterIndex();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Cluster save failed');
+    }
+  }
+
+  async function changeClusterMember(action: 'add' | 'remove', itemId: string) {
+    if (!clusterId) return;
+    try {
+      setError('');
+      await (action === 'add'
+        ? api.addClusterMember(clusterId, itemId)
+        : api.removeClusterMember(clusterId, itemId));
+      await loadClusterIndex();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Member update failed');
+    }
+  }
+
+  async function deleteSelectedCluster() {
+    if (!selectedCluster) return;
+    if (!window.confirm('Delete this cluster? Members keep their own content.')) return;
+    try {
+      setError('');
+      await api.deleteCluster(selectedCluster.id);
+      setClusterId('');
+      await loadClusterIndex();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
+
   function openEditContext() {
     const c = selectedContext;
     if (!c) return;
@@ -387,6 +465,38 @@ export default function App() {
     return { details, contexts, exportedAt: new Date().toISOString() };
   }
 
+  async function persistSegments(rows: SegmentRow[], sourceLabel: string) {
+    setLightupBusy(true);
+    try {
+      setError('');
+      let firstId = '';
+      for (const row of rows) {
+        const fields: ItemFields = { content_text: row.content };
+        if (row.type === 'raw.message') fields.author = row.author || 'extracted';
+        if (row.type === 'raw.evidence') fields.locator = row.locator || sourceLabel;
+        if (row.type === 'raw.filecontent') fields.filename = row.title;
+        const result = await api.createItem({
+          type: row.type,
+          title: row.title || 'Untitled',
+          domain: 'knowledge',
+          origin: 'user',
+          source_label: sourceLabel,
+          fields,
+        });
+        if (!firstId && result.item) firstId = result.item.id;
+      }
+      await refresh();
+      if (firstId) {
+        selectItem(firstId);
+        go('raw');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Light Up failed');
+    } finally {
+      setLightupBusy(false);
+    }
+  }
+
   async function runExport(build: (source: ExportSource) => { filename: string; mime: string; content: string }) {
     setSyncBusy(true);
     try {
@@ -396,6 +506,64 @@ export default function App() {
       setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setSyncBusy(false);
+    }
+  }
+
+  async function createSourceEntry(body: { kind: SourceKind; label: string; scope: string; frequency: SourceFrequency; token: string }) {
+    setSourceBusy(true);
+    try {
+      setError('');
+      await api.createSource(body);
+      await loadSources();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connect failed');
+    } finally {
+      setSourceBusy(false);
+    }
+  }
+
+  async function toggleSourcePause(source: SourceDTO) {
+    try {
+      setError('');
+      await api.updateSource(source.id, { status: source.status === 'paused' ? 'connected' : 'paused' });
+      await loadSources();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Update failed');
+    }
+  }
+
+  async function removeSourceEntry(source: SourceDTO) {
+    if (!window.confirm(`断开 ${source.label}？已同步的条目保留。`)) return;
+    try {
+      setError('');
+      await api.deleteSource(source.id);
+      await loadSources();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Disconnect failed');
+    }
+  }
+
+  async function syncSourceEntry(source: SourceDTO) {
+    setSourceBusy(true);
+    try {
+      setError('');
+      await api.syncSource(source.id);
+      await loadSources();
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sync failed');
+      await loadSources();
+    } finally {
+      setSourceBusy(false);
+    }
+  }
+
+  async function setSourceFrequency(source: SourceDTO, frequency: SourceFrequency) {
+    try {
+      await api.updateSource(source.id, { frequency });
+      await loadSources();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Update failed');
     }
   }
 
@@ -455,9 +623,25 @@ export default function App() {
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
     return kind === 'raw' ? (
-      <RawCollection items={items} onNew={() => openNew('raw.document')} onSelect={selectItem} />
+      <RawCollection items={items} onNew={() => go('lightup')} onSelect={selectItem} />
     ) : (
       <ObjectCollection items={items} sourceCounts={sourceCounts} onNew={() => openNew('object.concept')} onSelect={selectItem} />
+    );
+  }
+
+  function renderLightUpManual() {
+    return (
+      <NewForm
+        type={newType}
+        form={form}
+        items={items}
+        error={error}
+        onType={(t) => { setNewType(t); setForm((f) => ({ ...f, status: statusesFor(t)[0] })); }}
+        onField={setField}
+        onFile={onFile}
+        onCancel={() => go('raw')}
+        onSave={() => void saveNew()}
+      />
     );
   }
 
@@ -469,6 +653,7 @@ export default function App() {
             onSubmit={submitComposer}
             onCanvas={() => go('canvas')}
             onOpenFile={() => fileInputRef.current?.click()}
+            onLightUp={() => go('lightup')}
           />
         );
       case 'overview':
@@ -476,9 +661,11 @@ export default function App() {
           <OverviewPage
             items={items}
             contexts={contexts}
-            onNew={() => openNew('raw.document')}
+            clusters={clusters}
+            onNew={() => go('lightup')}
             onOpenItem={openItemInPage}
             onOpenContext={openContextInPage}
+            onOpenCluster={(id) => { setClusterId(id); markVisited(id); go('clusters'); }}
             onSeeAll={() => go('raw')}
           />
         );
@@ -496,6 +683,47 @@ export default function App() {
         return renderItemPage('raw');
       case 'objects':
         return renderItemPage('objects');
+      case 'lightup':
+        return (
+          <LightUpView
+            manualContent={renderLightUpManual()}
+            onPreviewUrl={async (u) => {
+              const result = await api.ingestUrl(u);
+              return { title: result.title, text: result.text, url: result.url };
+            }}
+            onSubmitRows={persistSegments}
+            busy={lightupBusy}
+            error={error}
+          />
+        );
+      case 'clusters':
+        if (panel === 'new-cluster' || panel === 'edit-cluster') {
+          return formPage(
+            <ClusterForm
+              form={form}
+              error={error}
+              editing={panel === 'edit-cluster'}
+              onField={setField}
+              onCancel={() => setPanel('none')}
+              onSave={() => void saveCluster()}
+            />,
+          );
+        }
+        if (clusterId) {
+          return (
+            <ClusterDetailView
+              detail={selectedCluster}
+              items={items}
+              onBack={() => setClusterId('')}
+              onEdit={openEditCluster}
+              onDelete={() => void deleteSelectedCluster()}
+              onAdd={(id) => void changeClusterMember('add', id)}
+              onRemove={(id) => void changeClusterMember('remove', id)}
+              onOpenItem={openItemInPage}
+            />
+          );
+        }
+        return <ClusterCollection clusters={clusters} onNew={openNewCluster} onSelect={(id) => { setClusterId(id); markVisited(id); }} />;
       case 'contexts':
         if (panel === 'new-context' || panel === 'edit-context') {
           return formPage(
@@ -532,7 +760,7 @@ export default function App() {
             selectedId={selectedId}
             panelOpen={canvasPreviewing}
             onTogglePanel={() => setCanvasPreviewing((v) => !v)}
-            onNew={() => { go('raw'); openNew('raw.document'); }}
+            onNew={() => { go('lightup'); }}
             onOpenFile={() => fileInputRef.current?.click()}
             onPreview={() => setCanvasPreviewing(true)}
             previewing={canvasPreviewing}
@@ -542,6 +770,19 @@ export default function App() {
       case 'sync':
         return (
           <SyncView
+            sources={sources}
+            busy={sourceBusy}
+            error={error}
+            onCreate={createSourceEntry}
+            onTogglePause={toggleSourcePause}
+            onDelete={removeSourceEntry}
+            onSync={syncSourceEntry}
+            onFrequency={setSourceFrequency}
+          />
+        );
+      case 'export':
+        return (
+          <ExportView
             itemCount={items.length}
             contextCount={contexts.length}
             onExportJson={() => void runExport(buildJsonExport)}
@@ -746,6 +987,31 @@ function Linker({
         <Button primary onClick={onSave}>Save relation</Button>
         <Button onClick={onCancel}>Cancel</Button>
       </div>
+    </>
+  );
+}
+
+function ClusterForm({
+  form, error, editing, onField, onCancel, onSave,
+}: {
+  form: Record<string, string>;
+  error: string;
+  editing: boolean;
+  onField: (key: string, value: string) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <>
+      <SectionLabel title={editing ? 'Edit cluster' : 'New cluster'} />
+      {error ? <div className={styles.error}>{error}</div> : null}
+      <Field label="Title"><input value={form.title ?? ''} onChange={(e) => onField('title', e.target.value)} /></Field>
+      <Field label="Description"><textarea value={form.description ?? ''} onChange={(e) => onField('description', e.target.value)} rows={3} /></Field>
+      <div className={styles.formActions}>
+        <Button primary onClick={onSave}>Save</Button>
+        <Button onClick={onCancel}>Cancel</Button>
+      </div>
+      <div className={styles.note}>A Cluster groups related Chunks. Members are added after creation; a Chunk may belong to multiple Clusters.</div>
     </>
   );
 }
