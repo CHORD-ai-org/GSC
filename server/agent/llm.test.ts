@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatComplete, extractJson } from './llm.ts';
+import { chatComplete, extractJson, LlmError } from './llm.ts';
 import { readConfig } from '../config.ts';
 
 function stubFetch(handler: (url: string, init?: RequestInit) => { status?: number; body: unknown }) {
@@ -64,5 +64,65 @@ describe('MiMo LLM adapter (OpenAI-compatible)', () => {
     expect(extractJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('Here you go: {"b":[2]} hope that helps')).toEqual({ b: [2] });
     expect(() => extractJson('no json here')).toThrow(/No JSON/);
+  });
+});
+
+describe('LLM reliability (INTEGRATION_HARDENING P0-A)', () => {
+  const fast = readConfig({
+    GSC_LLM_API_KEY: 'k',
+    GSC_LLM_BASE_URL: 'https://token-plan-cn.xiaomimimo.com/v1',
+    GSC_LLM_RETRY_BASE_MS: '1',
+    GSC_LLM_TIMEOUT_MS: '60',
+    GSC_LLM_MAX_RETRIES: '2',
+  });
+
+  it('times out a hung provider call and reports a retryable timeout', async () => {
+    const hung = async () => new Promise<Response>(() => { /* never settles */ });
+    await expect(chatComplete(fast, [{ role: 'user', content: 'x' }], hung)).rejects.toMatchObject({
+      name: 'LlmError',
+      kind: 'timeout',
+      retryable: true,
+    });
+  });
+
+  it('retries transient 429 then succeeds', async () => {
+    let n = 0;
+    const fetchImpl = async () => {
+      n += 1;
+      if (n === 1) return new Response(JSON.stringify({ error: 'rate' }), { status: 429, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ model: 'm', choices: [{ message: { content: 'ok' } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const result = await chatComplete(fast, [{ role: 'user', content: 'x' }], fetchImpl);
+    expect(result.content).toBe('ok');
+    expect(n).toBe(2);
+  });
+
+  it('does not retry a non-retryable auth failure', async () => {
+    let n = 0;
+    const fetchImpl = async () => {
+      n += 1;
+      return new Response(JSON.stringify({ error: 'bad key' }), { status: 401, headers: { 'content-type': 'application/json' } });
+    };
+    await expect(chatComplete(fast, [], fetchImpl)).rejects.toMatchObject({ kind: 'auth', retryable: false });
+    expect(n).toBe(1);
+  });
+
+  it('captures provider token usage for cost accounting', async () => {
+    const { fetchImpl } = stubFetch(() => ({
+      body: {
+        model: 'mimo-v2.6-pro',
+        choices: [{ message: { content: '{}' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 7, total_tokens: 19 },
+      },
+    }));
+    const result = await chatComplete(MIMO, [], fetchImpl);
+    expect(result.usage).toEqual({ prompt_tokens: 12, completion_tokens: 7, total_tokens: 19 });
+  });
+
+  it('exposes a typed LlmError', () => {
+    const err = new LlmError('rate_limited', 'slow down', true, 429);
+    expect(err.kind).toBe('rate_limited');
+    expect(err.retryable).toBe(true);
+    expect(err.status).toBe(429);
   });
 });

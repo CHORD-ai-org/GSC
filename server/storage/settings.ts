@@ -78,3 +78,30 @@ export function llmPublicConfig(base: Config, dataDir: string): {
     key_hint: key ? `${key.slice(0, 4)}…${key.slice(-4)}` : '',
   };
 }
+
+/* T103 local account: the first created user is bound as the local account.
+   owner_id on writes resolves through this binding instead of DEFAULT_USER_ID. */
+export function readLocalUserId(dataDir: string): string | undefined {
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath(dataDir), 'utf8')) as Record<string, unknown>;
+    return typeof parsed.local_user_id === 'string' && parsed.local_user_id ? parsed.local_user_id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeLocalUserId(dataDir: string, userId: string): void {
+  mkdirSync(dataDir, { recursive: true });
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(readFileSync(settingsPath(dataDir), 'utf8')) as Record<string, unknown>; } catch { /* fresh */ }
+  parsed.local_user_id = userId;
+  writeFileSync(settingsPath(dataDir), JSON.stringify(parsed, null, 2));
+}
+
+export function clearLocalUserId(dataDir: string): void {
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath(dataDir), 'utf8')) as Record<string, unknown>;
+    delete parsed.local_user_id;
+    writeFileSync(settingsPath(dataDir), JSON.stringify(parsed, null, 2));
+  } catch { /* nothing to clear */ }
+}

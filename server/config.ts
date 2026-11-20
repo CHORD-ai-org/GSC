@@ -1,5 +1,10 @@
 import { resolve } from 'node:path';
 
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
 export type Config = {
   port: number;
   dbAdapter: 'pglite';
@@ -8,6 +13,9 @@ export type Config = {
   llmBaseUrl: string;
   llmApiKey: string;
   llmModel: string;
+  llmTimeoutMs: number;
+  llmMaxRetries: number;
+  llmRetryBaseMs: number;
   corsOrigins: string[];
   allowPrivateIngest: boolean;
   authRequired: boolean;
@@ -30,6 +38,11 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://token-plan-cn.xiaomimimo.com/v1',
     llmApiKey: env.GSC_LLM_API_KEY ?? '',
     llmModel: env.GSC_LLM_MODEL ?? 'mimo-v2.6-flash',
+    // INTEGRATION_HARDENING P0-A: bound every provider call (no hung requests)
+    // and retry transient failures with exponential backoff.
+    llmTimeoutMs: positiveInt(env.GSC_LLM_TIMEOUT_MS, 30000),
+    llmMaxRetries: positiveInt(env.GSC_LLM_MAX_RETRIES, 2),
+    llmRetryBaseMs: positiveInt(env.GSC_LLM_RETRY_BASE_MS, 400),
     // O1-7: explicit CORS allowlist; empty = same-origin only (browser blocks cross-origin)
     corsOrigins: (env.GSC_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     // O1-3: dev/test escape hatch for loopback ingestion; production must stay off
