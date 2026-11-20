@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: 商业产品级 eval 已做（`EVAL_PLAN_EXECUTION.md`，总分 4.0/5）。P1 三项待修：畸形 JSON→502、鉴权状态码 401/403、Detector O(n²)。plans/ 全部 A/B 段执行完毕。
+> Status: `GLOBAL_OPTIMIZATION_PLAN.md` 已制定（PROPOSED，O1–O5 / M1–M4，后端商用化优先）。等用户答 3 个待决策后开工 M1。
 
 ## User approvals received 2026-11-16
 
