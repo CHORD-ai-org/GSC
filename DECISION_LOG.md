@@ -517,3 +517,11 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** psychological inference over all chunks (rejected — explicitly out of boundary); output all tags (rejected — leaks unrelated dimensions).
 - **Consequences:** profile endpoint is the contract for PLAN-6 consumers; Detector-style tag suggestions are C8-1 only.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行08".
+
+## D-067 — Global optimization plan staged as O1–O5 (backend commercialization first)
+
+- **Decision:** `GLOBAL_OPTIMIZATION_PLAN.md` defines "commercially deployable" as five gates (correct/secure/observable/operable/regressible) and stages the work M1 hardening → M2 observability+CI → M3 deployment-ready → M4 release gate. Backend hardening (O1, incl. error semantics, SSRF guard, transactions, rate limiting) takes priority over frontend polish.
+- **Reasoning:** eval (4.0/5) found all blockers on the "commercial runtime" surfaces — error semantics, scale, data-safety ops — not on features. Code sweep confirmed zero lint/transactions/logging/health/CORS and open SSRF on URL ingest.
+- **Alternatives:** feature-first continuation (rejected — commercial bar is the ask); big-bang rewrite (rejected — evidence-based incremental tasks).
+- **Consequences:** plan is `PROPOSED`; three open choices (Postgres deployment form, secrets encryption method, CI carrier) gate O2-5/O1-6/O3-3.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "制定全局优化计划" (documentation only; contents stay PROPOSED).
