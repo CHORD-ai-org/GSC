@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ITEM_LABELS, RAW_TYPES } from '../lib/items.ts';
 import type { ItemType } from '../lib/items.ts';
 import { SemTag } from './SemTag.tsx';
+import { useT } from '../lib/i18n.tsx';
 import styles from '../views/lightup.module.css';
 
 export type SheetStatus = 'ready' | 'accepted' | 'edited' | 'rejected' | 'deferred';
@@ -57,6 +58,7 @@ export function SemanticObjectSheet({
   onMergeToggle: () => void;
   mergePicked: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [tagDim, setTagDim] = useState(tagDimensions[0] ?? 'Interest');
@@ -77,20 +79,20 @@ export function SemanticObjectSheet({
           value={sheet.title}
           onChange={(e) => onPatch({ title: e.target.value, nameOrigin: 'user' })}
           onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
-          placeholder="Semantic Name"
-          aria-label="Semantic Name"
+          placeholder={t('detail.semanticIdentity')}
+          aria-label={t('detail.semanticIdentity')}
         />
-        <SemTag kind={nameState} label={nameState === 'confirmed' ? '已命名' : '机器建议'} />
+        <SemTag kind={nameState} label={nameState === 'confirmed' ? t('sheet.named') : t('sheet.machineName')} />
       </div>
 
       <div className={styles.sheetMeta}>
-        <select value={sheet.type} onChange={(e) => onPatch({ type: e.target.value as ItemType })} aria-label="Information type">
+        <select value={sheet.type} onChange={(e) => onPatch({ type: e.target.value as ItemType })} aria-label={t('sheet.type')}>
           {RAW_TYPES.map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
         </select>
         {sheet.type === 'raw.message' ? (
           <input
             value={sheet.author}
-            placeholder="author"
+            placeholder={t('detail.origin')}
             onChange={(e) => onPatch({ author: e.target.value })}
             aria-label="Author"
           />
@@ -105,31 +107,31 @@ export function SemanticObjectSheet({
         ) : null}
         <SemTag kind="original" />
         <span className={styles.prov}>
-          {sheet.start !== undefined ? `source ${sheet.start}–${sheet.end}` : 'no precise source ref'}
+          {sheet.start !== undefined ? t('sheet.sourceSpan', { start: sheet.start ?? 0, end: sheet.end ?? 0 }) : t('sheet.noSourceRef')}
         </span>
       </div>
 
-      <div className={`${styles.excerpt} ${open ? styles.excerptOpen : ''}`} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} title={open ? '收起' : '展开全文'}>
+      <div className={`${styles.excerpt} ${open ? styles.excerptOpen : ''}`} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} title={open ? t('sheet.collapse') : t('sheet.expand')}>
         {open ? sheet.content : `${sheet.content.slice(0, 280)}${sheet.content.length > 280 ? '…' : ''}`}
       </div>
 
       <div className={styles.tagRow} onClick={(e) => e.stopPropagation()}>
-        {sheet.tags.map((t, i) => (
-          <span className={styles.tagChip} key={`${t.dim}-${i}`}>
-            <b>{t.dim}</b> {t.value}
-            <button type="button" aria-label="Remove tag" onClick={() => onPatch({ tags: sheet.tags.filter((_, j) => j !== i) })}>×</button>
+        {sheet.tags.map((tag, i) => (
+          <span className={styles.tagChip} key={`${tag.dim}-${i}`}>
+            <b>{tag.dim}</b> {tag.value}
+            <button type="button" aria-label={t('tags.remove')} onClick={() => onPatch({ tags: sheet.tags.filter((_, j) => j !== i) })}>×</button>
           </span>
         ))}
         {!tagOpen ? (
-          <button type="button" className={styles.tagAdd} onClick={() => setTagOpen(true)}>+ Tag</button>
+          <button type="button" className={styles.tagAdd} onClick={() => setTagOpen(true)}>+ {t('overview.metaTags')}</button>
         ) : (
           <span className={styles.tagAddRow}>
-            <select value={tagDim} onChange={(e) => setTagDim(e.target.value)} aria-label="Tag dimension">
+            <select value={tagDim} onChange={(e) => setTagDim(e.target.value)} aria-label={t('overview.dimension')}>
               {tagDimensions.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <input
               value={tagValue}
-              placeholder="取值"
+              placeholder={t('sheet.tagValue')}
               onChange={(e) => setTagValue(e.target.value)}
               aria-label="Tag value"
             />
@@ -143,9 +145,9 @@ export function SemanticObjectSheet({
                 setTagOpen(false);
               }}
             >
-              加
+              {t('tags.ok')}
             </button>
-            <button type="button" className={styles.ghost} onClick={() => setTagOpen(false)}>取消</button>
+            <button type="button" className={styles.ghost} onClick={() => setTagOpen(false)}>{t('common.cancel')}</button>
           </span>
         )}
       </div>
@@ -153,24 +155,24 @@ export function SemanticObjectSheet({
       <div className={styles.sheetActions} onClick={(e) => e.stopPropagation()}>
         {sheet.status === 'rejected' || sheet.status === 'deferred' ? (
           <>
-            <span className={styles.stateNote}>{sheet.status === 'rejected' ? '已拒绝 — 不会入库' : '已延后 — 未决'}</span>
-            <button type="button" className={styles.action} onClick={onRestore}>恢复</button>
+            <span className={styles.stateNote}>{sheet.status === 'rejected' ? t('sheet.rejectedNote') : t('sheet.deferredNote')}</span>
+            <button type="button" className={styles.action} onClick={onRestore}>{t('common.restore')}</button>
           </>
         ) : (
           <>
             <button type="button" className={`${styles.action} ${styles.accept}`} onClick={onAccept}>
-              {sheet.status === 'accepted' || sheet.status === 'edited' ? '✓ 已采纳' : '采纳'}
+              {sheet.status === 'accepted' || sheet.status === 'edited' ? t('sheet.accepted') : t('common.accept')}
             </button>
-            <button type="button" className={styles.action} onClick={onDefer}>延后</button>
-            <button type="button" className={`${styles.action} ${styles.reject}`} onClick={onReject}>拒绝</button>
-            <button type="button" className={styles.action} onClick={onSplit}>拆分</button>
+            <button type="button" className={styles.action} onClick={onDefer}>{t('common.defer')}</button>
+            <button type="button" className={`${styles.action} ${styles.reject}`} onClick={onReject}>{t('common.reject')}</button>
+            <button type="button" className={styles.action} onClick={onSplit}>{t('common.split')}</button>
             <button type="button" className={styles.action} onClick={onMergeToggle}>
-              {mergePicked ? '✓ 待合并' : '合并'}
+              {mergePicked ? t('sheet.mergePick') : t('common.merge')}
             </button>
           </>
         )}
         {!canPersist ? null : sheet.persistError ? (
-          <span className={`${styles.stateNote} ${styles.bad}`}>入库失败：{sheet.persistError}（可重试）</span>
+          <span className={`${styles.stateNote} ${styles.bad}`}>{t('sheet.persistFail', { msg: sheet.persistError })}</span>
         ) : null}
       </div>
     </article>

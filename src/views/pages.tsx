@@ -1,20 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Composer } from '../app/Composer.tsx';
+import { NewsPanel } from '../components/NewsPanel.tsx';
 import { GscLogo } from '../components/GscLogo.tsx';
 import { SectionLabel } from '../components/ui.tsx';
+import { BrandLogo } from '../components/BrandLogo.tsx';
+import type { BrandKind } from '../components/BrandLogo.tsx';
+import { useToast } from '../components/Toast.tsx';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
 import { ANIMATION_QUALITIES, QUALITY_LABELS, THEMES } from '../lib/prefs.ts';
 import type { AnimationQuality, ThemeMode } from '../lib/prefs.ts';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import type { ContextDTO } from '../lib/contexts.ts';
-import { TIME_GROUPS, relativeTime, timeGroup } from '../lib/format.ts';
+import { TIME_GROUPS, TIME_GROUP_KEYS, timeGroup } from '../lib/format.ts';
 import type { TimeGroup } from '../lib/format.ts';
 import { buildActivityDays } from '../lib/activity.ts';
 import { ActivityMap } from '../components/ActivityMap.tsx';
 import { SemLegend } from '../components/SemTag.tsx';
 import type { ReactNode } from 'react';
+import { useI18n, useRelativeTime, useT } from '../lib/i18n.tsx';
+import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
+import { GridCard } from './collections.tsx';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
+import type { LlmPublicConfig } from '../services/api.ts';
 import styles from './views.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
@@ -32,10 +40,12 @@ export function StartView({
   onOpenFile: () => void;
   onLightUp: () => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.overview}>
+      <NewsPanel />
       <GscLogo height={64} className={styles.overviewLogo} />
-      <p className={styles.overviewQuestion}>下一步我们添加什么？</p>
+      <p className={styles.overviewQuestion}>{t('start.question')}</p>
       <div className={styles.overviewComposer}>
         <Composer onSubmit={onSubmit} />
       </div>
@@ -46,11 +56,11 @@ export function StartView({
         </button>
         <button type="button" className={styles.quickButton} onClick={onCanvas}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
-          画布预览
+          {t('start.canvasPreview')}
         </button>
         <button type="button" className={styles.quickButton} onClick={onOpenFile}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2.5h6l3.5 3.5v7.5H3z" /><path d="M9 2.5V6h3.5" /></svg>
-          打开文件...
+          {t('start.openFile')}
           <span className={styles.quickKey}>Ctrl O</span>
         </button>
       </div>
@@ -73,6 +83,7 @@ export function OverviewPage({
   onOpenQueue,
   onPickDay,
   onSeeAll,
+  onResolve,
 }: {
   items: ItemDTO[];
   contexts: ContextIndexEntry[];
@@ -86,7 +97,11 @@ export function OverviewPage({
   onOpenQueue: () => void;
   onPickDay: (day: string) => void;
   onSeeAll: () => void;
+  onResolve: (id: string, status: 'accepted' | 'rejected') => Promise<void>;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
+  const [view, setView] = useViewMode('overview');
   const rawCount = items.filter((i) => i.type.startsWith('raw.')).length;
   const objCount = items.filter((i) => i.type.startsWith('object.')).length;
   const recent = useMemo(
@@ -110,59 +125,103 @@ export function OverviewPage({
     <div className={styles.page}>
       <div className={styles.headRow}>
         <div>
-          <h1 className={styles.pageTitle}>Overview</h1>
-          <p className={styles.pageSub}>An overview of your Context Space.</p>
+          <h1 className={styles.pageTitle}>{t('nav.overview')}</h1>
+          <p className={styles.pageSub}>{t('overview.sub')}</p>
         </div>
-        <button type="button" className={styles.primaryButton} onClick={onNew}>+ New</button>
+        <button type="button" className={styles.primaryButton} onClick={onNew}>+ {t('common.new')}</button>
       </div>
 
       <div className={styles.statGrid}>
         <button type="button" className={styles.statCard} onClick={onSeeAll}>
           <span className={styles.statNum}>{rawCount}</span>
-          <span className={styles.statLabel}>Information</span>
+          <span className={styles.statLabel}>{t('overview.info')}</span>
         </button>
         <button type="button" className={styles.statCard} onClick={onSeeAll}>
           <span className={styles.statNum}>{objCount}</span>
-          <span className={styles.statLabel}>Objects</span>
+          <span className={styles.statLabel}>{t('overview.objects')}</span>
         </button>
         <button type="button" className={styles.statCard} onClick={() => recentContexts[0] && onOpenContext(recentContexts[0].id)}>
           <span className={styles.statNum}>{contexts.length}</span>
-          <span className={styles.statLabel}>Contexts</span>
+          <span className={styles.statLabel}>{t('nav.contexts')}</span>
         </button>
       </div>
 
-      <div className={styles.section}>
-        <SectionLabel title="Recently Updated" count={`${recent.length}`} />
-        <div className={styles.list}>
-          {recent.map((item) => (
-            <button key={item.id} type="button" className={styles.listRow} onClick={() => onOpenItem(item.id)}>
-              <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
-              <span className={styles.rowTitle}>{item.title}</span>
-              <span className={styles.rowType}>{ITEM_LABELS[item.type]}</span>
-              <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
-            </button>
-          ))}
+      {/* Review queue: proposal cards with inline ✓/✗ (P3) */}
+      {pendingProposals.length > 0 ? (
+        <div className={styles.section}>
+          <SectionLabel title={t('overview.queue')} count={t('overview.pendingCount', { n: pendingProposals.length })} />
+          <div className={styles.proposalGrid}>
+            {pendingProposals.slice(0, 3).map((p) => (
+              <div key={p.id} className={styles.proposalCard}>
+                <div className={styles.proposalMain}>
+                  <span className={styles.proposalKind}>{p.kind}</span>
+                  <span className={styles.proposalValue}>{p.proposed_value}</span>
+                  <span className={styles.proposalMeta}>{p.source === 'detector' ? 'DET' : 'AGT'} · {rt(p.created_at)}</span>
+                </div>
+                <div className={styles.proposalActions}>
+                  <button type="button" className={styles.acceptButton} aria-label="accept" onClick={() => void onResolve(p.id, 'accepted')}>✓</button>
+                  <button type="button" className={styles.rejectButton} aria-label="reject" onClick={() => void onResolve(p.id, 'rejected')}>✕</button>
+                </div>
+              </div>
+            ))}
+            {pendingProposals.length > 3 ? (
+              <button type="button" className={styles.proposalMore} onClick={onOpenQueue}>{t('overview.viewAll')}</button>
+            ) : null}
+          </div>
         </div>
+      ) : null}
+
+      {/* Recent: the single listRow-style section kept on this page (P3) */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeadRow}>
+          <SectionLabel title={t('overview.recent')} count={`${recent.length}`} />
+          <ViewToggle mode={view} onChange={setView} />
+        </div>
+        {view === 'grid' ? (
+          <div className={styles.gridView}>
+            {recent.map((item) => (
+              <GridCard
+                key={item.id}
+                glyph={ITEM_GLYPHS[item.type]}
+                typeLabel={ITEM_LABELS[item.type]}
+                title={item.title}
+                time={rt(item.updated_at)}
+                onClick={() => onOpenItem(item.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className={styles.list}>
+            {recent.map((item) => (
+              <button key={item.id} type="button" className={styles.listRow} onClick={() => onOpenItem(item.id)}>
+                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
+                <span className={styles.rowTitle}>{item.title}</span>
+                <span className={styles.rowType}>{ITEM_LABELS[item.type]}</span>
+                <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Clusters + Contexts: badge clouds instead of repeated list rows (P3) */}
       <div className={styles.section}>
-        <SectionLabel title="Existing Clusters" count={`${clusters.length}`} />
-        <div className={styles.list}>
+        <SectionLabel title={t('overview.clusters')} count={`${clusters.length}`} />
+        <div className={styles.badgeCloud}>
           {recentClusters.length === 0 ? (
-            <div className={styles.emptyLine}>No clusters yet. Group related Chunks from Clusters.</div>
+            <div className={styles.emptyLine}>{t('overview.noClusters')}</div>
           ) : recentClusters.map((c) => (
-            <button key={c.id} type="button" className={styles.listRow} onClick={() => onOpenCluster(c.id)}>
-              <span className={styles.rowGlyph}>CLU</span>
-              <span className={styles.rowTitle}>{c.title}</span>
-              <span className={styles.rowType}>{c.member_ids.length} members</span>
-              <span className={styles.rowTime}>{relativeTime(c.updated_at)}</span>
+            <button key={c.id} type="button" className={styles.cloudChip} onClick={() => onOpenCluster(c.id)}>
+              <span className={styles.cloudGlyph}>CLU</span>
+              {c.title}
+              <span className={styles.cloudCount}>{c.member_ids.length}</span>
             </button>
           ))}
         </div>
       </div>
 
       <div className={styles.section}>
-        <SectionLabel title="Organization Activity" count={`本周新增 ${weekItems} 条 · ${weekPending} 条待审`} />
+        <SectionLabel title={t('overview.activity')} count={t('overview.weekCount', { n: weekItems, m: weekPending })} />
         <SemLegend />
         <div style={{ marginTop: 10 }}>
           <ActivityMap cells={activity} onPickDay={onPickDay} />
@@ -170,56 +229,31 @@ export function OverviewPage({
       </div>
 
       <div className={styles.section}>
-        <SectionLabel title="Review Queue" count={`${pendingProposals.length} pending`} />
-        <div className={styles.list}>
-          {pendingProposals.length === 0 ? (
-            <div className={styles.emptyLine}>没有待审提案。</div>
-          ) : pendingProposals.slice(0, 3).map((p) => (
-            <button key={p.id} type="button" className={styles.listRow} onClick={onOpenQueue}>
-              <span className={styles.rowGlyph}>{p.source === 'detector' ? 'DET' : 'AGT'}</span>
-              <span className={styles.rowTitle}>{p.proposed_value}</span>
-              <span className={styles.rowType}>{p.kind}</span>
-              <span className={styles.rowTime}>待审</span>
-            </button>
-          ))}
-          {pendingProposals.length > 3 ? (
-            <button type="button" className={styles.listRow} onClick={onOpenQueue}>
-              <span className={styles.rowGlyph}>···</span>
-              <span className={styles.rowTitle}>查看全部提案</span>
-              <span className={styles.rowType}></span>
-              <span className={styles.rowTime}></span>
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={styles.section}>
-        <SectionLabel title="Your Contexts" count={`${contexts.length}`} />
-        <div className={styles.list}>
+        <SectionLabel title={t('overview.contexts')} count={`${contexts.length}`} />
+        <div className={styles.badgeCloud}>
           {recentContexts.length === 0 ? (
-            <div className={styles.emptyLine}>No contexts yet. Create one from Contexts.</div>
+            <div className={styles.emptyLine}>{t('overview.noContexts')}</div>
           ) : recentContexts.map((c) => (
-            <button key={c.id} type="button" className={styles.listRow} onClick={() => onOpenContext(c.id)}>
-              <span className={styles.rowGlyph}>CTX</span>
-              <span className={styles.rowTitle}>{c.title}</span>
-              <span className={styles.rowType}>{c.member_ids.length} members</span>
-              <span className={styles.rowTime}>{relativeTime(c.updated_at)}</span>
+            <button key={c.id} type="button" className={styles.cloudChip} onClick={() => onOpenContext(c.id)}>
+              <span className={styles.cloudGlyph}>CTX</span>
+              {c.title}
+              <span className={styles.cloudCount}>{c.member_ids.length}</span>
             </button>
           ))}
         </div>
       </div>
 
+      {/* Meta tags: tag cloud (P3) */}
       <div className={styles.section}>
-        <SectionLabel title="Meta Tags" count={`${tagSummary.reduce((n, t) => n + t.count, 0)} values`} />
-        <div className={styles.list}>
+        <SectionLabel title={t('overview.metaTags')} count={t('overview.values', { n: tagSummary.reduce((n, x) => n + x.count, 0) })} />
+        <div className={styles.badgeCloud}>
           {tagSummary.length === 0 ? (
-            <div className={styles.emptyLine}>No tag values yet. Tag dimensions live in Settings → Meta Tags.</div>
-          ) : tagSummary.map((t) => (
-            <div key={t.name} className={styles.refRow}>
-              <span className={styles.refKind}>dimension</span>
-              <span className={styles.kvValue}>{t.name}</span>
-              <span className={styles.rowTime}>{t.count} values</span>
-            </div>
+            <div className={styles.emptyLine}>{t('overview.noTags')}</div>
+          ) : tagSummary.map((entry) => (
+            <span key={entry.name} className={`${styles.cloudChip} ${styles.cloudStatic}`}>
+              {entry.name}
+              <span className={styles.cloudCount}>{entry.count}</span>
+            </span>
           ))}
         </div>
       </div>
@@ -258,7 +292,10 @@ export function RecentlyPage({
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
   const [kind, setKind] = useState<RecentKind>('all');
+  const [view, setView] = useViewMode('recently');
 
   const rows = useMemo(() => {
     const out: RecentRow[] = [];
@@ -289,7 +326,7 @@ export function RecentlyPage({
         out.push({
           key: c.id,
           title: c.title,
-          tag: 'Context',
+          tag: t('common.context'),
           glyph: 'CTX',
           at,
           visited: useVisit,
@@ -311,50 +348,70 @@ export function RecentlyPage({
     return map;
   }, [rows]);
 
-  const tabs: { id: RecentKind; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'information', label: 'Information' },
-    { id: 'objects', label: 'Objects' },
-    { id: 'contexts', label: 'Contexts' },
+  const tabs: { id: RecentKind; labelKey: string }[] = [
+    { id: 'all', labelKey: 'recently.all' },
+    { id: 'information', labelKey: 'recently.information' },
+    { id: 'objects', labelKey: 'recently.objects' },
+    { id: 'contexts', labelKey: 'recently.contexts' },
   ];
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.pageTitle}>Recently</h1>
-      <p className={styles.pageSub}>Return to information you've recently worked with.</p>
+      <h1 className={styles.pageTitle}>{t('nav.recently')}</h1>
+      <p className={styles.pageSub}>{t('recently.sub')}</p>
 
       {dayFilter ? (
         <div className={styles.tabRow}>
-          <span className={styles.rowType}>筛选日期 {dayFilter}</span>
-          <button type="button" className={styles.tab} onClick={onClearDay}>清除 ×</button>
+          <span className={styles.rowType}>{t('recently.dayFilter', { day: dayFilter })}</span>
+          <button type="button" className={styles.tab} onClick={onClearDay}>{t('recently.clear')}</button>
         </div>
       ) : null}
 
       <div className={styles.tabRow}>
-        {tabs.map((t) => (
+        {tabs.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            className={`${styles.tab} ${kind === t.id ? styles.on : ''}`}
-            onClick={() => setKind(t.id)}
+            className={`${styles.tab} ${kind === tab.id ? styles.on : ''}`}
+            onClick={() => setKind(tab.id)}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
+        <span style={{ flex: 1 }} />
+        <ViewToggle mode={view} onChange={setView} />
       </div>
 
       {rows.length === 0 ? (
-        <div className={styles.emptyLine}>Nothing recent yet. Open an item and it will appear here.</div>
+        <div className={styles.emptyLine}>{t('recently.empty')}</div>
+      ) : view === 'grid' ? (
+        TIME_GROUPS.filter((g) => grouped.has(g)).map((g) => (
+          <div className={styles.section} key={g}>
+            <SectionLabel title={t(TIME_GROUP_KEYS[g])} count={`${grouped.get(g)!.length}`} />
+            <div className={styles.gridView}>
+              {grouped.get(g)!.map((row) => (
+                <GridCard
+                  key={row.key}
+                  glyph={row.glyph}
+                  typeLabel={row.tag}
+                  title={row.title}
+                  time={`${row.visited ? t('recently.visited') : t('recently.modified')} · ${rt(row.at)}`}
+                  onClick={row.open}
+                />
+              ))}
+            </div>
+          </div>
+        ))
       ) : TIME_GROUPS.filter((g) => grouped.has(g)).map((g) => (
         <div className={styles.section} key={g}>
-          <SectionLabel title={g} count={`${grouped.get(g)!.length}`} />
+          <SectionLabel title={t(TIME_GROUP_KEYS[g])} count={`${grouped.get(g)!.length}`} />
           <div className={styles.list}>
             {grouped.get(g)!.map((row) => (
               <button key={row.key} type="button" className={styles.listRow} onClick={row.open}>
                 <span className={styles.rowGlyph}>{row.glyph}</span>
                 <span className={styles.rowTitle}>{row.title}</span>
                 <span className={styles.rowType}>{row.tag}</span>
-                <span className={styles.rowTime}>{row.visited ? '访问' : '修改'} · {relativeTime(row.at)}</span>
+                <span className={styles.rowTime}>{row.visited ? t('recently.visited') : t('recently.modified')} · {rt(row.at)}</span>
               </button>
             ))}
           </div>
@@ -366,15 +423,16 @@ export function RecentlyPage({
 
 /* ── Settings: secondary navigation ───────────────────────────────────── */
 
-type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'tags' | 'privacy';
+type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'privacy';
 
-const SETTINGS_NAV: { id: SettingsSection; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'account', label: 'Account' },
-  { id: 'data', label: 'Data Management' },
-  { id: 'connections', label: 'Connections' },
-  { id: 'tags', label: 'Meta Tags' },
-  { id: 'privacy', label: 'Privacy' },
+const SETTINGS_NAV: { id: SettingsSection; labelKey: string }[] = [
+  { id: 'general', labelKey: 'settings.general' },
+  { id: 'account', labelKey: 'settings.account' },
+  { id: 'data', labelKey: 'settings.data' },
+  { id: 'connections', labelKey: 'settings.connections' },
+  { id: 'model', labelKey: 'settings.model' },
+  { id: 'tags', labelKey: 'settings.tags' },
+  { id: 'privacy', labelKey: 'settings.privacy' },
 ];
 
 export function SettingsPage({
@@ -389,6 +447,9 @@ export function SettingsPage({
   tagDefinitions,
   onCreateTagDefinition,
   profileBlock,
+  llmConfig,
+  onSaveLlm,
+  onCheckLlm,
 }: {
   prefs: UiPrefs;
   onChange: (next: UiPrefs) => void;
@@ -401,10 +462,23 @@ export function SettingsPage({
   tagDefinitions: TagDefinitionDTO[];
   onCreateTagDefinition: (name: string, description: string) => Promise<void>;
   profileBlock?: ReactNode;
+  llmConfig?: LlmPublicConfig | null;
+  onSaveLlm: (patch: { base_url?: string; model?: string; api_key?: string }) => Promise<void>;
+  onCheckLlm: () => Promise<{ model: string; ms: number; reply: string }>;
 }) {
+  const { lang, setLang, t } = useI18n();
+  const toast = useToast();
   const [section, setSection] = useState<SettingsSection>('general');
   const [newTagName, setNewTagName] = useState('');
   const [newTagDesc, setNewTagDesc] = useState('');
+  const saveTimer = useRef<number | undefined>(undefined);
+
+  /* debounced "已保存" toast — every prefs change saves instantly already (P2) */
+  function changePrefs(next: UiPrefs) {
+    onChange(next);
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => toast(t('common.savedToast')), 600);
+  }
 
   return (
     <div className={styles.settingsLayout}>
@@ -416,40 +490,41 @@ export function SettingsPage({
             className={`${styles.settingsNavItem} ${section === s.id ? styles.on : ''}`}
             onClick={() => setSection(s.id)}
           >
-            {s.label}
+            {t(s.labelKey)}
           </button>
         ))}
       </nav>
       <div className={styles.settingsContent}>
         {section === 'general' ? (
           <>
-            <h1 className={styles.pageTitle}>General</h1>
-            <p className={styles.pageSub}>Workspace preferences, stored on this machine.</p>
+            <h1 className={styles.pageTitle}>{t('settings.general')}</h1>
+            <p className={styles.pageSub}>{t('settings.generalSub')}</p>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>WORKSPACE NAME</div>
+              <div className={styles.settingCaption}>{t('settings.workspaceName')}</div>
               <input
                 className={styles.settingInput}
                 value={prefs.workspaceName}
-                onChange={(e) => onChange({ ...prefs, workspaceName: e.target.value })}
+                onChange={(e) => changePrefs({ ...prefs, workspaceName: e.target.value })}
               />
             </div>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>LANGUAGE</div>
-              <select className={styles.settingInput} value="English" disabled>
-                <option>English</option>
+              <div className={styles.settingCaption}>{t('settings.language')}</div>
+              <select className={styles.settingInput} value={lang} onChange={(e) => setLang(e.target.value === 'en' ? 'en' : 'zh')}>
+                <option value="zh">中文</option>
+                <option value="en">English</option>
               </select>
             </div>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>INTERFACE</div>
+              <div className={styles.settingCaption}>{t('settings.interface')}</div>
               <div className={styles.settingRow}>
-                <div className={styles.settingLabel}>主题</div>
+                <div className={styles.settingLabel}>{t('settings.theme')}</div>
                 <div className={styles.qualityRow}>
                   {THEMES.map((t: ThemeMode) => (
                     <button
                       key={t}
                       type="button"
                       className={`${styles.qualityPill} ${prefs.theme === t ? styles.on : ''}`}
-                      onClick={() => onChange({ ...prefs, theme: t })}
+                      onClick={() => changePrefs({ ...prefs, theme: t })}
                     >
                       {t === 'dark' ? 'Dark' : 'Light'}
                     </button>
@@ -457,14 +532,14 @@ export function SettingsPage({
                 </div>
               </div>
               <div className={styles.settingRow}>
-                <div className={styles.settingLabel}>背景动画质量</div>
+                <div className={styles.settingLabel}>{t('settings.animQuality')}</div>
                 <div className={styles.qualityRow}>
                   {ANIMATION_QUALITIES.map((q: AnimationQuality) => (
                     <button
                       key={q}
                       type="button"
                       className={`${styles.qualityPill} ${prefs.quality === q ? styles.on : ''}`}
-                      onClick={() => onChange({ ...prefs, quality: q })}
+                      onClick={() => changePrefs({ ...prefs, quality: q })}
                     >
                       {QUALITY_LABELS[q]}
                     </button>
@@ -472,102 +547,104 @@ export function SettingsPage({
                 </div>
               </div>
               <div className={styles.settingRow}>
-                <div className={styles.settingLabel}>页面切换动画</div>
+                <div className={styles.settingLabel}>{t('settings.pageTransition')}</div>
                 <div className={styles.qualityRow}>
                   {([true, false] as const).map((on) => (
                     <button
                       key={String(on)}
                       type="button"
                       className={`${styles.qualityPill} ${prefs.pageTransition === on ? styles.on : ''}`}
-                      onClick={() => onChange({ ...prefs, pageTransition: on })}
+                      onClick={() => changePrefs({ ...prefs, pageTransition: on })}
                     >
-                      {on ? 'On' : 'Off'}
+                      {on ? t('common.on') : t('common.off')}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>DATA</div>
-              <button type="button" className={styles.secondaryButton} onClick={onManageData}>Manage stored information</button>
+              <div className={styles.settingCaption}>{t('settings.data2')}</div>
+              <button type="button" className={styles.secondaryButton} onClick={onManageData}>{t('settings.manageData')}</button>
             </div>
           </>
         ) : section === 'account' ? (
           <>
-            <h1 className={styles.pageTitle}>Account</h1>
-            <p className={styles.pageSub}>Local MVP account.</p>
+            <h1 className={styles.pageTitle}>{t('settings.account')}</h1>
+            <p className={styles.pageSub}>{t('settings.accountSub')}</p>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>WORKSPACE</div>
+              <div className={styles.settingCaption}>{t('settings.workspace')}</div>
               <div className={styles.settingValue}>{prefs.workspaceName}</div>
             </div>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>PROVIDER</div>
-              <div className={styles.settingValue}>{prefs.provider} · default model {prefs.defaultModel}</div>
+              <div className={styles.settingCaption}>{t('settings.provider')}</div>
+              <div className={styles.settingValue}>{t('settings.providerLine', { provider: prefs.provider, model: prefs.defaultModel })}</div>
             </div>
-            <div className={styles.hint}>云端账户与权限体系属于后续阶段。</div>
+            <div className={styles.hint}>{t('settings.accountHint')}</div>
           </>
         ) : section === 'data' ? (
           <>
-            <h1 className={styles.pageTitle}>Data Management</h1>
-            <p className={styles.pageSub}>Manage stored information.</p>
+            <h1 className={styles.pageTitle}>{t('settings.data')}</h1>
+            <p className={styles.pageSub}>{t('settings.dataSub')}</p>
             <div className={styles.countLine}>items: {itemCount} · contexts: {contextCount}</div>
             <div className={styles.exportGrid}>
               <div className={styles.exportCard}>
-                <strong>完整数据</strong>
+                <strong>{t('settings.exportFull')}</strong>
                 <span className={styles.exportName}>gsc-export.json</span>
-                <button type="button" className={styles.downloadButton} onClick={onExportJson}>下载</button>
+                <button type="button" className={styles.downloadButton} onClick={onExportJson}>{t('common.download')}</button>
               </div>
               <div className={styles.exportCard}>
-                <strong>Markdown 打包</strong>
+                <strong>{t('settings.exportMd')}</strong>
                 <span className={styles.exportName}>gsc-bundle.md</span>
-                <button type="button" className={styles.downloadButton} onClick={onExportMarkdown}>下载</button>
+                <button type="button" className={styles.downloadButton} onClick={onExportMarkdown}>{t('common.download')}</button>
               </div>
               <div className={styles.exportCard}>
-                <strong>Claude Code / Codex 上下文</strong>
+                <strong>{t('settings.exportAgent')}</strong>
                 <span className={styles.exportName}>GSC-CONTEXT.md</span>
-                <button type="button" className={styles.downloadButton} onClick={onExportAgent}>下载</button>
+                <button type="button" className={styles.downloadButton} onClick={onExportAgent}>{t('common.download')}</button>
               </div>
             </div>
           </>
         ) : section === 'connections' ? (
           <>
-            <h1 className={styles.pageTitle}>Connections</h1>
-            <p className={styles.pageSub}>How other tools consume GSC.</p>
+            <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
+            <p className={styles.pageSub}>{t('settings.connectionsSub')}</p>
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
-              <div className={styles.settingValue}>通过 GSC-CONTEXT.md 导出文件连接（Sync 页或上方 Data Management 下载）。</div>
+              <div className={styles.settingValue}>{t('settings.connClaude')}</div>
             </div>
-            <div className={styles.hint}>本地只读端点 /api/v1/ 与 MCP server（npm run mcp）已可用（PLAN-6）；User Profile 输出见 Meta Tags。</div>
+            <div className={styles.hint}>{t('settings.connHint')}</div>
           </>
+        ) : section === 'model' ? (
+          <ModelSection llmConfig={llmConfig} onSave={onSaveLlm} onCheck={onCheckLlm} />
         ) : section === 'tags' ? (
           <>
-            <h1 className={styles.pageTitle}>Meta Tags</h1>
-            <p className={styles.pageSub}>受控维度定义（D-064）。维度必须先定义才能赋值；取值自由。</p>
+            <h1 className={styles.pageTitle}>{t('settings.tags')}</h1>
+            <p className={styles.pageSub}>{t('settings.tagsSub')}</p>
             {tagDefinitions.map((d) => (
               <div className={styles.settingBlock} key={d.id}>
                 <div className={styles.settingCaption}>{d.name.toUpperCase()}</div>
-                <div className={styles.settingValue}>{d.description || '（无描述）'}</div>
+                <div className={styles.settingValue}>{d.description || t('settings.noDesc')}</div>
               </div>
             ))}
             {profileBlock ? (
               <div className={styles.settingBlock}>
                 <div className={styles.settingCaption}>USER PROFILE</div>
-                <div className={styles.settingValue}>跨应用输出给外部 Agent 的用户特征（D-066）。只输出已确认的取值。</div>
+                <div className={styles.settingValue}>{t('settings.userProfile')}</div>
                 {profileBlock}
               </div>
             ) : null}
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>NEW DIMENSION</div>
+              <div className={styles.settingCaption}>{t('settings.newDimension')}</div>
               <div className={styles.tagForm}>
                 <input
                   className={styles.search}
-                  placeholder="维度名称"
+                  placeholder={t('settings.dimName')}
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
                 />
                 <input
                   className={styles.search}
-                  placeholder="含义说明"
+                  placeholder={t('settings.dimDesc')}
                   value={newTagDesc}
                   onChange={(e) => setNewTagDesc(e.target.value)}
                 />
@@ -583,24 +660,195 @@ export function SettingsPage({
                     void onCreateTagDefinition(name, newTagDesc.trim());
                   }}
                 >
-                  添加维度
+                  {t('settings.addDimension')}
                 </button>
               </div>
             </div>
           </>
         ) : (
           <>
-            <h1 className={styles.pageTitle}>Privacy</h1>
-            <p className={styles.pageSub}>Data stays on this machine.</p>
+            <h1 className={styles.pageTitle}>{t('settings.privacy')}</h1>
+            <p className={styles.pageSub}>{t('settings.privacySub')}</p>
             <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>STORAGE</div>
-              <div className={styles.settingValue}>PGlite 本地库 + data/files 文件目录。无云端同步、无遥测。</div>
+              <div className={styles.settingCaption}>{t('settings.storage')}</div>
+              <div className={styles.settingValue}>{t('settings.storageValue')}</div>
             </div>
-            <div className={styles.hint}>访问记录（Recently 的「访问」标签）只存本机 localStorage，可随时清除。</div>
+            <div className={styles.hint}>{t('settings.visitHint')}</div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+const MODEL_SUGGESTIONS: Record<string, string[]> = {
+  mimo: ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  custom: [],
+};
+
+type ProviderId = 'mimo' | 'deepseek' | 'custom';
+
+const PROVIDERS: { id: ProviderId; brand: BrandKind | null; labelKey: string; descKey: string; base: string }[] = [
+  { id: 'mimo', brand: 'mimo', labelKey: 'model.providerMimo', descKey: 'model.providerMimoDesc', base: 'https://token-plan-cn.xiaomimimo.com/v1' },
+  { id: 'deepseek', brand: 'deepseek', labelKey: 'model.providerDeepseek', descKey: 'model.providerDeepseekDesc', base: 'https://api.deepseek.com/v1' },
+  { id: 'custom', brand: null, labelKey: 'model.providerCustom', descKey: 'model.providerCustomDesc', base: '' },
+];
+
+function detectProvider(base: string): ProviderId {
+  if (base.includes('xiaomimimo') || base.includes('mimo')) return 'mimo';
+  if (base.includes('deepseek')) return 'deepseek';
+  return 'custom';
+}
+
+function ModelSection({
+  llmConfig,
+  onSave,
+  onCheck,
+}: {
+  llmConfig?: LlmPublicConfig | null;
+  onSave: (patch: { base_url?: string; model?: string; api_key?: string }) => Promise<void>;
+  onCheck: () => Promise<{ model: string; ms: number; reply: string }>;
+}) {
+  const t = useT();
+  const toast = useToast();
+  const [provider, setProvider] = useState<ProviderId>(() => detectProvider(llmConfig?.base_url ?? ''));
+  const [baseUrl, setBaseUrl] = useState(llmConfig?.base_url ?? '');
+  const [model, setModel] = useState(llmConfig?.model ?? '');
+  const [apiKey, setApiKey] = useState('');
+  const [keyOpen, setKeyOpen] = useState(!llmConfig?.key_set);
+  const [checking, setChecking] = useState(false);
+  const [checkLine, setCheckLine] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const saveTimer = useRef<number | undefined>(undefined);
+
+  /* debounced auto-save — no Save button (P2 INTERACTION_UX_PLAN) */
+  function queueSave(patch: { base_url?: string; model?: string; api_key?: string }) {
+    setDirty(true);
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(async () => {
+      try {
+        await onSave(patch);
+        setDirty(false);
+        toast(t('common.savedToast'));
+      } catch (e) {
+        setDirty(false);
+        toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+      }
+    }, 700);
+  }
+
+  function pickProvider(p: (typeof PROVIDERS)[number]) {
+    setProvider(p.id);
+    const nextBase = p.id === 'custom' ? '' : p.base;
+    setBaseUrl(nextBase);
+    const firstModel = MODEL_SUGGESTIONS[p.id][0] ?? '';
+    setModel(firstModel);
+    queueSave({ base_url: nextBase || undefined, model: firstModel || undefined });
+  }
+
+  async function check() {
+    setChecking(true);
+    setCheckLine('');
+    try {
+      const r = await onCheck();
+      setCheckLine(t('model.checkOk', { model: r.model, ms: r.ms, reply: r.reply }));
+    } catch (e) {
+      setCheckLine(e instanceof Error ? `✗ ${e.message}` : t('model.checkFail'));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <>
+      <h1 className={styles.pageTitle}>{t('settings.model')}</h1>
+      <p className={styles.pageSub}>{t('model.sub')}</p>
+
+      <div className={styles.settingBlock}>
+        <div className={styles.settingCaption}>{t('model.providerPick')}</div>
+        <div className={styles.providerRow}>
+          {PROVIDERS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`${styles.providerCard} ${provider === p.id ? styles.on : ''}`}
+              onClick={() => pickProvider(p)}
+            >
+              {p.brand ? <BrandLogo kind={p.brand} size={22} /> : <span className={styles.providerGlyph}>⚙</span>}
+              <span className={styles.providerName}>{t(p.labelKey)}</span>
+              <span className={styles.providerDesc}>{t(p.descKey)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {provider === 'custom' ? (
+        <div className={styles.settingBlock}>
+          <div className={styles.settingCaption}>{t('model.baseUrl')}</div>
+          <input
+            className={styles.settingInput}
+            value={baseUrl}
+            placeholder={t('model.customBaseHint')}
+            onChange={(e) => { setBaseUrl(e.target.value); queueSave({ base_url: e.target.value }); }}
+          />
+        </div>
+      ) : null}
+
+      <div className={styles.settingBlock}>
+        <div className={styles.settingCaption}>{t('model.model')}</div>
+        <input
+          className={styles.settingInput}
+          value={model}
+          placeholder={MODEL_SUGGESTIONS[provider][0] ?? ''}
+          list="gsc-model-suggestions"
+          onChange={(e) => { setModel(e.target.value); queueSave({ model: e.target.value }); }}
+        />
+        <datalist id="gsc-model-suggestions">
+          {MODEL_SUGGESTIONS[provider].map((m) => <option key={m} value={m} />)}
+        </datalist>
+      </div>
+
+      <div className={styles.settingBlock}>
+        <div className={styles.settingCaption}>{t('model.apiKey')}</div>
+        {llmConfig?.key_set && !keyOpen ? (
+          <div className={styles.keyRow}>
+            <span className={styles.keyBadge}>🔑 {t('model.keySetShort', { hint: llmConfig.key_hint })}</span>
+            <button type="button" className={styles.secondaryButton} onClick={() => setKeyOpen(true)}>{t('model.changeKey')}</button>
+          </div>
+        ) : (
+          <input
+            className={styles.settingInput}
+            type="password"
+            value={apiKey}
+            placeholder={llmConfig?.key_set ? t('model.keySet', { hint: llmConfig.key_hint }) : t('model.keyPlaceholder')}
+            onChange={(e) => setApiKey(e.target.value)}
+            onBlur={() => {
+              if (apiKey.trim()) {
+                queueSave({ api_key: apiKey.trim() });
+                setApiKey('');
+                setKeyOpen(!llmConfig?.key_set ? keyOpen : false);
+              }
+            }}
+            autoComplete="off"
+          />
+        )}
+        <div className={styles.hint} style={{ marginTop: 6 }}>{t('model.keyHint')}</div>
+      </div>
+
+      <div className={styles.settingRow}>
+        <button type="button" className={styles.secondaryButton} disabled={checking} onClick={() => void check()}>
+          {checking ? t('model.testing') : t('model.test')}
+        </button>
+        {dirty ? <span className={styles.settingValue}>…</span> : null}
+      </div>
+      {checkLine ? (
+        <div className={`${styles.checkLine} ${checkLine.startsWith('✓') ? styles.checkOk : styles.checkFail}`}>{checkLine}</div>
+      ) : null}
+      <div className={styles.hint} style={{ marginTop: 14 }}>
+        {t('model.current', { base: llmConfig?.base_url ?? '—', model: llmConfig?.model ?? '—', key: llmConfig?.key_set ? t('model.keyConfigured') : t('model.keyMissing') })}
+      </div>
+    </>
   );
 }
 

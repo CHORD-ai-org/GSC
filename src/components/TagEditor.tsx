@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import { isValidScope } from '../lib/tags.ts';
 import styles from '../views/views.module.css';
+import { useT } from '../lib/i18n.tsx';
 
 /**
  * PLAN-8 (D-064): Meta Tag assignment block — controlled dimension, free value, explicit scope.
@@ -22,6 +23,7 @@ export function TagEditor({
   onDelete: (id: string) => Promise<void>;
   readOnly?: boolean;
 }) {
+  const t = useT();
   const [definitionId, setDefinitionId] = useState(definitions[0]?.id ?? '');
   const [value, setValue] = useState('');
   const [scope, setScope] = useState('global');
@@ -43,7 +45,7 @@ export function TagEditor({
   return (
     <div>
       {values.length === 0 ? (
-        <div className={styles.hint}>暂无标签。标签维度受控定义（D-064），取值自由。</div>
+        <div className={styles.hint}>{t('tags.empty')}</div>
       ) : values.map((tv) => (
         <div className={styles.tagRow} key={tv.id}>
           <span className={styles.tagDim}>{defName(tv.definition_id)}</span>
@@ -56,9 +58,9 @@ export function TagEditor({
                 className={`${styles.linkButton} ${tv.confirmed ? styles.tagConfirmed : ''}`}
                 onClick={() => void onConfirm(tv.id, !tv.confirmed)}
               >
-                {tv.confirmed ? '✓ 已确认' : '确认'}
+                {tv.confirmed ? t('tags.confirmed') : t('tags.confirm')}
               </button>
-              <button type="button" className={styles.linkButton} onClick={() => void onDelete(tv.id)}>移除</button>
+              <button type="button" className={styles.linkButton} onClick={() => void onDelete(tv.id)}>{t('tags.remove')}</button>
             </>
           ) : null}
         </div>
@@ -77,22 +79,22 @@ export function TagEditor({
           </select>
           <input
             className={styles.search}
-            placeholder="标签取值"
+            placeholder={t('tags.valuePlaceholder')}
             value={value}
             onChange={(e) => setValue(e.target.value)}
           />
           <input
             className={styles.search}
-            placeholder="作用域（global / project:x / context:y）"
+            placeholder={t('tags.scopePlaceholder')}
             value={scope}
             onChange={(e) => setScope(e.target.value)}
           />
           <button type="button" className={styles.primaryButton} disabled={busy || !value.trim() || !isValidScope(scope)} onClick={() => void add()}>
-            打标签
+            {t('tags.add')}
           </button>
         </div>
       ) : null}
-      <div className={styles.hint}>作用域限定该取值的有效范围；只有已确认的 User Profile 取值会输出给外部 Agent（D-066）。</div>
+      <div className={styles.hint}>{t('tags.scopeHint')}</div>
     </div>
   );
 }

@@ -9,13 +9,14 @@ import type { ProposalDTO } from '../lib/proposals.ts';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
 import { SemanticObjectSheet } from '../components/SemanticObjectSheet.tsx';
 import type { Sheet } from '../components/SemanticObjectSheet.tsx';
+import { useRelativeTime, useT } from '../lib/i18n.tsx';
 import styles from './lightup.module.css';
 
 export type CreatedItem = { id: string; title: string; type: ItemType; source_label: string };
 export type PersistResult = { created: CreatedItem[]; failed: { key: string; message: string }[] };
 
-const STAGES = ['Capture', 'Understand', 'Shape', 'Curate', 'Illuminate'] as const;
-const STAGE_WORDS = ['Reading Source', 'Identifying Information', 'Establishing Semantic Identity', 'Preparing Review'];
+const STAGE_KEYS = ['lu.capture', 'lu.understand', 'lu.shape', 'lu.curate', 'lu.illuminate'] as const;
+const STAGE_WORD_KEYS = ['lu.reading', 'lu.identifying', 'lu.naming', 'lu.preparing'];
 
 function toSheet(seg: Segment): Sheet {
   return {
@@ -58,6 +59,7 @@ export function LightUpStudio({
   busy: boolean;
   error: string;
 }) {
+  const t = useT();
   const [phase, setPhase] = useState<'capture' | 'understand' | 'shape' | 'illuminate'>('capture');
   const [stageStep, setStageStep] = useState(-1);
   const [text, setText] = useState('');
@@ -88,10 +90,10 @@ export function LightUpStudio({
     try {
       const result = await onPreviewUrl(url.trim());
       setText((current) => (current ? `${current}\n\n${result.text}` : result.text));
-      setPreviewNote(`来自 ${result.url} 的内容 —— 尚未进入 GSC`);
+      setPreviewNote(t('lu.previewNote', { url: result.url }));
       setSourceLabel(result.url);
     } catch (e) {
-      setLocalError(e instanceof Error ? e.message : 'URL fetch failed');
+      setLocalError(e instanceof Error ? e.message : t('lu.urlFail'));
     }
   }
 
@@ -104,7 +106,7 @@ export function LightUpStudio({
         setSourceLabel('lightup:clipboard');
       }
     } catch {
-      setLocalError('剪贴板不可读，请直接粘贴到输入框。');
+      setLocalError(t('lu.clipboardFail'));
     }
   }
 
@@ -126,7 +128,7 @@ export function LightUpStudio({
     setLocalError('');
     const raw = text;
     if (!normalizeText(raw)) {
-      setLocalError('没有可识别的内容。');
+      setLocalError(t('lu.noContent'));
       return;
     }
     setSourceText(raw);
@@ -139,7 +141,7 @@ export function LightUpStudio({
       const built = segmentText(raw).map(toSheet);
       if (built.length === 0) {
         setPhase('capture');
-        setLocalError('没有可切块的内容。');
+        setLocalError(t('lu.noChunks'));
         return;
       }
       setSheets(built);
@@ -196,7 +198,7 @@ export function LightUpStudio({
           : sheet;
       }));
     } catch {
-      setLocalError('Agent 不可用（需配置 GSC_LLM_*）。其余流程不受影响。');
+      setLocalError(t('lu.agentUnavailable'));
     }
   }
 
@@ -253,9 +255,9 @@ export function LightUpStudio({
   return (
     <div className={styles.studio}>
       <div className={styles.kicker}>
-        {STAGES.map((s, i) => (
-          <span key={s} className={`${styles.kickerStep} ${i === stageIndex ? styles.on : ''} ${i < stageIndex ? styles.done : ''}`}>
-            {i > 0 ? <span className={styles.kickerSep}>·</span> : null} {s}
+        {STAGE_KEYS.map((key, i) => (
+          <span key={key} className={`${styles.kickerStep} ${i === stageIndex ? styles.on : ''} ${i < stageIndex ? styles.done : ''}`}>
+            {i > 0 ? <span className={styles.kickerSep}>·</span> : null} {t(key)}
           </span>
         ))}
       </div>
@@ -264,7 +266,7 @@ export function LightUpStudio({
         <>
           <h1 className={styles.studioTitle}>Light Up</h1>
           <p className={styles.studioSub}>
-            把信息带入 GSC，给它一个持久的语义身份。文本、文件、粘贴、网页 —— 都进入同一个过程。原文永远逐字保留。
+            {t('lu.sub')}
           </p>
 
           <div
@@ -277,25 +279,25 @@ export function LightUpStudio({
               void addFiles(e.dataTransfer.files);
             }}
           >
-            {dragging ? <div className={styles.dropHint}>松手，把文件带进 GSC</div> : null}
+            {dragging ? <div className={styles.dropHint}>{t('lu.dropHint')}</div> : null}
             {previewNote ? (
               <div className={styles.previewBanner}>
-                <strong>预览</strong> {previewNote}
+                <strong>{t('lu.previewBadge')}</strong> {previewNote}
               </div>
             ) : null}
             <textarea
               className={styles.intake}
-              placeholder="把信息带进 GSC…（可直接输入、粘贴、拖入文件）"
+              placeholder={t('composer.placeholder')}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') identify(); }}
             />
             <div className={styles.composerBar}>
-              <button type="button" className={styles.ghost} onClick={() => void pasteClipboard()}>粘贴剪贴板</button>
-              <button type="button" className={styles.ghost} onClick={() => fileRef.current?.click()}>导入文件</button>
+              <button type="button" className={styles.ghost} onClick={() => void pasteClipboard()}>{t('lu.pasteClipboard')}</button>
+              <button type="button" className={styles.ghost} onClick={() => fileRef.current?.click()}>{t('lu.importFile')}</button>
               <button type="button" className={styles.ghost} onClick={() => setUrlOpen((v) => !v)}>URL</button>
               <span className={styles.count}>
-                {text.length} 字{sourceLabel !== 'lightup:text' ? ` · ${sourceLabel}` : ''}
+                {t('lu.count', { n: text.length })}{sourceLabel !== 'lightup:text' ? ` · ${sourceLabel}` : ''}
               </span>
             </div>
             {urlOpen ? (
@@ -303,11 +305,11 @@ export function LightUpStudio({
                 <div className={styles.urlRow}>
                   <input
                     className={styles.urlInput}
-                    placeholder="https://... 抓取正文（仅预览，不落库）"
+                    placeholder={t('lu.urlPlaceholder')}
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                   />
-                  <button type="button" className={styles.ghost} onClick={() => void fetchUrl()} disabled={busy}>预览</button>
+                  <button type="button" className={styles.ghost} onClick={() => void fetchUrl()} disabled={busy}>{t('lu.preview')}</button>
                 </div>
               </div>
             ) : null}
@@ -315,17 +317,17 @@ export function LightUpStudio({
 
           <div className={styles.composerBar} style={{ padding: '14px 0 0' }}>
             <button type="button" className={styles.primary} onClick={identify} disabled={!text.trim()}>
-              Identify Information
+              {t('lu.identify')}
             </button>
             <span className={styles.count} style={{ margin: 0 }}>
-              Ctrl+Enter 也可以 · 短笔记可用 Start 页 Composer 直接入库
+              {t('start.quickHint')}
             </span>
           </div>
 
           {localError || error ? <div className={styles.errorLine}>{localError || error}</div> : null}
 
           <details className={styles.manualFold}>
-            <summary>手动逐字段创建（Vision 3.1-A Manual Input）</summary>
+            <summary>{t('lu.manual')}</summary>
             <div style={{ marginTop: 14 }}>{manualContent}</div>
           </details>
 
@@ -340,12 +342,12 @@ export function LightUpStudio({
         </>
       ) : phase === 'understand' ? (
         <>
-          <h1 className={styles.studioTitle}>Understanding</h1>
+          <h1 className={styles.studioTitle}>{t('lu.understanding')}</h1>
           <div className={styles.stageLabel}>
             <div>
-              {STAGE_WORDS.map((w, i) => (
+              {STAGE_WORD_KEYS.map((w, i) => (
                 <div key={w} className={`${styles.stageRow} ${i === stageStep ? styles.on : ''} ${i < stageStep ? styles.done : ''}`}>
-                  <span className={styles.stageDot} /> {w}
+                  <span className={styles.stageDot} /> {t(w)}
                 </div>
               ))}
             </div>
@@ -353,9 +355,9 @@ export function LightUpStudio({
         </>
       ) : phase === 'illuminate' ? (
         <div className={styles.illuminate}>
-          <h1 className={styles.illuminateTitle}>Your information now has a place in GSC.</h1>
+          <h1 className={styles.illuminateTitle}>{t('lu.doneTitle')}</h1>
           <p className={styles.illuminateSub}>
-            {created.length} 个信息单元已获得持久身份，原文逐字保留，来源可溯。
+            {t('lu.doneSub', { n: created.length })}
           </p>
           {created.map((c) => (
             <div key={c.id} className={styles.createdRow}>
@@ -365,54 +367,54 @@ export function LightUpStudio({
             </div>
           ))}
           {failed.length > 0 ? (
-            <div className={styles.errorLine}>{failed.length} 项入库失败 —— 返回审阅可重试。</div>
+            <div className={styles.errorLine}>{t('lu.failed', { n: failed.length })}</div>
           ) : null}
           {deferredCount > 0 ? (
-            <div className={styles.pendingNote}>{deferredCount} 项未决（已延后，未入库）。</div>
+            <div className={styles.pendingNote}>{t('lu.pendingNote', { n: deferredCount })}</div>
           ) : null}
           <div className={styles.illuminateActions}>
             <button type="button" className={styles.primary} onClick={() => onNavigate('raw')}>
-              查看这些信息
+              {t('lu.inspect')}
             </button>
             <button type="button" className={styles.ghost} onClick={() => onNavigate('overview')}>
-              回到 Context Space
+              {t('lu.home')}
             </button>
             <button type="button" className={styles.ghost} onClick={resetStudio}>
-              再来一次 Light Up
+              {t('lu.again')}
             </button>
             {failed.length > 0 ? (
-              <button type="button" className={styles.ghost} onClick={() => setPhase('shape')}>返回审阅</button>
+              <button type="button" className={styles.ghost} onClick={() => setPhase('shape')}>{t('lu.backToReview')}</button>
             ) : null}
           </div>
         </div>
       ) : (
         <>
-          <h1 className={styles.studioTitle}>Shape</h1>
+          <h1 className={styles.studioTitle}>{t('lu.shape')}</h1>
           <p className={styles.studioSub}>
-            GSC 识别出 {sheets.length} 个信息单元。语义名可以改，原文不动；采纳的进入 GSC，拒绝/延后的不入库。
+            {t('lu.shapeSub', { n: sheets.length })}
           </p>
 
           <div className={styles.bulkBar}>
             <button type="button" className={styles.ghost} onClick={() => setSheets((c) => c.map((s) => ({ ...s, status: 'accepted' as const })))}>
-              Accept all {persistable.length}
+              {t('lu.acceptAll', { n: persistable.length })}
             </button>
             <button type="button" className={styles.ghost} disabled={busy} onClick={() => void applyAgentSuggestions()}>
-              Ask Agent for names
+              {t('lu.askAgent')}
             </button>
             {mergePicked.length >= 2 ? (
-              <button type="button" className={styles.ghost} onClick={mergeSheets}>Merge {mergePicked.length} selected</button>
+              <button type="button" className={styles.ghost} onClick={mergeSheets}>{t('lu.mergeSelected', { n: mergePicked.length })}</button>
             ) : null}
             <span className={styles.spacer} />
-            <span>{persistable.length} 将入库 · {sheets.length - persistable.length} 不入库</span>
+            <span>{t('lu.willPersist', { n: persistable.length, m: sheets.length - persistable.length })}</span>
             <button type="button" className={styles.primary} disabled={busy || persistable.length === 0} onClick={() => void persist()}>
-              {busy ? '入库中…' : `确认 ${persistable.length} 条`}
+              {busy ? t('lu.persisting') : t('lu.confirmN', { n: persistable.length })}
             </button>
           </div>
 
           <div className={styles.shapeHead}>
             {(['overview', 'chunks', 'source'] as const).map((v) => (
               <button key={v} type="button" className={`${styles.viewTab} ${view === v ? styles.on : ''}`} onClick={() => setView(v)}>
-                {v === 'overview' ? 'Overview' : v === 'chunks' ? 'Chunks' : 'Source'}
+                {v === 'overview' ? t('lu.tabOverview') : v === 'chunks' ? t('lu.tabChunks') : t('lu.tabSource')}
               </button>
             ))}
             <span className={styles.shapeCount}>{sheets.length} chunks · {new Set(sheets.map((s) => s.type)).size} types</span>
@@ -422,11 +424,11 @@ export function LightUpStudio({
             <div className={styles.overviewGrid}>
               <div className={styles.statBlock}>
                 <div className={styles.statNum}>{sheets.length}</div>
-                <div className={styles.statLabel}>Information Units</div>
+                <div className={styles.statLabel}>{t('lu.units')}</div>
               </div>
               <div className={styles.statBlock}>
                 <div className={styles.statNum}>{sheets.filter((s) => s.start !== undefined).length}</div>
-                <div className={styles.statLabel}>With Source Ref</div>
+                <div className={styles.statLabel}>{t('lu.withRef')}</div>
               </div>
               <div className={styles.statBlock}>
                 <div>
@@ -437,7 +439,7 @@ export function LightUpStudio({
                     </div>
                   ))}
                 </div>
-                <div className={styles.statLabel}>Types</div>
+                <div className={styles.statLabel}>{t('lu.types')}</div>
               </div>
             </div>
           ) : view === 'chunks' ? (
@@ -466,10 +468,10 @@ export function LightUpStudio({
                 <>
                   <div className={styles.sourceNote}>
                     {src.precise
-                      ? '选中的信息单元对应下方高亮的原文段。'
+                      ? t('lu.sourceSelected')
                       : selectedKey
-                        ? '该信息单元没有精确的原文引用（不伪造高亮）。'
-                        : '选择一个信息单元以查看其原文出处。'}
+                        ? t('lu.sourceNoRef')
+                        : t('lu.sourcePick')}
                   </div>
                   <div className={styles.sourcePane}>
                     {src.before}
@@ -485,21 +487,21 @@ export function LightUpStudio({
 
           <div className={styles.queueWrap}>
             <div className={styles.bulkBar} style={{ border: 0 }}>
-              <strong style={{ fontSize: 13 }}>提案队列</strong>
-              <span className={styles.stateNote}>Agent 提议 · Detector 观察 · 人工裁决（不确认不写入）</span>
+              <strong style={{ fontSize: 13 }}>{t('lu.queue')}</strong>
+              <span className={styles.stateNote}>{t('lu.queueIntro')}</span>
               <span className={styles.spacer} />
               <button type="button" className={styles.ghost} onClick={() => setQueueOpen((v) => !v)}>
-                {queueOpen ? '收起' : `展开 (${proposals.length})`}
+                {queueOpen ? t('lu.collapse') : t('lu.expand', { n: proposals.length })}
               </button>
             </div>
             {queueOpen ? (
               <>
                 <div className={styles.bulkBar}>
-                  <button type="button" className={styles.ghost} disabled={busy} onClick={() => void onDetect()}>运行 Detector</button>
-                  <span className={styles.stateNote}>查重 · 关联候选 · 缺来源检查（增量）</span>
+                  <button type="button" className={styles.ghost} disabled={busy} onClick={() => void onDetect()}>{t('lu.runDetector')}</button>
+                  <span className={styles.stateNote}>{t('lu.detectorHint')}</span>
                 </div>
                 {proposals.length === 0 ? (
-                  <div className={styles.sourceNote}>队列为空。</div>
+                  <div className={styles.sourceNote}>{t('lu.queueEmpty')}</div>
                 ) : proposals.map((p) => (
                   <div key={p.id} className={styles.createdRow}>
                     <span className={styles.cName} style={{ fontSize: 13 }}>{p.kind}</span>
@@ -507,10 +509,10 @@ export function LightUpStudio({
                     <span className={styles.cSrc}>{p.source} · {p.rationale}</span>
                     {p.status === 'pending' ? (
                       <>
-                        <button type="button" className={`${styles.action} ${styles.accept}`} disabled={busy} onClick={() => void onResolve(p, 'accepted')}>接受</button>
-                        <button type="button" className={`${styles.action} ${styles.reject}`} disabled={busy} onClick={() => void onResolve(p, 'rejected')}>拒绝</button>
+                        <button type="button" className={`${styles.action} ${styles.accept}`} disabled={busy} onClick={() => void onResolve(p, 'accepted')}>{t('common.accept')}</button>
+                        <button type="button" className={`${styles.action} ${styles.reject}`} disabled={busy} onClick={() => void onResolve(p, 'rejected')}>{t('common.reject')}</button>
                         {!isApplicableProposalKind(p.kind) ? (
-                          <span className={styles.stateNote}>接受=标记已审</span>
+                          <span className={styles.stateNote}>{t('lu.resolveOnly')}</span>
                         ) : null}
                       </>
                     ) : (

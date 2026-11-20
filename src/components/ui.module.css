@@ -9,9 +9,17 @@
 .count{font-family:var(--mono);color:var(--ink-3);letter-spacing:0}
 .empty{border:1px dashed var(--line-strong);border-radius:var(--radius-sm);padding:24px;color:var(--ink-2);margin-top:12px}
 .emptyTitle{color:var(--ink);margin-bottom:4px}
+.emptyAction{margin-top:12px}
+.cardShell{display:block;text-align:left;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px;color:var(--ink);font:inherit;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.cardShell:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card)}
+.cardShell.cardSelected{border-color:var(--accent);box-shadow:var(--shadow-card)}
 .subhead{display:flex;align-items:center;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:22px 0 8px}
 .field{display:block;margin-bottom:12px}
 .field>span{display:block;font-size:11px;line-height:16px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-bottom:4px}
 .field input,.field select,.field textarea{width:100%;background:var(--bg-surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:7px 9px;color:var(--ink);font:inherit;outline:none}
 .field textarea{resize:vertical;min-height:72px}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--line-strong)}
+.viewToggle{display:inline-flex;gap:2px;background:var(--pill-track);border-radius:999px;padding:3px}
+.viewButton{width:28px;height:24px;display:grid;place-items:center;border:0;background:transparent;border-radius:999px;color:var(--ink-3);cursor:pointer}
+.viewButton:hover{color:var(--ink)}
+.viewButton.on{background:var(--pill-on);color:var(--ink);box-shadow:var(--shadow-pill)}

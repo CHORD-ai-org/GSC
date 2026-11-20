@@ -5,10 +5,40 @@ import type { ItemDTO } from '../lib/items.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import type { ClusterIndexEntry } from './detail.tsx';
 import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
-import { relativeTime } from '../lib/format.ts';
+import { EmptyState } from '../components/ui.tsx';
+import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
+import { useRelativeTime, useT } from '../lib/i18n.tsx';
 import styles from './views.module.css';
 
 export type ItemBadges = Record<string, { kind: 'cluster' | 'context'; title: string }[]>;
+
+/* 网格视角: shared grid card (glyph + title + badges + time). */
+export function GridCard({
+  glyph, typeLabel, title, badges, time, onClick,
+}: {
+  glyph: string;
+  typeLabel: string;
+  title: string;
+  badges?: { kind: 'cluster' | 'context'; title: string }[];
+  time?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={styles.gridCard} onClick={onClick}>
+      <div className={styles.gridCardHead}>
+        <span className={styles.gridCardGlyph}>{glyph}</span>
+        <span className={styles.gridCardType}>{typeLabel}</span>
+      </div>
+      <div className={styles.gridCardTitle}>{title}</div>
+      <div className={styles.gridCardFoot}>
+        <span className={styles.gridCardBadges}>
+          {(badges ?? []).slice(0, 2).map((b) => <MemberBadge key={`${b.kind}-${b.title}`} kind={b.kind} title={b.title} />)}
+        </span>
+        {time ? <span>{time}</span> : null}
+      </div>
+    </button>
+  );
+}
 
 function matches(item: ItemDTO, q: string): boolean {
   const needle = q.trim().toLowerCase();
@@ -56,9 +86,12 @@ export function RawCollection({
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
   const [q, setQ] = useState('');
   const [type, setType] = useState('all');
   const [dim, setDim] = useState('all');
+  const [view, setView] = useViewMode('raw');
   const rows = useMemo(
     () => items.filter((i) => i.type.startsWith('raw.'))
       .filter((i) => type === 'all' || i.type === type)
@@ -69,48 +102,71 @@ export function RawCollection({
   return (
     <div className={styles.page}>
       <PageHead
-        title="Raw Information"
+        title={t('raw.title')}
         count={rows.length}
-        action={<button type="button" className={styles.primaryButton} onClick={onNew}>+ Add</button>}
+        action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>}
       />
-      <p className={styles.pageSub}>Manage original information and its sources.</p>
+      <p className={styles.pageSub}>{t('raw.sub')}</p>
       <div className={styles.toolbar}>
-        <input className={styles.search} placeholder="Search information..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={styles.search} placeholder={t('raw.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <select className={styles.select} value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="all">All Types</option>
+          <option value="all">{t('raw.allTypes')}</option>
           {RAW_TYPES.map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
         </select>
         {tagDimOptions && tagDimOptions.length > 0 ? (
           <select className={styles.select} value={dim} onChange={(e) => setDim(e.target.value)}>
-            <option value="all">All Tags</option>
+            <option value="all">{t('cols.allTags')}</option>
             {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         ) : null}
+        <ViewToggle mode={view} onChange={setView} />
       </div>
-      <ListHeader cols={['Name', 'Type · Source', 'Updated']} />
-      <div className={styles.list}>
-        {rows.length === 0 ? (
-          <div className={styles.emptyLine}>No raw information yet. Use + Add to capture the first item.</div>
-        ) : rows.map((item) => (
-          <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-            <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
-            <span className={styles.rowTitle}>{item.title}</span>
-            <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
-            <RowBadges badges={badges?.[item.id]} />
-            <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
-          </button>
-        ))}
-      </div>
+      {view === 'grid' ? (
+        rows.length === 0 ? (
+          <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
+        ) : (
+          <div className={styles.gridView}>
+            {rows.map((item) => (
+              <GridCard
+                key={item.id}
+                glyph={ITEM_GLYPHS[item.type]}
+                typeLabel={`${ITEM_LABELS[item.type]}${item.source_label ? ` · ${item.source_label}` : ''}`}
+                title={item.title}
+                badges={badges?.[item.id]}
+                time={rt(item.updated_at)}
+                onClick={() => onSelect(item.id)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <>
+          <ListHeader cols={[t('cols.name'), t('cols.typeSource'), t('cols.updated')]} />
+          <div className={styles.list}>
+            {rows.length === 0 ? (
+              <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
+            ) : rows.map((item) => (
+              <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
+                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
+                <span className={styles.rowTitle}>{item.title}</span>
+                <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
+                <RowBadges badges={badges?.[item.id]} />
+                <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-const OBJECT_TABS: { id: string; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'object.concept', label: 'Concepts' },
-  { id: 'object.decision', label: 'Decisions' },
-  { id: 'object.methodology', label: 'Methodologies' },
-  { id: 'object.hypothesis', label: 'Hypotheses' },
+const OBJECT_TABS: { id: string; labelKey: string }[] = [
+  { id: 'all', labelKey: 'obj.all' },
+  { id: 'object.concept', labelKey: 'obj.concepts' },
+  { id: 'object.decision', labelKey: 'obj.decisions' },
+  { id: 'object.methodology', labelKey: 'obj.methodologies' },
+  { id: 'object.hypothesis', labelKey: 'obj.hypotheses' },
 ];
 
 export function ObjectCollection({
@@ -124,9 +180,12 @@ export function ObjectCollection({
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [dim, setDim] = useState('all');
+  const [view, setView] = useViewMode('objects');
   const rows = useMemo(
     () => items.filter((i) => (OBJECT_TYPES as readonly string[]).includes(i.type))
       .filter((i) => tab === 'all' || i.type === tab)
@@ -137,41 +196,64 @@ export function ObjectCollection({
   return (
     <div className={styles.page}>
       <PageHead
-        title="Structured Objects"
+        title={t('obj.title')}
         count={rows.length}
-        action={<button type="button" className={styles.primaryButton} onClick={onNew}>+ Create</button>}
+        action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.create')}</button>}
       />
-      <p className={styles.pageSub}>Explore and manage your structured knowledge.</p>
+      <p className={styles.pageSub}>{t('obj.sub')}</p>
       <div className={styles.toolbar}>
-        <input className={styles.search} placeholder="Search objects..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={styles.search} placeholder={t('obj.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         {tagDimOptions && tagDimOptions.length > 0 ? (
           <select className={styles.select} value={dim} onChange={(e) => setDim(e.target.value)}>
-            <option value="all">All Tags</option>
+            <option value="all">{t('cols.allTags')}</option>
             {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         ) : null}
+        <ViewToggle mode={view} onChange={setView} />
       </div>
       <div className={styles.tabRow}>
-        {OBJECT_TABS.map((t) => (
-          <button key={t.id} type="button" className={`${styles.tab} ${tab === t.id ? styles.on : ''}`} onClick={() => setTab(t.id)}>
-            {t.label}
+        {OBJECT_TABS.map((tb) => (
+          <button key={tb.id} type="button" className={`${styles.tab} ${tab === tb.id ? styles.on : ''}`} onClick={() => setTab(tb.id)}>
+            {t(tb.labelKey)}
           </button>
         ))}
       </div>
-      <ListHeader cols={['Name', 'Type · Sources', 'Updated']} />
-      <div className={styles.list}>
-        {rows.length === 0 ? (
-          <div className={styles.emptyLine}>No structured objects yet. Use + Create to add one.</div>
-        ) : rows.map((item) => (
-          <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-            <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
-            <span className={styles.rowTitle}>{item.title}</span>
-            <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {sourceCounts[item.id] ?? 0} sources</span>
-            <RowBadges badges={badges?.[item.id]} />
-            <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
-          </button>
-        ))}
-      </div>
+      {view === 'grid' ? (
+        rows.length === 0 ? (
+          <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
+        ) : (
+          <div className={styles.gridView}>
+            {rows.map((item) => (
+              <GridCard
+                key={item.id}
+                glyph={ITEM_GLYPHS[item.type]}
+                typeLabel={`${ITEM_LABELS[item.type]} · ${t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}`}
+                title={item.title}
+                badges={badges?.[item.id]}
+                time={rt(item.updated_at)}
+                onClick={() => onSelect(item.id)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <>
+          <ListHeader cols={[t('cols.name'), t('cols.typeSources'), t('cols.updated')]} />
+          <div className={styles.list}>
+            {rows.length === 0 ? (
+              <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
+            ) : rows.map((item) => (
+              <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
+                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
+                <span className={styles.rowTitle}>{item.title}</span>
+                <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}</span>
+                <RowBadges badges={badges?.[item.id]} />
+                <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -183,7 +265,10 @@ export function ClusterCollection({
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
   const [q, setQ] = useState('');
+  const [view, setView] = useViewMode('clusters');
   const rows = useMemo(
     () => clusters.filter((c) => !q.trim()
       || c.title.toLowerCase().includes(q.trim().toLowerCase())
@@ -193,27 +278,49 @@ export function ClusterCollection({
   return (
     <div className={styles.page}>
       <PageHead
-        title="Clusters"
+        title={t('clu.title')}
         count={rows.length}
-        action={<button type="button" className={styles.primaryButton} onClick={onNew}>+ New Cluster</button>}
+        action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>}
       />
       <p className={styles.pageSub}>Groups of related information — association, not a view.</p>
       <div className={styles.toolbar}>
-        <input className={styles.search} placeholder="Find a cluster..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={styles.search} placeholder={t('clu.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <ViewToggle mode={view} onChange={setView} />
       </div>
-      <ListHeader cols={['Name', 'Description', 'Members · Updated']} />
-      <div className={styles.list}>
-        {rows.length === 0 ? (
-          <div className={styles.emptyLine}>No clusters yet. Use + New Cluster to group related Chunks.</div>
-        ) : rows.map((c) => (
-          <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
-            <span className={styles.rowGlyph}>CLU</span>
-            <span className={styles.rowTitle}>{c.title}</span>
-            <span className={styles.rowType}>{c.description || '—'}</span>
-            <span className={styles.rowTime}>{c.member_ids.length} members · {relativeTime(c.updated_at)}</span>
-          </button>
-        ))}
-      </div>
+      {view === 'grid' ? (
+        rows.length === 0 ? (
+          <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
+        ) : (
+          <div className={styles.gridView}>
+            {rows.map((c) => (
+              <GridCard
+                key={c.id}
+                glyph="CLU"
+                typeLabel={t('common.members', { n: c.member_ids.length })}
+                title={c.title}
+                time={rt(c.updated_at)}
+                onClick={() => onSelect(c.id)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <>
+          <ListHeader cols={[t('cols.name'), t('cols.desc'), t('cols.membersUpdated')]} />
+          <div className={styles.list}>
+            {rows.length === 0 ? (
+              <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
+            ) : rows.map((c) => (
+              <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
+                <span className={styles.rowGlyph}>CLU</span>
+                <span className={styles.rowTitle}>{c.title}</span>
+                <span className={styles.rowType}>{c.description || '—'}</span>
+                <span className={styles.rowTime}>{t('common.members', { n: c.member_ids.length })} · {rt(c.updated_at)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -225,7 +332,10 @@ export function ContextCollection({
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+  const rt = useRelativeTime();
   const [q, setQ] = useState('');
+  const [view, setView] = useViewMode('contexts');
   const rows = useMemo(
     () => contexts.filter((c) => !q.trim()
       || c.title.toLowerCase().includes(q.trim().toLowerCase())
@@ -235,27 +345,49 @@ export function ContextCollection({
   return (
     <div className={styles.page}>
       <PageHead
-        title="Contexts"
+        title={t('ctx.title')}
         count={rows.length}
-        action={<button type="button" className={styles.primaryButton} onClick={onNew}>+ New Context</button>}
+        action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('ctx.new')}</button>}
       />
-      <p className={styles.pageSub}>Organize information into reusable contextual views.</p>
+      <p className={styles.pageSub}>{t('ctx.sub')}</p>
       <div className={styles.toolbar}>
-        <input className={styles.search} placeholder="Find a context..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={styles.search} placeholder={t('ctx.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <ViewToggle mode={view} onChange={setView} />
       </div>
-      <ListHeader cols={['Name', 'Subject · Scope', 'Members · Updated']} />
-      <div className={styles.list}>
-        {rows.length === 0 ? (
-          <div className={styles.emptyLine}>No context views yet. Use + New Context to create one.</div>
-        ) : rows.map((c) => (
-          <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
-            <span className={styles.rowGlyph}>CTX</span>
-            <span className={styles.rowTitle}>{c.title}</span>
-            <span className={styles.rowType}>{c.subject} · {c.scope}</span>
-            <span className={styles.rowTime}>{c.member_ids.length} members · {relativeTime(c.updated_at)}</span>
-          </button>
-        ))}
-      </div>
+      {view === 'grid' ? (
+        rows.length === 0 ? (
+          <EmptyState title={t('ctx.empty')} hint={t('ctx.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('ctx.new')}</button>} />
+        ) : (
+          <div className={styles.gridView}>
+            {rows.map((c) => (
+              <GridCard
+                key={c.id}
+                glyph="CTX"
+                typeLabel={`${c.subject} · ${c.scope}`}
+                title={c.title}
+                time={t('common.members', { n: c.member_ids.length })}
+                onClick={() => onSelect(c.id)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <>
+          <ListHeader cols={[t('cols.name'), t('cols.subjectScope'), t('cols.updated')]} />
+          <div className={styles.list}>
+            {rows.length === 0 ? (
+              <EmptyState title={t('ctx.empty')} hint={t('ctx.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('ctx.new')}</button>} />
+            ) : rows.map((c) => (
+              <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
+                <span className={styles.rowGlyph}>CTX</span>
+                <span className={styles.rowTitle}>{c.title}</span>
+                <span className={styles.rowType}>{c.subject} · {c.scope}</span>
+                <span className={styles.rowTime}>{t('common.members', { n: c.member_ids.length })} · {rt(c.updated_at)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

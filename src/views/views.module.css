@@ -6,7 +6,7 @@
 .hint{color:var(--ink-3);font-size:12px;line-height:18px}
 
 /* Overview */
-.overview{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:32px 16px}
+.overview{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:32px 16px;position:relative}
 .overviewLogo{color:var(--ink)}
 .overviewQuestion{margin:18px 0 0;color:var(--ink-2);font-size:15px}
 .overviewComposer{margin-top:10vh;width:100%;display:flex;justify-content:center}
@@ -155,3 +155,189 @@
 .tagConfirmed{color:var(--sem-confirmed);font-weight:600}
 .tagForm{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .tagForm .search{flex:1;min-width:140px}
+
+/* News panel (Start, top-right) — mini monitor device */
+.newsPanel{
+  position:absolute;top:28px;right:32px;width:304px;
+  display:flex;flex-direction:column;align-items:center;
+}
+.newsScreen{
+  position:relative;width:100%;border-radius:12px;overflow:hidden;
+  background:linear-gradient(168deg,#101418 0%,#0B0E12 55%,#0D1116 100%);
+  border:1px solid #23282F;
+  box-shadow:0 1px 2px rgba(16,16,20,.18),0 16px 40px rgba(16,16,20,.22),inset 0 1px 0 rgba(255,255,255,.06);
+  padding:10px 0 0;
+}
+.scanlines{
+  position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+}
+.screenBar{
+  display:flex;align-items:center;gap:8px;padding:2px 14px 8px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.ledDot{
+  width:6px;height:6px;border-radius:50%;background:#4ADE80;
+  box-shadow:0 0 6px rgba(74,222,128,.8);
+  animation:ledPulse 2.2s ease-in-out infinite;
+}
+@keyframes ledPulse{0%,100%{opacity:1}50%{opacity:.35}}
+.screenLabel{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  color:#9AA4AF;
+}
+.screenBlink{
+  font-family:var(--mono);font-size:10px;color:#4ADE80;line-height:1;
+  animation:blink 1.1s steps(1) infinite;
+}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+.screenClock{
+  margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;
+  color:rgba(74,222,128,.75);
+}
+.screenBody{
+  max-height:280px;overflow-y:auto;padding:4px 0;
+  scrollbar-width:thin;
+}
+.newsItem{
+  display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.05);
+}
+.newsItem:last-child{border-bottom:0}
+.newsDate{
+  font-family:var(--mono);font-size:9px;color:rgba(74,222,128,.65);
+  min-width:34px;padding-top:3px;font-variant-numeric:tabular-nums;letter-spacing:.03em;
+}
+.newsItemTitle{
+  font-family:var(--mono);font-size:11px;line-height:17px;color:#E4E8ED;
+  letter-spacing:.01em;
+}
+.newsSummary{
+  font-family:var(--mono);font-size:9.5px;line-height:15px;color:#7E8894;margin-top:2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.ticker{
+  position:relative;z-index:1;overflow:hidden;white-space:nowrap;
+  border-top:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.03);
+  padding:6px 0;
+}
+.tickerTrack{
+  display:inline-flex;animation:tickerScroll 22s linear infinite;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+  color:rgba(74,222,128,.55);
+}
+.tickerTrack span{padding-right:0}
+@keyframes tickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* device stand */
+.newsStand{display:flex;flex-direction:column;align-items:center}
+.newsStandNeck{width:26px;height:10px;background:linear-gradient(180deg,#2A2F36,#22262C)}
+.newsStandBase{width:92px;height:7px;border-radius:0 0 8px 8px;background:linear-gradient(180deg,#2A2F36,#1B1E23)}
+
+@media (max-width: 1180px) {
+  .newsPanel{position:static;width:min(420px, 100%);margin:28px auto 0;order:9}
+}
+
+/* ── Sync v2 (P1 INTERACTION_UX_PLAN): brand card wall, slide-out connect panel ── */
+.brandWall{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.brandCard{display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:18px 16px;cursor:pointer;font:inherit;text-align:left;transition:border-color .15s,box-shadow .15s,transform .15s}
+.brandCard:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card);transform:translateY(-1px)}
+.brandName{font-size:13.5px;font-weight:650;color:var(--ink)}
+.brandDesc{font-size:11.5px;line-height:17px;color:var(--ink-2)}
+.sourceGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.sourceCard{position:relative;display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:16px}
+.sourceTitle{font-size:13px;font-weight:650;color:var(--ink)}
+.sourceMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:3px}
+.sourceError{font-size:11px;color:var(--error);margin-top:3px}
+.statusDot{width:7px;height:7px;border-radius:50%;flex:none}
+.dotConnected{background:var(--sem-confirmed)}
+.dotPaused{background:#D97706}
+.dotError{background:var(--sem-alert)}
+.menuWrap{position:relative;margin-left:auto;flex:none}
+.iconButton{width:28px;height:28px;display:grid;place-items:center;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;color:var(--ink-2);cursor:pointer;font:inherit;font-size:13px;line-height:1}
+.iconButton:hover{background:var(--tint-hover);color:var(--ink);border-color:var(--line)}
+.menuPop{z-index:30;min-width:150px;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow-card);padding:4px;display:flex;flex-direction:column}
+.menuItem{border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer}
+.menuItem:hover{background:var(--tint-hover)}
+.menuItem:disabled{opacity:.5;cursor:default}
+.menuDanger{color:var(--error)}
+.panelOverlay{position:fixed;inset:0;background:rgba(10,10,14,.28);z-index:120;display:flex;justify-content:flex-end;animation:fadeIn .15s ease-out}
+.slidePanel{width:min(380px,92vw);height:100%;background:var(--bg-surface);border-left:1px solid var(--line);box-shadow:var(--shadow-card);display:flex;flex-direction:column;animation:slideIn .18s ease-out}
+.panelHead{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.panelTitle{flex:1;font-size:15px;font-weight:650;color:var(--ink)}
+.panelBody{flex:1;overflow:auto;padding:18px}
+.panelFoot{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--line)}
+.stepLabel{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:14px 0 6px}
+.stepLabel:first-child{margin-top:0}
+@keyframes slideIn{from{transform:translateX(24px);opacity:.6}to{transform:translateX(0);opacity:1}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── Settings v2 (P2 INTERACTION_UX_PLAN): provider cards, key badge, check line ── */
+.providerRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;max-width:620px}
+.providerCard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:14px 14px;cursor:pointer;font:inherit;text-align:left;transition:border-color .15s,box-shadow .15s}
+.providerCard:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card)}
+.providerCard.on{border-color:var(--accent);box-shadow:var(--shadow-card)}
+.providerGlyph{width:22px;height:22px;display:grid;place-items:center;color:var(--ink-2);font-size:16px}
+.providerName{font-size:12.5px;font-weight:650;color:var(--ink)}
+.providerDesc{font-size:11px;line-height:16px;color:var(--ink-2)}
+.keyRow{display:flex;align-items:center;gap:10px}
+.keyBadge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--pill-track);border-radius:999px;padding:5px 12px;font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+.checkLine{margin-top:12px;font-family:var(--mono);font-size:12px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);animation:fadeIn .18s ease-out}
+.checkOk{color:var(--sem-confirmed);border-color:var(--sem-confirmed);background:color-mix(in srgb, var(--sem-confirmed) 7%, transparent)}
+.checkFail{color:var(--error);border-color:var(--error);background:color-mix(in srgb, var(--error) 7%, transparent)}
+
+/* ── Detail v2 (P3 INTERACTION_UX_PLAN): main column + attribute rail ── */
+.detailCols{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:32px;align-items:start}
+.detailMain{min-width:0}
+.detailRail{position:sticky;top:0;display:flex;flex-direction:column;gap:16px;padding:16px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-rail)}
+.railBadges{display:flex;flex-wrap:wrap;gap:6px}
+.railBadge{border:1px solid var(--line);background:var(--bg-card);border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.railKvs{display:flex;flex-direction:column;gap:10px}
+.railKv{display:flex;flex-direction:column;gap:2px}
+.railKvLabel{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.railKvValue{font-size:12px;line-height:18px;color:var(--ink);word-break:break-word}
+.more{border-top:1px solid var(--line);padding-top:10px}
+.moreSummary{cursor:pointer;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);list-style:none}
+.moreSummary::-webkit-details-marker{display:none}
+.moreSummary::before{content:'▸ ';transition:transform .15s}
+.more[open] .moreSummary::before{content:'▾ '}
+.more>*:not(.moreSummary){margin-top:10px}
+@media (max-width: 1080px) {
+  .detailCols{grid-template-columns:1fr}
+  .detailRail{position:static}
+}
+
+/* ── Overview v2 (P3): proposal cards + badge clouds ── */
+.proposalGrid{display:flex;flex-direction:column;gap:8px}
+.proposalCard{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:12px 14px}
+.proposalMain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.proposalKind{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.proposalValue{font-size:13px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.proposalMeta{font-size:11px;color:var(--ink-2)}
+.proposalActions{display:flex;gap:6px;flex:none}
+.acceptButton,.rejectButton{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--bg-card);cursor:pointer;font:inherit;font-size:13px;transition:all .15s}
+.acceptButton{color:var(--sem-confirmed)}
+.acceptButton:hover{background:var(--sem-confirmed);color:#fff;border-color:var(--sem-confirmed)}
+.rejectButton{color:var(--ink-3)}
+.rejectButton:hover{background:var(--error);color:#fff;border-color:var(--error)}
+.proposalMore{border:1px dashed var(--line-strong);border-radius:var(--radius-sm);background:transparent;color:var(--ink-2);font:inherit;font-size:12px;padding:8px;cursor:pointer}
+.proposalMore:hover{color:var(--ink);border-color:var(--ink-3)}
+.badgeCloud{display:flex;flex-wrap:wrap;gap:8px}
+.cloudChip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--bg-card);border-radius:999px;padding:7px 14px;font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;transition:all .15s;max-width:100%}
+.cloudChip:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card)}
+.cloudStatic{cursor:default}
+.cloudStatic:hover{box-shadow:none}
+.cloudGlyph{font-family:var(--mono);font-size:9px;color:var(--ink-3);letter-spacing:.06em}
+.cloudCount{font-family:var(--mono);font-size:10px;color:var(--ink-3);background:var(--pill-track);border-radius:999px;padding:1px 7px}
+
+/* ── Grid view (网格视角): card grid alternative to list rows ── */
+.gridView{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:4px}
+.gridCard{display:flex;flex-direction:column;gap:8px;align-items:stretch;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:14px 16px;cursor:pointer;font:inherit;text-align:left;transition:border-color .15s,box-shadow .15s,transform .15s;min-height:108px}
+.gridCard:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card);transform:translateY(-1px)}
+.gridCardHead{display:flex;align-items:center;gap:8px}
+.gridCardGlyph{width:26px;height:26px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;font-family:var(--mono);font-size:9px;color:var(--ink-3);letter-spacing:.04em}
+.gridCardType{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.gridCardTitle{font-size:13px;font-weight:650;line-height:19px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.gridCardFoot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--ink-3)}
+.gridCardBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
+.sectionHeadRow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sectionHeadRow>*:first-child{flex:1}

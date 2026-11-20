@@ -5,10 +5,10 @@ import styles from './animations.module.css';
 type QualityConfig = { cell: number; radius: number; drift: number; dash: number; soft: number };
 
 const CFG: Record<Exclude<AnimationQuality, 'off'>, QualityConfig> = {
-  low: { cell: 46, radius: 130, drift: 0, dash: 5, soft: 0 },
-  medium: { cell: 34, radius: 180, drift: 0, dash: 7, soft: 0 },
-  high: { cell: 27, radius: 230, drift: 1, dash: 8, soft: 0.5 },
-  max: { cell: 21, radius: 290, drift: 1, dash: 10, soft: 1 },
+  low: { cell: 46, radius: 130, drift: 0, dash: 3, soft: 0 },
+  medium: { cell: 34, radius: 180, drift: 0, dash: 4, soft: 0 },
+  high: { cell: 27, radius: 230, drift: 1, dash: 5, soft: 0.5 },
+  max: { cell: 21, radius: 290, drift: 1, dash: 6, soft: 1 },
 };
 
 const TINT_RGB: Record<'light' | 'dark', [number, number, number]> = {
@@ -17,13 +17,10 @@ const TINT_RGB: Record<'light' | 'dark', [number, number, number]> = {
 };
 
 /**
- * Mouse-following dot-grid background (spec board annotation:
- * "拖动鼠标时要有这样的背景动画" with quality Off/Low/Medium/High/Max).
- *
- * Rest state is EMPTY: nothing renders until the pointer moves inside the
- * window, and only the cells around the cursor fade in. After a short idle
- * period (or when the pointer leaves) the effect fades back to nothing.
- * Purely decorative: never captures pointer events.
+ * Mouse-following PARTICLE background (Start page only) — small dots that fade
+ * in around the cursor and dissolve when it rests. Rest state is EMPTY.
+ * Quality Off/Low/Medium/High/Max controls density and glow radius.
+ * Reduced-motion disables drift. Never captures pointer events.
  */
 export function DotGridBackground({ quality, theme }: { quality: AnimationQuality; theme: 'light' | 'dark' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,7 +31,10 @@ export function DotGridBackground({ quality, theme }: { quality: AnimationQualit
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const cfg = CFG[quality as Exclude<AnimationQuality, 'off'>];
+    const baseCfg = CFG[quality as Exclude<AnimationQuality, 'off'>];
+    const reduced = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cfg = reduced ? { ...baseCfg, drift: 0, soft: 0 } : baseCfg;
     const tintRgb = TINT_RGB[theme];
     const pointer = { x: -9999, y: -9999, inside: false, lastMove: 0 };
     let intensity = 0; // 0 = invisible (rest state), 1 = fully shown
@@ -78,7 +78,6 @@ export function DotGridBackground({ quality, theme }: { quality: AnimationQualit
       }
 
       const t = now / 1000;
-      const angle = (-35 * Math.PI) / 180;
       // Only walk the cell neighbourhood around the cursor.
       const minGx = Math.max(0, Math.floor((pointer.x - cfg.radius) / cfg.cell));
       const maxGx = Math.min(Math.ceil(w / cfg.cell), Math.ceil((pointer.x + cfg.radius) / cfg.cell));
@@ -87,7 +86,7 @@ export function DotGridBackground({ quality, theme }: { quality: AnimationQualit
       for (let gy = minGy; gy <= maxGy; gy += 1) {
         for (let gx = minGx; gx <= maxGx; gx += 1) {
           const wave = cfg.soft * Math.sin(gx * 0.55 + gy * 0.8 + t * 0.6) * cfg.cell * 0.22;
-          const x = gx * cfg.cell + cfg.cell / 2;
+          const x = gx * cfg.cell + cfg.cell / 2 + (cfg.drift ? cfg.soft * Math.cos(gx * 0.4 + t * 0.5) * cfg.cell * 0.12 : 0);
           const y = gy * cfg.cell + cfg.cell / 2 + (cfg.drift ? wave : 0);
           const dx = x - pointer.x;
           const dy = y - pointer.y;
@@ -96,17 +95,16 @@ export function DotGridBackground({ quality, theme }: { quality: AnimationQualit
           f = f * f * (3 - 2 * f); // smoothstep falloff
           const alpha = f * intensity;
           if (alpha < 0.015) continue; // rest state contributes nothing
-          const len = cfg.dash + f * cfg.dash * 1.7;
+          // Particle: small dot with deterministic per-cell size variation.
+          const jitter = ((gx * 7 + gy * 13) % 5) / 5; // 0..0.8
+          const size = cfg.dash * (0.55 + jitter * 0.5) + f * 1.1;
           const r = Math.round(200 + (tintRgb[0] - 200) * f);
           const g = Math.round(200 + (tintRgb[1] - 200) * f);
           const b = Math.round(200 + (tintRgb[2] - 200) * f);
-          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
-          ctx.lineWidth = 1.6 + f * 1.6;
-          ctx.lineCap = 'round';
+          ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
           ctx.beginPath();
-          ctx.moveTo(x - Math.cos(angle) * len, y - Math.sin(angle) * len);
-          ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-          ctx.stroke();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
       raf = requestAnimationFrame(frame);

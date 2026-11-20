@@ -20,6 +20,7 @@ export const THEMES = ['light', 'dark'] as const;
 export type ThemeMode = (typeof THEMES)[number];
 
 export type UiPrefs = {
+  language: 'zh' | 'en';
   theme: ThemeMode;
   quality: AnimationQuality;
   pageTransition: boolean;
@@ -29,6 +30,7 @@ export type UiPrefs = {
 };
 
 export const DEFAULT_PREFS: UiPrefs = {
+  language: 'zh',
   theme: 'light',
   quality: 'medium',
   pageTransition: true,
@@ -50,6 +52,7 @@ export function loadPrefs(): UiPrefs {
     if (!raw) return { ...DEFAULT_PREFS };
     const parsed = JSON.parse(raw) as Partial<UiPrefs>;
     return {
+      language: parsed.language === 'en' ? 'en' : 'zh',
       theme: parsed.theme === 'dark' ? 'dark' : DEFAULT_PREFS.theme,
       quality: ANIMATION_QUALITIES.includes(parsed.quality as AnimationQuality)
         ? (parsed.quality as AnimationQuality)
@@ -74,5 +77,35 @@ export function savePrefs(prefs: UiPrefs): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
   } catch {
     /* storage unavailable; preferences stay in-memory for this session */
+  }
+}
+
+/* Per-page view mode (list ⇄ grid) — persisted separately so each page
+   remembers its own choice. (网格视角) */
+export type ViewMode = 'list' | 'grid';
+
+const VIEW_MODE_KEY = 'gsc.ui.viewmode.v1';
+
+export function loadViewMode(page: string): ViewMode {
+  if (!hasStorage()) return 'list';
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY);
+    if (!raw) return 'list';
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return parsed[page] === 'grid' ? 'grid' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+export function saveViewMode(page: string, mode: ViewMode): void {
+  if (!hasStorage()) return;
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    parsed[page] = mode;
+    localStorage.setItem(VIEW_MODE_KEY, JSON.stringify(parsed));
+  } catch {
+    /* in-memory for this session */
   }
 }

@@ -1,21 +1,23 @@
 import type { ReactNode } from 'react';
 import styles from './semtag.module.css';
+import { useT } from '../lib/i18n.tsx';
 
 export type SemKind = 'original' | 'confirmed' | 'machine' | 'alert';
 
-const LABELS: Record<SemKind, string> = {
-  original: '原文',
-  confirmed: '确认',
-  machine: '机器',
-  alert: '异常',
+const LABEL_KEYS: Record<SemKind, string> = {
+  original: 'sem.original',
+  confirmed: 'sem.confirmed',
+  machine: 'sem.machine',
+  alert: 'sem.alert',
 };
 
 /** State chip (D-055). Color never carries meaning alone — the label is always shown. */
 export function SemTag({ kind, label }: { kind: SemKind; label?: string }) {
+  const t = useT();
   return (
     <span className={`${styles.tag} ${styles[kind]}`}>
       <span className={styles.dot} />
-      {label ?? LABELS[kind]}
+      {label ?? t(LABEL_KEYS[kind])}
     </span>
   );
 }
@@ -23,7 +25,7 @@ export function SemTag({ kind, label }: { kind: SemKind; label?: string }) {
 export function SemLegend() {
   return (
     <div className={styles.legend}>
-      {(Object.keys(LABELS) as SemKind[]).map((kind) => (
+      {(Object.keys(LABEL_KEYS) as SemKind[]).map((kind) => (
         <SemTag key={kind} kind={kind} />
       ))}
     </div>
