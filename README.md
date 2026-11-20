@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Layout v2 + PLAN-1…PLAN-5 (model, Light Up, Sync, Agent, Chunk UI) implemented 2026-11-20. PLAN-6 (API/MCP/Provider) in progress. Long-range plans in `plans/`.
+**Status:** Layout v2 + PLAN-1…PLAN-6 (model, Light Up, Sync, Agent, Chunk UI, API/MCP) implemented 2026-11-20. PLAN-7 (Shared Clusters) in progress. Long-range plans in `plans/`.
 
 ## Read first
 
