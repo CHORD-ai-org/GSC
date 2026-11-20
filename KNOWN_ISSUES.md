@@ -65,6 +65,12 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 | Context Space vs View boundary | `CONTEXT_VIEWS.md` |
 | Context persistence | `contexts` and `context_members` tables |
 
+## PLAN-8 (Meta Tags + User Profile) — open items
+
+1. **C8-1 未做**：Agent 建议标签值（提案制）与 Detector 缺失/矛盾标签检查。标签赋值目前全人工。
+2. **`domain` 与 Meta Tag 并存**（D-065）：两套分类机制；未来可将 domain 收编为 Project Association 标签后弃用。
+3. 标签作用域的 `project:`/`context:` 前缀目前只存不解析（可见性按 PLAN-7 共享规则走，不按 scope 过滤）。
+
 ## Phase 05 — open questions and gaps
 
 | Item | State |

@@ -493,3 +493,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** enforce everything now (rejected — scope); no enforcement (rejected — verification requires privacy).
 - **Consequences:** documented gap in KNOWN_ISSUES; PLAN-8 must extend the same rules to contexts/tags.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行07".
+
+## D-064 — Meta Tag first dimensions and controlled definitions
+
+- **Decision:** Pre-seed the six Vision §5.4 dimensions (Thinking Style, User Profile, Expertise, Interest, Methodology, Project Association) as `tag_definitions`. Tag **definitions are controlled** (must exist before assignment); **values are free** (any string). No folksonomy.
+- **Reasoning:** Vision explicitly warns against "arbitrary, inconsistent tags becoming an unmanageable taxonomy"; controlled definitions with free values is the minimal guard that still allows growth.
+- **Alternatives:** free tags (rejected — the exact failure Vision calls out); fully controlled values too (rejected — overkill at this stage).
+- **Consequences:** assignment API rejects unknown dimension ids with `contract`; a definition-management UI (Settings area) is required (A8-1).
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行08".
+
+## D-065 — `domain` stays; Meta Tags run in parallel
+
+- **Decision:** Keep the existing `items.domain` field untouched. Meta Tags are an additive layer; `domain` is not merged into tags in this phase.
+- **Reasoning:** PLAN-8 Q2 suggested merging, but `domain` is wired through filters, forms and tests across PLAN-1…PLAN-7; merging now is churn with no verification gain. A tag value with the same semantic can shadow it later (C8-1).
+- **Alternatives:** merge `domain` into tags now (rejected — high churn, deferred to a future cleanup).
+- **Consequences:** two coexisting classification mechanisms documented in INFORMATION_MODEL; possible future deprecation of `domain`.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行08".
+
+## D-066 — User Profile aggregation and output
+
+- **Decision:** User Profile = aggregation of **user-confirmed** values on the `User Profile` dimension (plus curated statements), presented on a read-mostly profile page with confirm/remove. Read-only output at `/api/v1/profile` and MCP tool `gsc_get_user_profile`. Tags carry owner_id and follow PLAN-7 visibility rules; profile output returns only the viewing user's own confirmed values.
+- **Reasoning:** Vision §5.4 positions User Profile as the cross-application category; "Automation With Human Governance" forbids inference-style profiling. Only user-confirmed facts go out to external agents.
+- **Alternatives:** psychological inference over all chunks (rejected — explicitly out of boundary); output all tags (rejected — leaks unrelated dimensions).
+- **Consequences:** profile endpoint is the contract for PLAN-6 consumers; Detector-style tag suggestions are C8-1 only.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行08".

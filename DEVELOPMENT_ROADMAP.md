@@ -20,7 +20,7 @@ Phase 04 task cards: `PHASE_04_PLAN.md`. All P4-0…P4-4 completed 2026-11-19.
 
 Phase 05 task cards: `PHASE_05_UI_PLAN.md` (P5-0…P5-6 + milestones M1–M6). Former Phase 05 (evaluation) renumbered to Phase 06 per D-030.
 
-Long-range tracks (2026-11-20, `plans/`): PLAN-1…PLAN-4 executed (D-042…D-054); PLAN-5 (Chunk interface) in progress (D-055…D-057); PLAN-6…PLAN-8 `PROPOSED`. UI layout update: `UI_LAYOUT_PLAN.md` (L1–L6, executed 2026-11-19).
+Long-range tracks (2026-11-20, `plans/`): PLAN-1…PLAN-7 executed (D-042…D-063); PLAN-8 (Meta Tags + User Profile) in progress (D-064…D-066); UI layout update: `UI_LAYOUT_PLAN.md` (L1–L6, executed 2026-11-19).
 
 ## 2. Phase 01 task cards
 

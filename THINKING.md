@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: PLAN-7 A7-1/B7-1 已执行（本地最小身份 + owner_id + Cluster 共享 view/add + 审计，D-061…D-063）。B7-2/C7-1 未做。PLAN-8 仍 PROPOSED。
+> Status: 商业产品级 eval 已做（`EVAL_PLAN_EXECUTION.md`，总分 4.0/5）。P1 三项待修：畸形 JSON→502、鉴权状态码 401/403、Detector O(n²)。plans/ 全部 A/B 段执行完毕。
 
 ## User approvals received 2026-11-16
 

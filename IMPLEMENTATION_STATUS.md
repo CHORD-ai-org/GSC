@@ -386,6 +386,32 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Tests | `npm test` | 47 tests pass (1 new scenario: A shares→B reads member chunk only, private invisible, view cannot mutate/add, revoke instant, audit granted+revoked) |
 | UI | `ui-prototype/shots/15-cluster-detail.png` | Sharing block with user picker, role select, Bob·view row + 回收 verified |
 
+### PLAN-8 execution (2026-11-20, A8-1/B8-1/B8-2)
+
+| File | Change |
+|---|---|
+| `server/persistence/migrations/0006_meta_tags.sql`, `schema.ts` | `tag_definitions` + `tag_values` (scope, confirmed, owner_id); 6 Vision §5.4 dimensions pre-seeded idempotently |
+| `src/lib/tags.ts` | three-layer contract, scope validation, controlled-definition rule, preset dimension table |
+| `server/repo/tags.ts` | definition CRUD, value create/confirm/delete, unknown-definition refusal |
+| `server/router.ts` | `/api/tags/definitions`, `/api/tags/values` (+PATCH/DELETE), read-only `/api/profile` (confirmed-only, D-066) |
+| `server/mcp/index.ts` | `gsc_get_user_profile` tool → `/api/v1/profile` |
+| `src/components/TagEditor.tsx` | assignment block: dimension select, free value, scope, confirm/remove |
+| `src/views/{detail,pages,collections}.tsx` | Meta Tags block in Raw/Object detail; Settings → Meta Tags (definitions + User Profile aggregation + new dimension); tag-dimension filter in Raw/Objects collections; Overview Meta Tags summary |
+| `src/app/App.tsx` | tag state, loaders, handlers, derived indexes (tagDimsByItem/tagDimNames/tagSummary) |
+
+### Background animation fix (2026-11-20)
+
+Dot-grid background is now **empty at rest**: nothing renders until the pointer moves inside the window, only the cells around the cursor fade in (smoothstep falloff within a quality-dependent radius), and the effect fades out after ~2.2s idle or when the pointer leaves. Verified via CDP with `Input.dispatchMouseEvent`: `anim-1-rest.png` (clean background) and `anim-2-hover.png` (localized dash cluster around the cursor only).
+
+### PLAN-8 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 49 tests pass (1 new: seeds 6 dimensions, refuses unknown definition, scope validation, profile confirmed-only round-trip) |
+| MCP | live `tools/call gsc_get_user_profile` | returns only confirmed User Profile values via `/api/v1/profile` |
+| UI | `shots/07-object-detail.png` (Meta Tags block), `21-settings-tags.png` (definitions + User Profile + NEW DIMENSION), `22-overview-bottom.png` (Meta Tags summary) | verified |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).

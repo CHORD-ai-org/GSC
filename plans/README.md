@@ -11,7 +11,7 @@ Status: 全部 `PROPOSED` — 2026-11-20 制定，未逐条获批前不进入实
 | Semantic Name | `items.title` | ✅ 已裁决（D-043）：即 `title`，机器命名走提案层 |
 | Cluster（关联分组） | `clusters` + `cluster_members`（PLAN-1 实现中） | ✅ 已裁决（D-045）：多归属、显式成员 |
 | Context（目的性视图） | `contexts` + 显式成员 | 已对齐 ✓ |
-| Meta Tag | `domain` 单选字段 | 雏形；缺定义/取值/作用域三层（PLAN-8） |
+| Meta Tag | `domain` 单选字段 + `tag_definitions`/`tag_values` 三层 | ✅ 对齐（D-064…D-066）；`domain` 保留并行（D-065） |
 | Light Up（主动采集） | Composer 捕获 / 文件导入 / New 表单 | 雏形；缺管线 3–7 步（PLAN-2） |
 | Sync（外部源持续采集） | `sources` 表 + GitHub 适配器（PLAN-3 A3-2 实现中） | ✅ 已裁决（D-049/D-050）：Sync 专指源采集，原导出页改名 Export；同步条目 `origin: import` + `sync:<kind>:<ref>` |
 | GSC Agent / Detector | 无；DIVERGENCE D1 是模型接入 | 智能层整体缺位（PLAN-4） |
@@ -29,7 +29,7 @@ Status: 全部 `PROPOSED` — 2026-11-20 制定，未逐条获批前不进入实
 | [PLAN-5 Chunk 界面](PLAN-5-chunk-interface.md) | §8 | 分区呈现 + 稳定色彩语义 + 时间演化可视化 | PLAN-1 | A→B |
 | [PLAN-6 API / MCP / Provider](PLAN-6-api-mcp.md) | §6 | 对外授权面：API 契约、MCP server（Codex/Claude Code/Pi）、SDK | PLAN-1、权限最小集 | A→C |
 | [PLAN-7 共享与协作](PLAN-7-shared-clusters.md) | §9 | Shared Cluster：所有权/成员/共享访问/权限四分离 | PLAN-6、PLAN-8 | B→C |
-| [PLAN-8 Meta Tag 与 User Profile](PLAN-8-meta-tags-profile.md) | §5.4 | 标签定义/取值/作用域三层 + User Profile 跨应用输出 | PLAN-1 | A→C |
+| [PLAN-8 Meta Tag 与 User Profile](PLAN-8-meta-tags-profile.md) | §5.4 | 标签定义/取值/作用域三层 + User Profile 跨应用输出 | ✅ A/B 段执行 | A→C |
 
 ## 2. 阶段口径
 

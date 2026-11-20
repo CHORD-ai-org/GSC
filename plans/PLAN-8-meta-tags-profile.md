@@ -1,6 +1,8 @@
 # PLAN-8 — Meta Tag 体系与 User Profile
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §5.4 · 依赖：PLAN-1（标签进模型）、PLAN-6（跨应用输出）
+Status: `A8-1/B8-1/B8-2 EXECUTED` (2026-11-20, D-064…D-066) · 源：`PRODUCT_VISION.md` §5.4 · 依赖：PLAN-1（标签进模型）、PLAN-6（跨应用输出）
+
+> 落地：`tag_definitions`/`tag_values` 两表（含 scope/confirmed/owner_id）+ 6 预置维度；Settings → Meta Tags 定义管理 + User Profile 聚合；详情页打标；Raw/Objects 按维度筛选；Overview 标签概览；`/api/v1/profile` + MCP `gsc_get_user_profile`（只出已确认）。C8-1（Agent 建议标签值/Detector 找缺失）未做。
 
 ## 目标场景
 
