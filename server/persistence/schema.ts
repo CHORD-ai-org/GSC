@@ -75,4 +75,33 @@ export const contextMembers = pgTable('context_members', {
   pk: primaryKey({ columns: [table.context_id, table.item_id] }),
 }));
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers };
+export const clusters = pgTable('clusters', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+export const clusterMembers = pgTable('cluster_members', {
+  cluster_id: text('cluster_id').notNull().references(() => clusters.id, { onDelete: 'cascade' }),
+  item_id: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  added_at: timestamp('added_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.cluster_id, table.item_id] }),
+}));
+
+export const proposals = pgTable('proposals', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  target_id: text('target_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  related_id: text('related_id').references(() => items.id, { onDelete: 'cascade' }),
+  proposed_value: text('proposed_value').notNull(),
+  rationale: text('rationale').notNull().default(''),
+  source: text('source').notNull().default('agent'),
+  status: text('status').notNull().default('pending'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  resolved_at: timestamp('resolved_at', { withTimezone: true }),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals };
