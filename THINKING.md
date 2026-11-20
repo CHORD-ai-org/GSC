@@ -1,8 +1,8 @@
 # THINKING.md — Active Task
 
-> Last updated: 2026-11-19
+> Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Layout v2 (UI_LAYOUT_PLAN L1–L6) IMPLEMENTED — Start rename, new Overview, Collection/Object Detail modes, delete endpoint, Recently visit tags, Settings nav. D1–D6 of `DIVERGENCE_PLAN.md` stay `PROPOSED`.
+> Status: Vision v0.2 saved (`PRODUCT_VISION.md`, D-041). Long-range plans in `plans/` (PLAN-1…PLAN-8, all `PROPOSED`) awaiting user review. Near-term menu `DIVERGENCE_PLAN.md` (D1–D6 `PROPOSED`, D7 done).
 
 ## User approvals received 2026-11-16
 

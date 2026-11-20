@@ -309,3 +309,11 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** new column + migration; drop the distinction.
 - **Consequences:** visit history is per-browser and can be cleared; modification history remains the authoritative record (events).
 - **Status:** `DECIDED` — 2026-11-19.
+
+## D-041 — Vision v0.2 adopted; long-range plans folder
+
+- **Decision:** `PRODUCT_VISION.md` updated to v0.2 (user-supplied draft; v0.1 recoverable from git). Long-range planning lives in `plans/` (PLAN-1…PLAN-8 + README index), all `PROPOSED`. `DIVERGENCE_PLAN.md` remains the near-term menu; `plans/` is vision-driven long range.
+- **Reasoning:** user instruction 2026-11-20 "这是我们的vision文档，你先存到本地，然后以及为基础制定多个计划（长线计划，记得单独弄一个文件夹）".
+- **Alternatives:** keep v0.1 and archive v0.2 separately; fold long-range plans into DEVELOPMENT_ROADMAP.
+- **Consequences:** vision vocabulary (Chunk/Cluster/Meta Tag/Light Up/Sync-as-source) does **not** match current code (items/contexts/export-Sync); the mapping table in `plans/README.md` §0 is authoritative for the drift, and PLAN-1 must resolve it before other tracks build on the model. Note the Sync naming collision: current Sync page = export.
+- **Status:** `DECIDED` — 2026-11-20 (documentation only; plan contents stay `PROPOSED`).
