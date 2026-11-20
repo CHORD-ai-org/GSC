@@ -1,0 +1,10 @@
+.map{display:flex;gap:3px;overflow-x:auto;padding:4px 0}
+.col{display:flex;flex-direction:column;gap:3px}
+.cell{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);background:var(--pill-track);padding:0;cursor:pointer;display:flex;overflow:hidden;flex:none}
+.cell:hover{border-color:var(--line-strong)}
+.segCreated{flex:1;background:var(--sem-original)}
+.segUpdated{flex:1;background:var(--sem-confirmed)}
+.segPending{flex:1;background:var(--sem-machine)}
+.segEmpty{flex:1;background:transparent}
+.legendRow{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.hint{color:var(--ink-3);font-size:11px}

@@ -1,0 +1,11 @@
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;line-height:14px;font-weight:600;letter-spacing:.04em;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.dot{width:6px;height:6px;border-radius:999px;background:currentColor;flex:none}
+.original{color:var(--sem-original);background:color-mix(in srgb, var(--sem-original) 12%, transparent)}
+.confirmed{color:var(--sem-confirmed);background:color-mix(in srgb, var(--sem-confirmed) 12%, transparent)}
+.machine{color:var(--sem-machine);background:color-mix(in srgb, var(--sem-machine) 12%, transparent)}
+.alert{color:var(--sem-alert);background:color-mix(in srgb, var(--sem-alert) 12%, transparent)}
+
+.legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;line-height:14px;color:var(--ink-2);background:var(--pill-track);border-radius:999px;padding:2px 8px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.badgeRow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}

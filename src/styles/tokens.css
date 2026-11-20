@@ -23,6 +23,11 @@
   --tile-bg:#FFFFFF;
   --tile-glow-a:rgba(120,120,132,.38);
   --tile-glow-b:rgba(150,150,162,.28);
+  /* Semantic color dictionary (D-055): state only, always paired with text */
+  --sem-original:#6B7280;
+  --sem-confirmed:#16A34A;
+  --sem-machine:#9333EA;
+  --sem-alert:#DC2626;
   --radius-sm:8px;
   --radius-lg:16px;
   --ui:'Inter Variable',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -54,4 +59,8 @@
   --tile-bg:#1A1A1F;
   --tile-glow-a:rgba(200,200,215,.14);
   --tile-glow-b:rgba(170,170,188,.10);
+  --sem-original:#9CA3AF;
+  --sem-confirmed:#4ADE80;
+  --sem-machine:#C084FC;
+  --sem-alert:#F87171;
 }
