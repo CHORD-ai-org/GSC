@@ -14,8 +14,9 @@ import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView }
 import { TagEditor } from '../components/TagEditor.tsx';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { ClusterIndexEntry } from '../views/detail.tsx';
-import { LightUpView } from '../views/lightup.tsx';
-import type { SegmentRow } from '../views/lightup.tsx';
+import { LightUpStudio } from '../views/lightup.tsx';
+import type { PersistResult } from '../views/lightup.tsx';
+import type { Sheet } from '../components/SemanticObjectSheet.tsx';
 import {
   DOMAINS,
   ITEM_LABELS,
@@ -539,39 +540,48 @@ export default function App() {
     return { details, contexts, exportedAt: new Date().toISOString() };
   }
 
-  async function persistSegments(rows: SegmentRow[], sourceLabel: string) {
+  async function persistSegments(sheets: Sheet[], sourceLabel: string): Promise<PersistResult> {
     setLightupBusy(true);
+    const created: PersistResult['created'] = [];
+    const failed: PersistResult['failed'] = [];
     try {
       setError('');
-      let firstId = '';
-      for (const row of rows) {
-        const fields: ItemFields = { content_text: row.content };
-        if (row.type === 'raw.message') fields.author = row.author || 'extracted';
-        if (row.type === 'raw.evidence') fields.locator = row.locator || sourceLabel;
-        if (row.type === 'raw.filecontent') fields.filename = row.title;
-        const result = await api.createItem({
-          type: row.type,
-          title: row.title || 'Untitled',
-          domain: 'knowledge',
-          origin: 'user',
-          source_label: sourceLabel,
-          fields,
-        });
-        if (!firstId && result.item) firstId = result.item.id;
+      for (const sheet of sheets) {
+        const fields: ItemFields = { content_text: sheet.content };
+        if (sheet.type === 'raw.message') fields.author = sheet.author || 'extracted';
+        if (sheet.type === 'raw.evidence') fields.locator = sheet.locator || sourceLabel;
+        if (sheet.type === 'raw.filecontent') fields.filename = sheet.title;
+        try {
+          const result = await api.createItem({
+            type: sheet.type,
+            title: sheet.title || 'Untitled',
+            domain: 'knowledge',
+            origin: 'user',
+            source_label: sourceLabel,
+            fields,
+          });
+          if (result.item) {
+            created.push({ id: result.item.id, title: result.item.title, type: result.item.type, source_label: result.item.source_label });
+            // Pending tags become real tag values through the existing contract (PLAN-8).
+            for (const tag of sheet.tags) {
+              const def = tagDefinitions.find((d) => d.name === tag.dim);
+              if (def) {
+                await api.createTagValue({ definition_id: def.id, item_id: result.item.id, value: tag.value, confirmed: true });
+              }
+            }
+          }
+        } catch (e) {
+          failed.push({ key: sheet.key, message: e instanceof Error ? e.message : 'create failed' });
+        }
       }
       await refresh();
-      if (firstId) {
-        selectItem(firstId);
-        go('raw');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Light Up failed');
     } finally {
       setLightupBusy(false);
     }
+    return { created, failed };
   }
 
-  async function proposeForSegments(rows: SegmentRow[]): Promise<{ index: number; semantic_name: string }[]> {
+  async function proposeForSegments(rows: { title: string; content: string }[]): Promise<{ index: number; semantic_name: string }[]> {
     setLightupBusy(true);
     try {
       setError('');
@@ -872,17 +882,19 @@ export default function App() {
         return renderItemPage('objects');
       case 'lightup':
         return (
-          <LightUpView
+          <LightUpStudio
             manualContent={renderLightUpManual()}
             onPreviewUrl={async (u) => {
               const result = await api.ingestUrl(u);
               return { title: result.title, text: result.text, url: result.url };
             }}
-            onSubmitRows={persistSegments}
+            onSubmitSheets={persistSegments}
             onPropose={proposeForSegments}
             proposals={proposals}
             onResolve={resolveProposalEntry}
             onDetect={detectNow}
+            tagDefinitions={tagDefinitions}
+            onNavigate={(v) => go(v)}
             busy={lightupBusy}
             error={error}
           />

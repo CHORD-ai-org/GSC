@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from './api.ts';
 export const RAW_TYPES = [
   'raw.document',
   'raw.message',
@@ -166,9 +167,14 @@ export function fieldKeysFor(type: ItemType): readonly (keyof ItemFields)[] {
 
 export function isItemFields(value: unknown): value is ItemFields {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  // O1-2: field values are capped (INPUT_LIMITS.fieldValue)
   return Object.values(value as Record<string, unknown>).every(
-    (v) => v === undefined || typeof v === 'string',
+    (v) => v === undefined || (typeof v === 'string' && v.length <= INPUT_LIMITS.fieldValue),
   );
+}
+
+function withinLimit(v: unknown, max: number): boolean {
+  return v === undefined || (typeof v === 'string' && v.length <= max);
 }
 
 function nonEmpty(v: unknown): boolean {
@@ -179,6 +185,8 @@ export function validateCreateItemBody(value: unknown): value is CreateItemBody 
   if (typeof value !== 'object' || value === null) return false;
   const b = value as Record<string, unknown>;
   if (!isItemType(b.type) || !nonEmpty(b.title)) return false;
+  if (typeof b.title !== 'string' || b.title.length > INPUT_LIMITS.title) return false;
+  if (!withinLimit(b.source_label, INPUT_LIMITS.title)) return false;
   if (b.domain !== undefined && !(DOMAINS as readonly string[]).includes(b.domain as string)) return false;
   if (b.origin !== undefined && !(ORIGINS as readonly string[]).includes(b.origin as string)) return false;
   if (b.source_label !== undefined && typeof b.source_label !== 'string') return false;
@@ -191,6 +199,8 @@ export function validateUpdateItemBody(value: unknown): value is UpdateItemBody 
   if (typeof value !== 'object' || value === null) return false;
   const b = value as Record<string, unknown>;
   if (b.title !== undefined && !nonEmpty(b.title)) return false;
+  if (typeof b.title === 'string' && b.title.length > INPUT_LIMITS.title) return false;
+  if (!withinLimit(b.source_label, INPUT_LIMITS.title)) return false;
   if (b.domain !== undefined && !(DOMAINS as readonly string[]).includes(b.domain as string)) return false;
   if (b.origin !== undefined && !(ORIGINS as readonly string[]).includes(b.origin as string)) return false;
   if (b.source_label !== undefined && typeof b.source_label !== 'string') return false;

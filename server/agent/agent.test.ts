@@ -4,7 +4,7 @@ import { migrationSql } from '../persistence/migrate.ts';
 import { createItem, getItem, listItems } from '../repo/items.ts';
 import { createProposal, listProposals, resolveProposalApplying } from '../repo/proposals.ts';
 import { extractJson } from './llm.ts';
-import { runDetection, similarity } from './detector.ts';
+import { planComparisons, runDetection, similarity } from './detector.ts';
 
 let handle: DatabaseHandle;
 
@@ -87,5 +87,27 @@ describe('proposal acceptance semantics (D-054)', () => {
     });
     await resolveProposalApplying(handle.db, proposal.id, 'rejected');
     expect((await getItem(handle.db, item.id))?.title).toBe('Keep me');
+  });
+});
+
+describe('detector candidate gate (O5-2)', () => {
+  it('enumerates only pairs sharing a non-ubiquitous token', () => {
+    const sets = new Map<string, Set<string>>();
+    // three unrelated items + one duplicate pair
+    sets.set('a', new Set(['alpha', 'bravo', 'charlie']));
+    sets.set('b', new Set(['delta', 'echo', 'foxtrot']));
+    sets.set('c', new Set(['golf', 'hotel', 'india']));
+    sets.set('dup1', new Set(['alpha', 'bravo', 'charlie']));
+    const pairs = planComparisons(sets);
+    const keys = pairs.map(([x, y]) => [x, y].sort().join(':'));
+    expect(keys).toContain('a:dup1'); // the real duplicate pair survives
+    expect(keys.length).toBeLessThan(6); // full sweep would be 6 pairs
+  });
+
+  it('prunes pairs that share only ubiquitous tokens', () => {
+    const sets = new Map<string, Set<string>>();
+    // 4 items all sharing "common" (df=4 > cap=2) plus one private token each
+    for (const id of ['a', 'b', 'c', 'd']) sets.set(id, new Set(['common', `private${id}`]));
+    expect(planComparisons(sets)).toEqual([]); // nothing crosses the gate
   });
 });

@@ -36,6 +36,36 @@ export function similarity(a: string, b: string): number {
   return shared / Math.min(ta.size, tb.size);
 }
 
+/**
+ * O5-2 candidate gate: only pairs sharing at least one non-ubiquitous token can
+ * cross DEDUPE_THRESHOLD. An inverted index enumerates those pairs; tokens whose
+ * document frequency exceeds the cap are treated as stopwords and pruned
+ * (pairs sharing ONLY such tokens are a documented, deliberate skip).
+ */
+export function planComparisons(tokenSets: Map<string, Set<string>>): [string, string][] {
+  const ids = [...tokenSets.keys()];
+  const n = ids.length;
+  const postings = new Map<string, string[]>();
+  for (const id of ids) {
+    for (const token of tokenSets.get(id) ?? []) {
+      const list = postings.get(token);
+      if (list) list.push(id);
+      else postings.set(token, [id]);
+    }
+  }
+  const dfCap = Math.max(2, Math.floor(n * 0.5));
+  const pairs = new Set<string>();
+  for (const list of postings.values()) {
+    if (list.length < 2 || list.length > dfCap) continue;
+    for (let i = 0; i < list.length; i += 1) {
+      for (let j = i + 1; j < list.length; j += 1) {
+        pairs.add(list[i] < list[j] ? `${list[i]}\u0000${list[j]}` : `${list[j]}\u0000${list[i]}`);
+      }
+    }
+  }
+  return [...pairs].map((k) => k.split('\u0000') as [string, string]);
+}
+
 export type DetectionReport = { dedupe: number; metadata: number; association: number };
 
 export async function runDetection(db: Database): Promise<DetectionReport> {
@@ -47,35 +77,38 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
   const texts = new Map<string, string>();
   for (const item of all) texts.set(item.id, comparableText(item));
 
-  for (let i = 0; i < all.length; i += 1) {
-    for (let j = i + 1; j < all.length; j += 1) {
-      const a = all[i];
-      const b = all[j];
-      const score = similarity(texts.get(a.id) ?? '', texts.get(b.id) ?? '');
-      const key = (kind: string) => [kind, a.id, b.id].join(':');
-      if (score >= DEDUPE_THRESHOLD && !seen.has(key('dedupe')) && !seen.has(`dedupe:${b.id}:${a.id}`)) {
-        await createProposal(db, {
-          kind: 'dedupe',
-          target_id: a.id,
-          related_id: b.id,
-          proposed_value: `${Math.round(score * 100)}% overlap with “${b.title}”`,
-          rationale: `text similarity ${score.toFixed(2)} — review for merge or distinction`,
-          source: 'detector',
-        });
-        seen.add(key('dedupe'));
-        report.dedupe += 1;
-      } else if (score >= 0.4 && score < DEDUPE_THRESHOLD && !seen.has(key('association')) && !seen.has(`association:${b.id}:${a.id}`)) {
-        await createProposal(db, {
-          kind: 'association',
-          target_id: a.id,
-          related_id: b.id,
-          proposed_value: 'related_to',
-          rationale: `shared vocabulary (similarity ${score.toFixed(2)})`,
-          source: 'detector',
-        });
-        seen.add(key('association'));
-        report.association += 1;
-      }
+  // O5-2: compare only candidate pairs instead of the full n² sweep
+  const tokenSets = new Map<string, Set<string>>();
+  for (const item of all) tokenSets.set(item.id, tokens(texts.get(item.id) ?? ''));
+  const byId = new Map(all.map((item) => [item.id, item]));
+  for (const [idA, idB] of planComparisons(tokenSets)) {
+    const a = byId.get(idA);
+    const b = byId.get(idB);
+    if (!a || !b) continue;
+    const score = similarity(texts.get(a.id) ?? '', texts.get(b.id) ?? '');
+    const key = (kind: string) => [kind, a.id, b.id].join(':');
+    if (score >= DEDUPE_THRESHOLD && !seen.has(key('dedupe')) && !seen.has(`dedupe:${b.id}:${a.id}`)) {
+      await createProposal(db, {
+        kind: 'dedupe',
+        target_id: a.id,
+        related_id: b.id,
+        proposed_value: `${Math.round(score * 100)}% overlap with “${b.title}”`,
+        rationale: `text similarity ${score.toFixed(2)} — review for merge or distinction`,
+        source: 'detector',
+      });
+      seen.add(key('dedupe'));
+      report.dedupe += 1;
+    } else if (score >= 0.4 && score < DEDUPE_THRESHOLD && !seen.has(key('association')) && !seen.has(`association:${b.id}:${a.id}`)) {
+      await createProposal(db, {
+        kind: 'association',
+        target_id: a.id,
+        related_id: b.id,
+        proposed_value: 'related_to',
+        rationale: `shared vocabulary (similarity ${score.toFixed(2)})`,
+        source: 'detector',
+      });
+      seen.add(key('association'));
+      report.association += 1;
     }
   }
 

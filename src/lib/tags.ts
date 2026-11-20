@@ -44,16 +44,18 @@ export type CreateTagValueBody = {
 export function validateCreateTagDefinitionBody(body: unknown): body is CreateTagDefinitionBody {
   if (!body || typeof body !== 'object') return false;
   const b = body as Record<string, unknown>;
-  return typeof b.name === 'string' && b.name.trim().length > 0;
+  // O1-2 limits: name ≤ 200, description ≤ 2000
+  return typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 200
+    && (b.description === undefined || (typeof b.description === 'string' && b.description.length <= 2000));
 }
 
 export function validateCreateTagValueBody(body: unknown): body is CreateTagValueBody {
   if (!body || typeof body !== 'object') return false;
   const b = body as Record<string, unknown>;
   if (typeof b.definition_id !== 'string' || !b.definition_id) return false;
-  if (typeof b.value !== 'string' || !b.value.trim()) return false;
+  if (typeof b.value !== 'string' || !b.value.trim() || b.value.length > 2000) return false; // O1-2
   if (b.item_id !== undefined && typeof b.item_id !== 'string') return false;
-  if (b.scope !== undefined && !isValidScope(b.scope)) return false;
+  if (b.scope !== undefined && (!isValidScope(b.scope) || b.scope.length > 200)) return false; // O1-2
   return true;
 }
 

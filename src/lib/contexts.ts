@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from './api.ts';
 export type ContextDTO = {
   id: string;
   title: string;
@@ -26,7 +27,11 @@ export type AddContextMemberBody = {
 };
 
 function nonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= INPUT_LIMITS.title;
+}
+
+function textWithin(value: unknown, max: number): boolean {
+  return value === undefined || (typeof value === 'string' && value.length <= max);
 }
 
 export function validateCreateContextBody(value: unknown): value is CreateContextBody {
@@ -35,14 +40,16 @@ export function validateCreateContextBody(value: unknown): value is CreateContex
   return nonEmptyString(b.title)
     && nonEmptyString(b.subject)
     && nonEmptyString(b.scope)
-    && nonEmptyString(b.purpose);
+    && nonEmptyString(b.purpose)
+    && textWithin(b.purpose, INPUT_LIMITS.longText);
 }
 
 export function validateUpdateContextBody(value: unknown): value is UpdateContextBody {
   if (typeof value !== 'object' || value === null) return false;
   const b = value as Record<string, unknown>;
   const keys = ['title', 'subject', 'scope', 'purpose'];
-  return keys.every((key) => b[key] === undefined || nonEmptyString(b[key]));
+  return keys.every((key) => b[key] === undefined || nonEmptyString(b[key]))
+    && textWithin(b.purpose, INPUT_LIMITS.longText);
 }
 
 export function validateAddContextMemberBody(value: unknown): value is AddContextMemberBody {

@@ -2,80 +2,93 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ITEM_LABELS, RAW_TYPES } from '../lib/items.ts';
 import type { ItemType } from '../lib/items.ts';
-import { normalizeText, segmentText } from '../lib/lightup.ts';
+import { mergeSegments, normalizeText, segmentText, splitSegment } from '../lib/lightup.ts';
+import type { Segment } from '../lib/lightup.ts';
 import { isApplicableProposalKind } from '../lib/proposals.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
-import styles from './views.module.css';
+import type { TagDefinitionDTO } from '../lib/tags.ts';
+import { SemanticObjectSheet } from '../components/SemanticObjectSheet.tsx';
+import type { Sheet } from '../components/SemanticObjectSheet.tsx';
+import styles from './lightup.module.css';
 
-export type SegmentRow = {
-  key: string;
-  title: string;
-  content: string;
-  keep: boolean;
-  type: ItemType;
-  author: string;
-  locator: string;
-};
+export type CreatedItem = { id: string; title: string; type: ItemType; source_label: string };
+export type PersistResult = { created: CreatedItem[]; failed: { key: string; message: string }[] };
 
-const PIPELINE_TYPES: ItemType[] = [...RAW_TYPES];
+const STAGES = ['Capture', 'Understand', 'Shape', 'Curate', 'Illuminate'] as const;
+const STAGE_WORDS = ['Reading Source', 'Identifying Information', 'Establishing Semantic Identity', 'Preparing Review'];
 
-function rowsFromText(text: string): SegmentRow[] {
-  return segmentText(text).map((seg) => ({
+function toSheet(seg: Segment): Sheet {
+  return {
     ...seg,
-    keep: true,
-    type: 'raw.document' as ItemType,
+    status: 'ready',
+    type: 'raw.document',
     author: 'extracted',
     locator: '',
-  }));
+    tags: [],
+  };
 }
 
-export function LightUpView({
+/**
+ * Light Up Studio — Capture → Understand → Shape → Curate → Illuminate
+ * (LIGHT_UP_UX_VISION.md). D-047 human-review gate: nothing persists until the
+ * user confirms here; original content is preserved verbatim.
+ */
+export function LightUpStudio({
   manualContent,
   onPreviewUrl,
-  onSubmitRows,
+  onSubmitSheets,
   onPropose,
   proposals,
   onResolve,
   onDetect,
+  tagDefinitions,
+  onNavigate,
   busy,
   error,
 }: {
   manualContent: ReactNode;
   onPreviewUrl: (url: string) => Promise<{ title: string; text: string; url: string }>;
-  onSubmitRows: (rows: SegmentRow[], sourceLabel: string) => Promise<void>;
-  onPropose: (rows: SegmentRow[]) => Promise<{ index: number; semantic_name: string }[]>;
+  onSubmitSheets: (sheets: Sheet[], sourceLabel: string) => Promise<PersistResult>;
+  onPropose: (rows: { title: string; content: string }[]) => Promise<{ index: number; semantic_name: string }[]>;
   proposals: ProposalDTO[];
   onResolve: (proposal: ProposalDTO, status: 'accepted' | 'rejected') => Promise<void>;
   onDetect: () => Promise<void>;
+  tagDefinitions: TagDefinitionDTO[];
+  onNavigate: (view: 'raw' | 'overview') => void;
   busy: boolean;
   error: string;
 }) {
-  const [tab, setTab] = useState<'manual' | 'pipeline' | 'queue'>('manual');
+  const [phase, setPhase] = useState<'capture' | 'understand' | 'shape' | 'illuminate'>('capture');
+  const [stageStep, setStageStep] = useState(-1);
   const [text, setText] = useState('');
+  const [sourceText, setSourceText] = useState('');
   const [url, setUrl] = useState('');
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [previewNote, setPreviewNote] = useState('');
   const [sourceLabel, setSourceLabel] = useState('lightup:text');
-  const [rows, setRows] = useState<SegmentRow[]>([]);
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [selectedKey, setSelectedKey] = useState('');
+  const [view, setView] = useState<'overview' | 'chunks' | 'source'>('chunks');
+  const [mergePicked, setMergePicked] = useState<string[]>([]);
   const [localError, setLocalError] = useState('');
+  const [created, setCreated] = useState<CreatedItem[]>([]);
+  const [failed, setFailed] = useState<{ key: string; message: string }[]>([]);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function updateRow(key: string, patch: Partial<SegmentRow>) {
-    setRows((current) => current.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  }
+  const tagDimensions = tagDefinitions.map((d) => d.name);
+  const persistable = sheets.filter((s) => s.status === 'ready' || s.status === 'accepted' || s.status === 'edited');
+  const deferredCount = sheets.filter((s) => s.status === 'deferred').length;
 
-  async function applyAgentSuggestions() {
-    const suggestions = await onPropose(rows);
-    const byIndex = new Map(suggestions.map((s) => [s.index, s]));
-    setRows((current) => current.map((row, index) => {
-      const suggestion = byIndex.get(index);
-      return suggestion?.semantic_name ? { ...row, title: suggestion.semantic_name } : row;
-    }));
-  }
+  /* ── Capture ─────────────────────────────────────────────── */
 
   async function fetchUrl() {
     setLocalError('');
     try {
       const result = await onPreviewUrl(url.trim());
-      setText(result.text);
+      setText((current) => (current ? `${current}\n\n${result.text}` : result.text));
+      setPreviewNote(`来自 ${result.url} 的内容 —— 尚未进入 GSC`);
       setSourceLabel(result.url);
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : 'URL fetch failed');
@@ -98,211 +111,418 @@ export function LightUpView({
   async function addFiles(files: FileList | null) {
     if (!files?.length) return;
     setLocalError('');
-    const next: SegmentRow[] = [];
+    let combined = '';
     for (const file of Array.from(files)) {
-      const content = normalizeText(await file.text());
-      next.push({
-        key: `file-${file.name}-${Date.now()}`,
-        title: file.name,
-        content,
-        keep: true,
-        type: 'raw.filecontent',
-        author: 'extracted',
-        locator: '',
-      });
+      combined += (combined ? '\n\n' : '') + normalizeText(await file.text());
     }
-    setRows((current) => [...current, ...next]);
-    setSourceLabel((label) => (label.startsWith('lightup:') ? 'lightup:file' : label));
+    setText((current) => (current ? `${current}\n\n${combined}` : combined));
+    setSourceLabel('lightup:file');
     if (fileRef.current) fileRef.current.value = '';
   }
 
-  function generate() {
+  /* ── Understand → Shape ──────────────────────────────────── */
+
+  function identify() {
     setLocalError('');
-    const generated = rowsFromText(text);
-    if (generated.length === 0) {
-      setLocalError('没有可切块的内容。');
+    const raw = text;
+    if (!normalizeText(raw)) {
+      setLocalError('没有可识别的内容。');
       return;
     }
-    setRows((current) => [...current, ...generated]);
-    setText('');
+    setSourceText(raw);
+    setPhase('understand');
+    setStageStep(0);
+    // Real work is synchronous and fast; the stage words reflect actual steps.
+    const steps = [120, 260, 400];
+    steps.forEach((ms, i) => window.setTimeout(() => setStageStep(i + 1), ms));
+    window.setTimeout(() => {
+      const built = segmentText(raw).map(toSheet);
+      if (built.length === 0) {
+        setPhase('capture');
+        setLocalError('没有可切块的内容。');
+        return;
+      }
+      setSheets(built);
+      setSelectedKey(built[0].key);
+      setView('chunks');
+      setPhase('shape');
+    }, 520);
   }
 
-  const kept = rows.filter((r) => r.keep);
+  /* ── Curate ──────────────────────────────────────────────── */
+
+  function patchSheet(key: string, patch: Partial<Sheet>) {
+    setSheets((current) => current.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  }
+
+  function setStatus(key: string, status: Sheet['status']) {
+    setSheets((current) => current.map((s) => (s.key === key ? { ...s, status } : s)));
+  }
+
+  function splitSheet(key: string) {
+    setSheets((current) => {
+      const idx = current.findIndex((s) => s.key === key);
+      if (idx < 0) return current;
+      const parts = splitSegment(current[idx], Math.floor(current[idx].content.length / 2));
+      if (!parts) return current;
+      const next = [...current];
+      next.splice(idx, 1, toSheet(parts[0]), toSheet(parts[1]));
+      return next;
+    });
+  }
+
+  function mergeSheets() {
+    if (mergePicked.length < 2) return;
+    setSheets((current) => {
+      const picked = current.filter((s) => mergePicked.includes(s.key));
+      const others = current.filter((s) => !mergePicked.includes(s.key));
+      const merged = toSheet(mergeSegments(picked.map(({ status, type, author, locator, tags, ...seg }) => seg)));
+      merged.tags = picked.flatMap((s) => s.tags);
+      merged.type = picked[0].type;
+      return [...others, merged].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+    });
+    setMergePicked([]);
+  }
+
+  async function applyAgentSuggestions() {
+    setLocalError('');
+    try {
+      const suggestions = await onPropose(sheets.map((s) => ({ title: s.title, content: s.content })));
+      const byIndex = new Map(suggestions.map((s) => [s.index, s]));
+      setSheets((current) => current.map((sheet, index) => {
+        const suggestion = byIndex.get(index);
+        return suggestion?.semantic_name
+          ? { ...sheet, title: suggestion.semantic_name, nameOrigin: 'agent' }
+          : sheet;
+      }));
+    } catch {
+      setLocalError('Agent 不可用（需配置 GSC_LLM_*）。其余流程不受影响。');
+    }
+  }
+
+  /* ── Persist → Illuminate ────────────────────────────────── */
+
+  async function persist() {
+    setLocalError('');
+    setPreviewNote('');
+    const result = await onSubmitSheets(persistable, sourceLabel || 'lightup');
+    setCreated(result.created);
+    setFailed(result.failed);
+    setPhase('illuminate');
+    if (result.failed.length > 0) {
+      // failed sheets stay in review state for retry
+      setSheets((current) => current.map((s) => {
+        const f = result.failed.find((x) => x.key === s.key);
+        return f ? { ...s, persistError: f.message } : s;
+      }));
+    }
+  }
+
+  function resetStudio() {
+    setPhase('capture');
+    setText('');
+    setSourceText('');
+    setSheets([]);
+    setCreated([]);
+    setFailed([]);
+    setPreviewNote('');
+    setLocalError('');
+    setStageStep(-1);
+    setSourceLabel('lightup:text');
+  }
+
+  /* ── Source view highlighting ────────────────────────────── */
+
+  function sourceBody() {
+    const selected = sheets.find((s) => s.key === selectedKey);
+    if (!selected || selected.start === undefined || selected.end === undefined) {
+      return { before: sourceText, mark: '', after: '', precise: false };
+    }
+    return {
+      before: sourceText.slice(0, selected.start),
+      mark: sourceText.slice(selected.start, selected.end),
+      after: sourceText.slice(selected.end),
+      precise: true,
+    };
+  }
+
+  /* ── Render ──────────────────────────────────────────────── */
+
+  const stageIndex = phase === 'capture' ? 0 : phase === 'understand' ? 1 : phase === 'shape' ? 2 : phase === 'illuminate' ? 4 : 2;
 
   return (
-    <div className={styles.page}>
-      <h1 className={styles.pageTitle}>Light Up</h1>
-      <p className={styles.pageSub}>
-        把外部信息带入 GSC 的持久空间：输入 → 切块 → 语义命名 → 分类 → 逐条审阅 → 入库。原文始终逐字保留。
-      </p>
-
-      <div className={styles.tabRow}>
-        <button type="button" className={`${styles.tab} ${tab === 'manual' ? styles.on : ''}`} onClick={() => setTab('manual')}>
-          手动输入
-        </button>
-        <button type="button" className={`${styles.tab} ${tab === 'pipeline' ? styles.on : ''}`} onClick={() => setTab('pipeline')}>
-          采集管线
-        </button>
-        <button type="button" className={`${styles.tab} ${tab === 'queue' ? styles.on : ''}`} onClick={() => setTab('queue')}>
-          提案队列
-        </button>
+    <div className={styles.studio}>
+      <div className={styles.kicker}>
+        {STAGES.map((s, i) => (
+          <span key={s} className={`${styles.kickerStep} ${i === stageIndex ? styles.on : ''} ${i < stageIndex ? styles.done : ''}`}>
+            {i > 0 ? <span className={styles.kickerSep}>·</span> : null} {s}
+          </span>
+        ))}
       </div>
 
-      {tab === 'manual' ? (
+      {phase === 'capture' ? (
         <>
-          <div className={styles.hint} style={{ margin: '8px 0 16px' }}>
-            手动模式（Vision 3.1-A）：直接填写表单，控制每一步。原文与元数据一次到位。
-          </div>
-          {manualContent}
-        </>
-      ) : tab === 'pipeline' ? (
-        <>
-          <div className={styles.section}>
-            <h2 className={styles.blockTitle}>1–2 · 输入与摄取</h2>
-            <div className={styles.toolbar}>
-              <input
-                className={styles.search}
-                placeholder="https://... 抓取网页正文（只预览，不落库）"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-              />
-              <button type="button" className={styles.secondaryButton} onClick={() => void fetchUrl()} disabled={busy}>抓取</button>
-              <button type="button" className={styles.secondaryButton} onClick={() => void pasteClipboard()}>粘贴剪贴板</button>
-              <button type="button" className={styles.secondaryButton} onClick={() => fileRef.current?.click()}>导入文件</button>
-              <input
-                ref={fileRef}
-                type="file"
-                multiple
-                accept=".txt,.md,text/*"
-                style={{ display: 'none' }}
-                onChange={(e) => void addFiles(e.target.files)}
-              />
-            </div>
+          <h1 className={styles.studioTitle}>Light Up</h1>
+          <p className={styles.studioSub}>
+            把信息带入 GSC，给它一个持久的语义身份。文本、文件、粘贴、网页 —— 都进入同一个过程。原文永远逐字保留。
+          </p>
+
+          <div
+            className={`${styles.composer} ${dragging ? styles.drop : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              void addFiles(e.dataTransfer.files);
+            }}
+          >
+            {dragging ? <div className={styles.dropHint}>松手，把文件带进 GSC</div> : null}
+            {previewNote ? (
+              <div className={styles.previewBanner}>
+                <strong>预览</strong> {previewNote}
+              </div>
+            ) : null}
             <textarea
               className={styles.intake}
-              placeholder="粘贴或输入文本。点「生成审阅」按段落/标题切块。"
+              placeholder="把信息带进 GSC…（可直接输入、粘贴、拖入文件）"
               value={text}
-              rows={7}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') identify(); }}
             />
-            <div className={styles.toolbar}>
-              <input
-                className={styles.search}
-                placeholder="来源标签（source_label），如 URL 或出处"
-                value={sourceLabel}
-                onChange={(e) => setSourceLabel(e.target.value)}
-              />
-              <button type="button" className={styles.secondaryButton} disabled={busy || rows.length === 0} onClick={() => void applyAgentSuggestions()}>
-                Agent 建议
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={generate} disabled={busy}>生成审阅</button>
+            <div className={styles.composerBar}>
+              <button type="button" className={styles.ghost} onClick={() => void pasteClipboard()}>粘贴剪贴板</button>
+              <button type="button" className={styles.ghost} onClick={() => fileRef.current?.click()}>导入文件</button>
+              <button type="button" className={styles.ghost} onClick={() => setUrlOpen((v) => !v)}>URL</button>
+              <span className={styles.count}>
+                {text.length} 字{sourceLabel !== 'lightup:text' ? ` · ${sourceLabel}` : ''}
+              </span>
             </div>
+            {urlOpen ? (
+              <div className={styles.composerBar}>
+                <div className={styles.urlRow}>
+                  <input
+                    className={styles.urlInput}
+                    placeholder="https://... 抓取正文（仅预览，不落库）"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                  <button type="button" className={styles.ghost} onClick={() => void fetchUrl()} disabled={busy}>预览</button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          {rows.length > 0 ? (
-            <div className={styles.section}>
-              <h2 className={styles.blockTitle}>3–7 · 审阅（不确认不入库）</h2>
-              {rows.map((row) => (
-                <div key={row.key} className={styles.reviewRow}>
-                  <label className={styles.keepBox}>
-                    <input
-                      type="checkbox"
-                      checked={row.keep}
-                      onChange={(e) => updateRow(row.key, { keep: e.target.checked })}
-                    />
-                    保留
-                  </label>
-                  <div className={styles.reviewFields}>
-                    <input
-                      className={styles.settingInput}
-                      value={row.title}
-                      placeholder="语义名（Semantic Name）"
-                      onChange={(e) => updateRow(row.key, { title: e.target.value })}
-                    />
-                    <select
-                      className={styles.select}
-                      value={row.type}
-                      onChange={(e) => updateRow(row.key, { type: e.target.value as ItemType })}
-                    >
-                      {PIPELINE_TYPES.map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
-                    </select>
-                    {row.type === 'raw.message' ? (
-                      <input
-                        className={styles.settingInput}
-                        value={row.author}
-                        placeholder="author"
-                        onChange={(e) => updateRow(row.key, { author: e.target.value })}
-                      />
-                    ) : null}
-                    {row.type === 'raw.evidence' ? (
-                      <input
-                        className={styles.settingInput}
-                        value={row.locator}
-                        placeholder="locator"
-                        onChange={(e) => updateRow(row.key, { locator: e.target.value })}
-                      />
-                    ) : null}
-                  </div>
-                  <pre className={styles.reviewContent}>{row.content.slice(0, 400)}{row.content.length > 400 ? '…' : ''}</pre>
-                  <button type="button" className={styles.removeButton} onClick={() => setRows((c) => c.filter((r) => r.key !== row.key))}>
-                    丢弃
-                  </button>
+          <div className={styles.composerBar} style={{ padding: '14px 0 0' }}>
+            <button type="button" className={styles.primary} onClick={identify} disabled={!text.trim()}>
+              Identify Information
+            </button>
+            <span className={styles.count} style={{ margin: 0 }}>
+              Ctrl+Enter 也可以 · 短笔记可用 Start 页 Composer 直接入库
+            </span>
+          </div>
+
+          {localError || error ? <div className={styles.errorLine}>{localError || error}</div> : null}
+
+          <details className={styles.manualFold}>
+            <summary>手动逐字段创建（Vision 3.1-A Manual Input）</summary>
+            <div style={{ marginTop: 14 }}>{manualContent}</div>
+          </details>
+
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept=".txt,.md,text/*"
+            style={{ display: 'none' }}
+            onChange={(e) => void addFiles(e.target.files)}
+          />
+        </>
+      ) : phase === 'understand' ? (
+        <>
+          <h1 className={styles.studioTitle}>Understanding</h1>
+          <div className={styles.stageLabel}>
+            <div>
+              {STAGE_WORDS.map((w, i) => (
+                <div key={w} className={`${styles.stageRow} ${i === stageStep ? styles.on : ''} ${i < stageStep ? styles.done : ''}`}>
+                  <span className={styles.stageDot} /> {w}
                 </div>
               ))}
             </div>
-          ) : null}
-
-          {(localError || error) ? <div className={styles.hint} style={{ color: 'var(--error)' }}>{localError || error}</div> : null}
-
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              disabled={busy || kept.length === 0}
-              onClick={() => void onSubmitRows(kept, sourceLabel || 'lightup')}
-            >
-              {busy ? '入库中…' : `入库 ${kept.length} 条`}
-            </button>
-            <div className={styles.hint}>原文逐字入库；语义名可随时在详情页修改。</div>
           </div>
         </>
-      ) : tab === 'queue' ? (
-        <>
-          <div className={styles.hint} style={{ margin: '8px 0 16px' }}>
-            Agent 解释并提议，Detector 观察并标记候选（Vision §4.2）。所有提议在此等待人工裁决——接受前不写入任何用户数据。
-          </div>
-          <div className={styles.toolbar}>
-            <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void onDetect()}>
-              运行 Detector
-            </button>
-            <div className={styles.hint}>查重 · 关联候选 · 缺来源检查（增量，跳过已有待审）</div>
-          </div>
-          {proposals.length === 0 ? (
-            <div className={styles.emptyLine}>队列为空。用「Agent 建议」或「运行 Detector」产生提议。</div>
-          ) : proposals.map((p) => (
-            <div key={p.id} className={styles.reviewRow}>
-              <div className={styles.keepBox}>{p.source}</div>
-              <div className={styles.reviewFields}>
-                <strong>{p.kind}</strong>
-                <span className={styles.rowType}>{p.proposed_value}</span>
-                <span className={styles.rowType}>{p.rationale}</span>
-                <span className={styles.rowType}>target {p.target_id}{p.related_id ? ` · related ${p.related_id}` : ''}</span>
-                {!isApplicableProposalKind(p.kind) ? (
-                  <span className={styles.rowType}>该类型接受后仅标记已审（应用在模型扩展后）</span>
-                ) : null}
-              </div>
-              {p.status === 'pending' ? (
-                <div className={styles.reviewFields}>
-                  <button type="button" className={styles.primaryButton} disabled={busy} onClick={() => void onResolve(p, 'accepted')}>接受</button>
-                  <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void onResolve(p, 'rejected')}>拒绝</button>
-                </div>
-              ) : (
-                <div className={styles.keepBox}>{p.status}</div>
-              )}
+      ) : phase === 'illuminate' ? (
+        <div className={styles.illuminate}>
+          <h1 className={styles.illuminateTitle}>Your information now has a place in GSC.</h1>
+          <p className={styles.illuminateSub}>
+            {created.length} 个信息单元已获得持久身份，原文逐字保留，来源可溯。
+          </p>
+          {created.map((c) => (
+            <div key={c.id} className={styles.createdRow}>
+              <span className={styles.cName}>{c.title}</span>
+              <span className={styles.cType}>{ITEM_LABELS[c.type]}</span>
+              <span className={styles.cSrc}>{c.source_label}</span>
             </div>
           ))}
+          {failed.length > 0 ? (
+            <div className={styles.errorLine}>{failed.length} 项入库失败 —— 返回审阅可重试。</div>
+          ) : null}
+          {deferredCount > 0 ? (
+            <div className={styles.pendingNote}>{deferredCount} 项未决（已延后，未入库）。</div>
+          ) : null}
+          <div className={styles.illuminateActions}>
+            <button type="button" className={styles.primary} onClick={() => onNavigate('raw')}>
+              查看这些信息
+            </button>
+            <button type="button" className={styles.ghost} onClick={() => onNavigate('overview')}>
+              回到 Context Space
+            </button>
+            <button type="button" className={styles.ghost} onClick={resetStudio}>
+              再来一次 Light Up
+            </button>
+            {failed.length > 0 ? (
+              <button type="button" className={styles.ghost} onClick={() => setPhase('shape')}>返回审阅</button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <>
+          <h1 className={styles.studioTitle}>Shape</h1>
+          <p className={styles.studioSub}>
+            GSC 识别出 {sheets.length} 个信息单元。语义名可以改，原文不动；采纳的进入 GSC，拒绝/延后的不入库。
+          </p>
+
+          <div className={styles.bulkBar}>
+            <button type="button" className={styles.ghost} onClick={() => setSheets((c) => c.map((s) => ({ ...s, status: 'accepted' as const })))}>
+              Accept all {persistable.length}
+            </button>
+            <button type="button" className={styles.ghost} disabled={busy} onClick={() => void applyAgentSuggestions()}>
+              Ask Agent for names
+            </button>
+            {mergePicked.length >= 2 ? (
+              <button type="button" className={styles.ghost} onClick={mergeSheets}>Merge {mergePicked.length} selected</button>
+            ) : null}
+            <span className={styles.spacer} />
+            <span>{persistable.length} 将入库 · {sheets.length - persistable.length} 不入库</span>
+            <button type="button" className={styles.primary} disabled={busy || persistable.length === 0} onClick={() => void persist()}>
+              {busy ? '入库中…' : `确认 ${persistable.length} 条`}
+            </button>
+          </div>
+
+          <div className={styles.shapeHead}>
+            {(['overview', 'chunks', 'source'] as const).map((v) => (
+              <button key={v} type="button" className={`${styles.viewTab} ${view === v ? styles.on : ''}`} onClick={() => setView(v)}>
+                {v === 'overview' ? 'Overview' : v === 'chunks' ? 'Chunks' : 'Source'}
+              </button>
+            ))}
+            <span className={styles.shapeCount}>{sheets.length} chunks · {new Set(sheets.map((s) => s.type)).size} types</span>
+          </div>
+
+          {view === 'overview' ? (
+            <div className={styles.overviewGrid}>
+              <div className={styles.statBlock}>
+                <div className={styles.statNum}>{sheets.length}</div>
+                <div className={styles.statLabel}>Information Units</div>
+              </div>
+              <div className={styles.statBlock}>
+                <div className={styles.statNum}>{sheets.filter((s) => s.start !== undefined).length}</div>
+                <div className={styles.statLabel}>With Source Ref</div>
+              </div>
+              <div className={styles.statBlock}>
+                <div>
+                  {RAW_TYPES.filter((t) => sheets.some((s) => s.type === t)).map((t) => (
+                    <div className={styles.typeLine} key={t}>
+                      <span className={styles.typeName}>{ITEM_LABELS[t]}</span>
+                      <span>{sheets.filter((s) => s.type === t).length}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.statLabel}>Types</div>
+              </div>
+            </div>
+          ) : view === 'chunks' ? (
+            sheets.map((sheet, index) => (
+              <SemanticObjectSheet
+                key={sheet.key}
+                sheet={sheet}
+                index={index}
+                selected={selectedKey === sheet.key}
+                tagDimensions={tagDimensions}
+                onSelect={() => setSelectedKey(sheet.key)}
+                onPatch={(patch) => patchSheet(sheet.key, patch)}
+                onAccept={() => setStatus(sheet.key, sheet.nameOrigin === 'user' ? 'edited' : 'accepted')}
+                onReject={() => setStatus(sheet.key, 'rejected')}
+                onDefer={() => setStatus(sheet.key, 'deferred')}
+                onRestore={() => setStatus(sheet.key, 'ready')}
+                onSplit={() => splitSheet(sheet.key)}
+                onMergeToggle={() => setMergePicked((c) => (c.includes(sheet.key) ? c.filter((k) => k !== sheet.key) : [...c, sheet.key]))}
+                mergePicked={mergePicked.includes(sheet.key)}
+              />
+            ))
+          ) : (
+            (() => {
+              const src = sourceBody();
+              return (
+                <>
+                  <div className={styles.sourceNote}>
+                    {src.precise
+                      ? '选中的信息单元对应下方高亮的原文段。'
+                      : selectedKey
+                        ? '该信息单元没有精确的原文引用（不伪造高亮）。'
+                        : '选择一个信息单元以查看其原文出处。'}
+                  </div>
+                  <div className={styles.sourcePane}>
+                    {src.before}
+                    {src.mark ? <mark className={styles.sourceMark}>{src.mark}</mark> : null}
+                    {src.after}
+                  </div>
+                </>
+              );
+            })()
+          )}
+
+          {localError || error ? <div className={styles.errorLine}>{localError || error}</div> : null}
+
+          <div className={styles.queueWrap}>
+            <div className={styles.bulkBar} style={{ border: 0 }}>
+              <strong style={{ fontSize: 13 }}>提案队列</strong>
+              <span className={styles.stateNote}>Agent 提议 · Detector 观察 · 人工裁决（不确认不写入）</span>
+              <span className={styles.spacer} />
+              <button type="button" className={styles.ghost} onClick={() => setQueueOpen((v) => !v)}>
+                {queueOpen ? '收起' : `展开 (${proposals.length})`}
+              </button>
+            </div>
+            {queueOpen ? (
+              <>
+                <div className={styles.bulkBar}>
+                  <button type="button" className={styles.ghost} disabled={busy} onClick={() => void onDetect()}>运行 Detector</button>
+                  <span className={styles.stateNote}>查重 · 关联候选 · 缺来源检查（增量）</span>
+                </div>
+                {proposals.length === 0 ? (
+                  <div className={styles.sourceNote}>队列为空。</div>
+                ) : proposals.map((p) => (
+                  <div key={p.id} className={styles.createdRow}>
+                    <span className={styles.cName} style={{ fontSize: 13 }}>{p.kind}</span>
+                    <span className={styles.cType}>{p.proposed_value}</span>
+                    <span className={styles.cSrc}>{p.source} · {p.rationale}</span>
+                    {p.status === 'pending' ? (
+                      <>
+                        <button type="button" className={`${styles.action} ${styles.accept}`} disabled={busy} onClick={() => void onResolve(p, 'accepted')}>接受</button>
+                        <button type="button" className={`${styles.action} ${styles.reject}`} disabled={busy} onClick={() => void onResolve(p, 'rejected')}>拒绝</button>
+                        {!isApplicableProposalKind(p.kind) ? (
+                          <span className={styles.stateNote}>接受=标记已审</span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className={styles.stateNote}>{p.status}</span>
+                    )}
+                  </div>
+                ))}
+              </>
+            ) : null}
+          </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -8,6 +8,11 @@ export type Segment = {
   key: string;
   title: string;
   content: string;
+  /** Offset span into the ORIGINAL input text; undefined = no precise reference (never faked). */
+  start?: number;
+  end?: number;
+  /** Where the semantic name came from (three-state provenance, Vision §8). */
+  nameOrigin: 'rule' | 'agent' | 'user';
 };
 
 export function normalizeText(input: string): string {
@@ -56,11 +61,47 @@ export function segmentText(input: string): Segment[] {
     }
   }
 
-  return merged.map((content, index) => ({
-    key: `seg-${index}-${content.length}`,
-    title: suggestTitle(content) || `Untitled segment ${index + 1}`,
-    content,
-  }));
+  return merged.map((content, index) => {
+    // Map each segment back to its span in the original (pre-normalization) text.
+    // If the content cannot be located verbatim, offsets stay undefined and the
+    // UI must say "no precise reference" instead of faking a highlight.
+    const probe = content.split('\n\n')[0].slice(0, 60);
+    const at = probe ? input.indexOf(probe) : -1;
+    const endAt = at >= 0 ? input.indexOf(content.slice(-60), at) : -1;
+    return {
+      key: `seg-${index}-${content.length}`,
+      title: suggestTitle(content) || `Untitled segment ${index + 1}`,
+      content,
+      start: at >= 0 ? at : undefined,
+      end: at >= 0 && endAt >= 0 ? endAt + content.slice(-60).length : undefined,
+      nameOrigin: 'rule' as const,
+    };
+  });
+}
+
+/** Curation (frontend-only): merge selected segments — content in order, name from first, span = union. */
+export function mergeSegments(segments: Segment[]): Segment {
+  const ordered = [...segments].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+  const first = ordered[0];
+  const last = ordered[ordered.length - 1];
+  return {
+    key: `seg-merged-${first.key}-${last.key}`,
+    title: first.title,
+    content: ordered.map((s) => s.content).join('\n\n'),
+    start: first.start,
+    end: last.end,
+    nameOrigin: first.nameOrigin,
+  };
+}
+
+/** Curation (frontend-only): split at a paragraph boundary near `offset` in the segment content. */
+export function splitSegment(segment: Segment, offset: number): [Segment, Segment] | undefined {
+  const idx = segment.content.indexOf('\n\n', offset - 1);
+  const at = idx >= 0 && idx + 2 < segment.content.length ? idx + 2 : undefined;
+  if (at === undefined) return undefined;
+  const a: Segment = { ...segment, key: `${segment.key}-a`, content: segment.content.slice(0, at).trimEnd() };
+  const b: Segment = { ...segment, key: `${segment.key}-b`, content: segment.content.slice(at).trimStart(), title: suggestTitle(segment.content.slice(at)) || `${segment.title} (2)`, nameOrigin: 'rule' };
+  return [a, b];
 }
 
 export type IntakeSource = {
