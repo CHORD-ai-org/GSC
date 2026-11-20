@@ -23,6 +23,13 @@ export async function createUser(db: Database, name: string): Promise<UserDTO> {
   return (await db.select().from(users).where(eq(users.id, id)).limit(1)).map(toDTO)[0];
 }
 
+export async function deleteUser(db: Database, id: string): Promise<boolean> {
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, id)).limit(1);
+  if (!row) return false;
+  await db.delete(users).where(eq(users.id, id));
+  return true;
+}
+
 export async function getUser(db: Database, id: string): Promise<UserDTO | undefined> {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row ? toDTO(row) : undefined;

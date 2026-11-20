@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { events, itemContent, items } from '../persistence/schema.ts';
 import type {
@@ -24,7 +24,7 @@ const fieldColumns = [
   'source_item_id',
 ] as const satisfies readonly (keyof ItemFields)[];
 
-function toDTO(row: ItemRow, content?: ContentRow): ItemDTO {
+export function toDTO(row: ItemRow, content?: ContentRow): ItemDTO {
   const fields: ItemFields = {};
   if (content) {
     for (const key of fieldColumns) {
@@ -51,17 +51,74 @@ function idFor(type: ItemType): string {
   return `${prefix}_${randomUUID()}`;
 }
 
+export type ItemPage = { items: ItemDTO[]; next_cursor?: string; total: number };
+
+function encodeCursor(updatedAt: Date | string, id: string): string {
+  return Buffer.from(`${new Date(updatedAt).toISOString()}|${id}`).toString('base64url');
+}
+
+function decodeCursor(cursor: string): { at: string; id: string } | undefined {
+  try {
+    const [at, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+    if (!at || !id) return undefined;
+    return { at, id };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function listItemsPaged(
+  db: Database,
+  filters: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number } = {},
+): Promise<ItemPage> {
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+  const conditions = [isNull(items.deleted_at)];
+  if (filters.type) conditions.push(eq(items.type, filters.type));
+  if (filters.domain) conditions.push(eq(items.domain, filters.domain));
+  const cursor = filters.cursor ? decodeCursor(filters.cursor) : undefined;
+  if (cursor) {
+    const keyset = or(
+      lt(items.updated_at, new Date(cursor.at)),
+      and(eq(items.updated_at, new Date(cursor.at)), lt(items.id, cursor.id)),
+    );
+    if (keyset) conditions.push(keyset);
+  }
+  const rows = await db
+    .select()
+    .from(items)
+    .where(and(...conditions))
+    .orderBy(desc(items.updated_at), desc(items.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+
+  const contents = await db.select().from(itemContent);
+  const contentById = new Map(contents.map((c) => [c.item_id, c]));
+  let all = page.map((row) => toDTO(row, contentById.get(row.id)));
+  if (filters.q) {
+    const needle = filters.q.toLowerCase();
+    all = all.filter((item) => itemTextForFilter(item).includes(needle));
+  }
+  const [{ rowCount }] = await db.select({ rowCount: count() }).from(items).where(isNull(items.deleted_at));
+  const last = page[page.length - 1];
+  return {
+    items: all,
+    next_cursor: hasMore && last ? encodeCursor(last.updated_at, last.id) : undefined,
+    total: Number(rowCount),
+  };
+}
+
 export async function listItems(
   db: Database,
   filters: { type?: string; domain?: string; q?: string } = {},
 ): Promise<ItemDTO[]> {
-  const conditions = [];
+  const conditions = [isNull(items.deleted_at)];
   if (filters.type) conditions.push(eq(items.type, filters.type));
   if (filters.domain) conditions.push(eq(items.domain, filters.domain));
   const rows = await db
     .select()
     .from(items)
-    .where(conditions.length ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(items.updated_at));
   // join typed content in memory so `fields` and the keyword filter see it (D-020)
   const contents = await db.select().from(itemContent);
@@ -73,7 +130,8 @@ export async function listItems(
 }
 
 export async function getItem(db: Database, id: string): Promise<ItemDTO | undefined> {
-  const [row] = await db.select().from(items).where(eq(items.id, id)).limit(1);
+  /* T203: soft-deleted items are hidden from normal access (trash only) */
+  const [row] = await db.select().from(items).where(and(eq(items.id, id), isNull(items.deleted_at))).limit(1);
   if (!row) return undefined;
   const [content] = await db.select().from(itemContent).where(eq(itemContent.item_id, id)).limit(1);
   return toDTO(row, content);
@@ -165,9 +223,31 @@ export async function itemExists(db: Database, id: string): Promise<boolean> {
 }
 
 export async function deleteItem(db: Database, id: string): Promise<boolean> {
+  /* T203 soft delete: row stays (relations/events preserved for restore) */
+  const [row] = await db.select({ id: items.id }).from(items).where(and(eq(items.id, id), isNull(items.deleted_at))).limit(1);
+  if (!row) return false;
+  await db.update(items).set({ deleted_at: new Date() }).where(eq(items.id, id));
+  return true;
+}
+
+export async function restoreItem(db: Database, id: string): Promise<boolean> {
+  const [row] = await db.select({ id: items.id }).from(items).where(eq(items.id, id)).limit(1);
+  if (!row) return false;
+  await db.update(items).set({ deleted_at: null }).where(eq(items.id, id));
+  return true;
+}
+
+export async function purgeItem(db: Database, id: string): Promise<boolean> {
   const existing = await itemExists(db, id);
   if (!existing) return false;
-  // item_content, relations, events and context_members cascade on items.id (schema FKs).
+  // hard delete: cascades item_content, relations, events, context_members
   await db.delete(items).where(eq(items.id, id));
   return true;
+}
+
+export async function listDeletedItems(db: Database): Promise<ItemDTO[]> {
+  const rows = await db.select().from(items).where(isNotNull(items.deleted_at)).orderBy(desc(items.deleted_at));
+  const contents = await db.select().from(itemContent);
+  const contentById = new Map(contents.map((c) => [c.item_id, c]));
+  return rows.map((row) => toDTO(row, contentById.get(row.id)));
 }

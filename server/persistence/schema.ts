@@ -11,6 +11,7 @@ export const items = pgTable('items', {
   owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+  deleted_at: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const itemContent = pgTable('item_content', {
