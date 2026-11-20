@@ -35,6 +35,19 @@ import {
 } from './repo/clusters.ts';
 import { createProposal, listProposals, resolveProposalApplying } from './repo/proposals.ts';
 import {
+  createTagDefinition,
+  createTagValue,
+  deleteTagValue,
+  listTagDefinitions,
+  listTagValues,
+  setTagValueConfirmed,
+} from './repo/tags.ts';
+import {
+  PROFILE_DEFINITION_ID,
+  validateCreateTagDefinitionBody,
+  validateCreateTagValueBody,
+} from '../src/lib/tags.ts';
+import {
   validateAddClusterMemberBody,
   validateCreateClusterBody,
   validateUpdateClusterBody,
@@ -640,6 +653,91 @@ export function createApiRouter(config: Config, db: Database) {
         } catch (e) {
           sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Detection failed'));
         }
+        return;
+      }
+
+      // PLAN-8 (D-064/D-066): Meta Tag definitions, values and profile output.
+      if (path === '/api/tags/definitions' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, definitions: await listTagDefinitions(db) });
+        return;
+      }
+
+      if (path === '/api/tags/definitions' && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateCreateTagDefinitionBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid tag definition body'));
+          return;
+        }
+        sendJson(res, 201, { ok: true, definition: await createTagDefinition(db, body) });
+        return;
+      }
+
+      if (path === '/api/tags/values' && req.method === 'GET') {
+        sendJson(res, 200, {
+          ok: true,
+          values: await listTagValues(db, {
+            itemId: url.searchParams.get('item_id') ?? undefined,
+            definitionId: url.searchParams.get('definition_id') ?? undefined,
+            ownerId: url.searchParams.get('owner_id') ?? undefined,
+          }),
+        });
+        return;
+      }
+
+      if (path === '/api/tags/values' && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateCreateTagValueBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid tag value body'));
+          return;
+        }
+        const value = await createTagValue(db, body, viewerId);
+        if (!value) {
+          sendApiError(res, apiError('contract', 'Unknown tag definition (controlled definitions, D-064)'));
+          return;
+        }
+        sendJson(res, 201, { ok: true, value });
+        return;
+      }
+
+      const tagValueMatch = path.match(/^\/api\/tags\/values\/([^/]+)$/);
+      if (tagValueMatch && req.method === 'PATCH') {
+        const body = await readJson(req);
+        const confirmed = (body as Record<string, unknown>)?.confirmed;
+        if (typeof confirmed !== 'boolean') {
+          sendApiError(res, apiError('contract', 'PATCH expects { confirmed: boolean }'));
+          return;
+        }
+        const value = await setTagValueConfirmed(db, tagValueMatch[1], confirmed, viewerId);
+        if (!value) {
+          sendApiError(res, apiError('not_found', 'Tag value not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, value });
+        return;
+      }
+
+      if (tagValueMatch && req.method === 'DELETE') {
+        const removed = await deleteTagValue(db, tagValueMatch[1], viewerId);
+        if (!removed) {
+          sendApiError(res, apiError('not_found', 'Tag value not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      // Read-only User Profile output for external agents (D-066): confirmed values only.
+      if (path === '/api/profile' && req.method === 'GET') {
+        const values = await listTagValues(db, {
+          definitionId: PROFILE_DEFINITION_ID,
+          ownerId: viewerId,
+        });
+        sendJson(res, 200, {
+          ok: true,
+          profile: values
+            .filter((v) => v.confirmed)
+            .map((v) => ({ value: v.value, scope: v.scope })),
+        });
         return;
       }
 

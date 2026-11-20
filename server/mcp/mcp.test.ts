@@ -39,6 +39,23 @@ describe('gsc mcp server', () => {
     expect(JSON.parse(res.result.content[0].text)).toEqual({ ok: true, items: [] });
   });
 
+  it('routes the user profile tool to the read-only profile endpoint (D-066)', async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify({ ok: true, profile: [{ value: 'Works on GSC', scope: 'global' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const handle = createMcpHandler(fetchImpl, 'http://test', 'tok');
+    const res = (await handle({
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: { name: 'gsc_get_user_profile', arguments: {} },
+    })) as { result: { content: { text: string }[] } };
+    expect(calls[0]).toBe('http://test/api/v1/profile');
+    expect(JSON.parse(res.result.content[0].text).profile).toHaveLength(1);
+  });
+
   it('reports unknown tools as tool errors and unknown methods as JSON-RPC errors', async () => {
     const handle = createMcpHandler(stubFetch({}), 'http://test', '');
     const bad = (await handle({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } })) as { result: { isError: boolean } };

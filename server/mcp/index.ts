@@ -53,6 +53,11 @@ export const MCP_TOOLS: McpTool[] = [
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
   },
   {
+    name: 'gsc_get_user_profile',
+    description: 'Read the user profile: user-confirmed values on the User Profile dimension (technical background, coding preferences, working style). Confirmed-only, per PLAN-8 D-066.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'gsc_propose',
     description: 'Propose an organization change (semantic_name/classification/meta_tag/association/cluster). Proposals await human review; nothing is written directly.',
     inputSchema: {
@@ -117,6 +122,8 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
               return call('/api/v1/contexts');
             case 'gsc_get_context':
               return call(`/api/v1/contexts/${encodeURIComponent(String(args.id))}`);
+            case 'gsc_get_user_profile':
+              return call('/api/v1/profile');
             case 'gsc_propose':
               return call('/api/v1/proposals', { method: 'POST', body: JSON.stringify(args) });
             default:

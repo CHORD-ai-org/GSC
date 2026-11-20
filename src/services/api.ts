@@ -5,6 +5,7 @@ import type { ApiError } from '../lib/api.ts';
 import type { ContextDTO, ContextDetailDTO } from '../lib/contexts.ts';
 import type { ClusterDTO, ClusterDetailDTO } from '../lib/clusters.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
+import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { SourceDTO, SyncResult } from '../lib/sources.ts';
 
 export type ItemListResponse = { ok: true; items: ItemDTO[] };
@@ -57,6 +58,11 @@ export type ApiResponse =
   | AgentDetectResponse
   | UserListResponse
   | ShareListResponse
+  | TagDefinitionListResponse
+  | TagDefinitionResponse
+  | TagValueListResponse
+  | TagValueResponse
+  | ProfileResponse
   | { ok: true; deleted: true }
   | ApiError;
 
@@ -252,4 +258,47 @@ export function revokeClusterShare(clusterId: string, userId: string): Promise<{
   return request<{ ok: true; deleted: true }>(`/api/clusters/${encodeURIComponent(clusterId)}/shares/${encodeURIComponent(userId)}`, {
     method: 'DELETE',
   });
+}
+
+// PLAN-8: Meta Tags and User Profile (D-064/D-066)
+export type TagDefinitionListResponse = { ok: true; definitions: TagDefinitionDTO[] };
+export type TagDefinitionResponse = { ok: true; definition: TagDefinitionDTO };
+export type TagValueListResponse = { ok: true; values: TagValueDTO[] };
+export type TagValueResponse = { ok: true; value: TagValueDTO };
+export type ProfileResponse = { ok: true; profile: { value: string; scope: string }[] };
+
+export function listTagDefinitions(): Promise<TagDefinitionListResponse> {
+  return request<TagDefinitionListResponse>('/api/tags/definitions');
+}
+
+export function createTagDefinition(body: { name: string; description?: string }): Promise<TagDefinitionResponse> {
+  return request<TagDefinitionResponse>('/api/tags/definitions', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function listTagValues(filter: { item_id?: string; definition_id?: string; owner_id?: string } = {}): Promise<TagValueListResponse> {
+  const params = new URLSearchParams();
+  if (filter.item_id) params.set('item_id', filter.item_id);
+  if (filter.definition_id) params.set('definition_id', filter.definition_id);
+  if (filter.owner_id) params.set('owner_id', filter.owner_id);
+  const qs = params.toString();
+  return request<TagValueListResponse>(`/api/tags/values${qs ? `?${qs}` : ''}`);
+}
+
+export function createTagValue(body: { definition_id: string; item_id?: string; value: string; scope?: string; confirmed?: boolean }): Promise<TagValueResponse> {
+  return request<TagValueResponse>('/api/tags/values', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function setTagValueConfirmed(id: string, confirmed: boolean): Promise<TagValueResponse> {
+  return request<TagValueResponse>(`/api/tags/values/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ confirmed }),
+  });
+}
+
+export function deleteTagValue(id: string): Promise<{ ok: true; deleted: true }> {
+  return request<{ ok: true; deleted: true }>(`/api/tags/values/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function getProfile(): Promise<ProfileResponse> {
+  return request<ProfileResponse>('/api/profile');
 }
