@@ -24,6 +24,25 @@ import {
   removeContextMember,
   updateContext,
 } from './repo/contexts.ts';
+import {
+  addClusterMember,
+  createCluster,
+  deleteCluster,
+  getCluster,
+  listClusters,
+  removeClusterMember,
+  updateCluster,
+} from './repo/clusters.ts';
+import { createProposal, listProposals, resolveProposal } from './repo/proposals.ts';
+import {
+  validateAddClusterMemberBody,
+  validateCreateClusterBody,
+  validateUpdateClusterBody,
+} from '../src/lib/clusters.ts';
+import {
+  validateCreateProposalBody,
+  validateResolveProposalBody,
+} from '../src/lib/proposals.ts';
 import { storeTextFile } from './storage/local.ts';
 
 export function createApiRouter(config: Config, db: Database) {
@@ -195,6 +214,119 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         sendJson(res, 200, { ok: true, context: result.context });
+        return;
+      }
+
+      if (path === '/api/clusters' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, clusters: await listClusters(db) });
+        return;
+      }
+
+      if (path === '/api/clusters' && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateCreateClusterBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid create cluster body'));
+          return;
+        }
+        sendJson(res, 201, { ok: true, cluster: await createCluster(db, body) });
+        return;
+      }
+
+      const clusterMatch = path.match(/^\/api\/clusters\/([^/]+)$/);
+      if (clusterMatch && req.method === 'GET') {
+        const cluster = await getCluster(db, clusterMatch[1]);
+        if (!cluster) {
+          sendApiError(res, apiError('not_found', 'Cluster not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, cluster });
+        return;
+      }
+
+      if (clusterMatch && req.method === 'PATCH') {
+        const body = await readJson(req);
+        if (!validateUpdateClusterBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid update cluster body'));
+          return;
+        }
+        const cluster = await updateCluster(db, clusterMatch[1], body);
+        if (!cluster) {
+          sendApiError(res, apiError('not_found', 'Cluster not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, cluster });
+        return;
+      }
+
+      if (clusterMatch && req.method === 'DELETE') {
+        const removed = await deleteCluster(db, clusterMatch[1]);
+        if (!removed) {
+          sendApiError(res, apiError('not_found', 'Cluster not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      const clusterMemberMatch = path.match(/^\/api\/clusters\/([^/]+)\/members$/);
+      if (clusterMemberMatch && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateAddClusterMemberBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid member body'));
+          return;
+        }
+        const result = await addClusterMember(db, clusterMemberMatch[1], body.item_id);
+        if (!result.ok) {
+          sendApiError(res, apiError(result.reason, result.message));
+          return;
+        }
+        sendJson(res, 201, { ok: true, cluster: await getCluster(db, clusterMemberMatch[1]) });
+        return;
+      }
+
+      if (clusterMemberMatch && req.method === 'DELETE') {
+        const body = await readJson(req);
+        if (!validateAddClusterMemberBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid member body'));
+          return;
+        }
+        const result = await removeClusterMember(db, clusterMemberMatch[1], body.item_id);
+        if (!result.ok) {
+          sendApiError(res, apiError(result.reason, result.message));
+          return;
+        }
+        sendJson(res, 200, { ok: true, cluster: await getCluster(db, clusterMemberMatch[1]) });
+        return;
+      }
+
+      if (path === '/api/proposals' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, proposals: await listProposals(db, url.searchParams.get('status') ?? undefined) });
+        return;
+      }
+
+      if (path === '/api/proposals' && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateCreateProposalBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid create proposal body'));
+          return;
+        }
+        sendJson(res, 201, { ok: true, proposal: await createProposal(db, body) });
+        return;
+      }
+
+      const proposalMatch = path.match(/^\/api\/proposals\/([^/]+)\/resolve$/);
+      if (proposalMatch && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateResolveProposalBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid resolve proposal body'));
+          return;
+        }
+        const proposal = await resolveProposal(db, proposalMatch[1], body.status);
+        if (!proposal) {
+          sendApiError(res, apiError('not_found', 'Proposal not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, proposal });
         return;
       }
 
