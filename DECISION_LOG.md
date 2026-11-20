@@ -593,3 +593,24 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** the repo avoids unnecessary dependencies (spec §8); a flat tuple-free dictionary with fallback-to-zh is the smallest coherent mechanism. Chinese is the default to match the user base.
 - **Consequences:** ~230 keys in `strings.ts`; every view component binds `useT()`/`useRelativeTime()`; verified bilingual via screenshots (zh/en Start+Overview+Settings); leftover scanner clean.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "添加语言切换（国际化）功能".
+
+## D-078 — Commercial-grade zero-dependency URL router
+
+- **Decision:** Introduce a client-side URL router. `src/lib/router.ts` = generic zero-dep router
+  (History API, `:param` matching, `navigate/replace/back`, `useLocation` via `useSyncExternalStore`);
+  `src/app/routes.ts` = GSC route table (`parsePath`/`buildPath` + typed builders) mapping URL ↔
+  nav state (`view` + `itemId` + `contextId` + `clusterId` + `recentDay?day=`). App seeds state from
+  the URL on load (deep links), re-derives on `popstate` (back/forward), and mirrors state→URL
+  (pushState) with equality guards. Unknown URLs render a 404 with a "go home" action. Hand-rolled
+  (no `react-router`) to honor the repo's zero-dependency principle.
+- **Reasoning:** navigation was pure React state (`go()`), so the address bar never reflected location —
+  no shareable/bookmarkable URLs, broken Back button. Commercial SPAs drive the view from the URL.
+  A dependency-free router matches GSC's existing ethos (zero-dep i18n, metrics). The mirror design
+  (state ↔ URL with guards) gives react-router-equivalent behavior without rewriting the ~20 existing
+  nav `setState` call sites or the 1200-line render tree (AGENTS.md: don't rewrite unrelated code).
+- **Alternatives:** `react-router` (rejected — adds a dependency without recorded need; repo is zero-dep);
+  full URL-as-source-of-truth rewrite (rejected for now — higher risk to the large App tree; mirror
+  delivers identical UX). Backend `server/router.ts` untouched (already a routing system).
+- **Consequences:** `src/lib/router.ts`, `src/app/routes.ts`, App state↔URL sync + 404 gate,
+  `notFound.*` i18n keys, `routes.test.ts` + `router.test.ts`. Deep links, back/forward, 404 verified.
+- **Status:** `DECIDED` — 2026-11-21, user instruction "用商业化的标准制定项目的路由系统并执行".

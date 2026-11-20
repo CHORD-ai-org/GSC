@@ -480,6 +480,20 @@ Dot-grid background is now **empty at rest**: nothing renders until the pointer 
 | MCP | live `tools/call gsc_get_user_profile` | returns only confirmed User Profile values via `/api/v1/profile` |
 | UI | `shots/07-object-detail.png` (Meta Tags block), `21-settings-tags.png` (definitions + User Profile + NEW DIMENSION), `22-overview-bottom.png` (Meta Tags summary) | verified |
 
+### Routing system checks (D-078, 2026-11-21)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass (0 errors) |
+| Tests | `npm test` | 110 pass (10 new: routes round-trip, matchPath, params, query, 404) |
+| Deep link | `shots/routing-raw-list.png` (`/raw`) | Raw list renders from URL ✓ |
+| 404 | `shots/routing-notfound.png` (`/nope`) | 404 + "返回首页" ✓ |
+| Unit | `src/app/routes.test.ts`, `src/lib/router.test.ts` | parsePath/buildPath inverse, `:param` match, day query |
+
+Frontend URL router live (`src/lib/router.ts` + `src/app/routes.ts`): deep-linkable, shareable URLs,
+browser back/forward (popstate), route params (`/raw/:id`, `/contexts/:id`, `/clusters/:id`), 404.
+Zero-dependency (no react-router). See `ROUTING_SYSTEM.md`.
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
