@@ -8,6 +8,13 @@
 | x.svg | X | simple-icons v16 | CC0-1.0；X 商标归 X Corp. |
 | deepseek.svg | DeepSeek | simple-icons v16 | CC0-1.0；DeepSeek 商标归 DeepSeek |
 | mimo.svg | Xiaomi MiMo | `@lobehub/icons` v6（npm 包，Mono 组件路径数据重组） | MIT（图标组件）；MiMo/小米商标归 Xiaomi |
+| openai.svg | OpenAI | `@lobehub/icons` v6（Mono 组件路径数据重组） | MIT；OpenAI 商标归 OpenAI |
+| claude.svg | Claude (Anthropic) | simple-icons v16 | CC0-1.0；Claude/Anthropic 商标归 Anthropic |
+| gemini.svg | Google Gemini | `@lobehub/icons` v6（Mono 组件路径数据重组） | MIT；Gemini 商标归 Google |
+| kimi.svg | Kimi (Moonshot AI) | simple-icons v16 | CC0-1.0；Kimi/Moonshot 商标归 Moonshot AI |
+| qwen.svg | Qwen (通义千问) | simple-icons v16 | CC0-1.0；Qwen 商标归 Alibaba |
+| zhipu.svg | Zhipu / GLM (智谱) | `@lobehub/icons` v6（Mono 组件路径数据重组） | MIT；GLM/Zhipu 商标归 Zhipu AI |
+| grok.svg | Grok (xAI) | `@lobehub/icons` v6（Mono 组件路径数据重组） | MIT；Grok/xAI 商标归 xAI |
 
 所有 SVG 已归一化：`viewBox="0 0 24 24"` + `fill="currentColor"`，由 CSS 染色（暗色模式自动适配）。
 
