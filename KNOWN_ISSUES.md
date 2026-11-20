@@ -69,6 +69,11 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 
 | Item | State |
 |---|---|
+| Visibility enforcement scope (D-063) | items + clusters enforced; contexts / proposals / sources remain single-user surfaces (any valid token in auth mode). PLAN-8 must extend ownership/visibility there. |
+| Sharing roles (PLAN-7 B7-2) | only `view` / `add` exist; `edit` / `admin` and cross-user provenance display deferred. |
+
+| Item | State |
+|---|---|
 | GSC Agent real model calls | proposer is stub-tested only — this environment has no LLM network/key. Set `GSC_LLM_BASE_URL`/`GSC_LLM_API_KEY`/`GSC_LLM_MODEL` in `.env.local` and use 「Agent 建议」 to verify. |
 | listItems fields bug (fixed 2026-11-20) | `listItems` previously returned empty `fields` (no content join) — broke content keyword search (D-020) and detector similarity. Fixed; regression covered by detector tests. |
 

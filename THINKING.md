@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: PLAN-6 A6-1/A6-2/B6-1/B6-2-TS 已执行（/api/v1/ 契约冻结 + token 鉴权 + MCP server + JS SDK，D-058…D-060）。Claude Code 真机实测与 Python SDK 待做；C6-1 未做。PLAN-7/8 仍 PROPOSED。
+> Status: PLAN-7 A7-1/B7-1 已执行（本地最小身份 + owner_id + Cluster 共享 view/add + 审计，D-061…D-063）。B7-2/C7-1 未做。PLAN-8 仍 PROPOSED。
 
 ## User approvals received 2026-11-16
 
