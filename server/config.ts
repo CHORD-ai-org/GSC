@@ -8,6 +8,7 @@ export type Config = {
   llmBaseUrl: string;
   llmApiKey: string;
   llmModel: string;
+  authRequired: boolean;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): Config {
@@ -25,5 +26,6 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.deepseek.com/v1',
     llmApiKey: env.GSC_LLM_API_KEY ?? '',
     llmModel: env.GSC_LLM_MODEL ?? 'deepseek-chat',
+    authRequired: env.GSC_AUTH_REQUIRED === '1',
   };
 }

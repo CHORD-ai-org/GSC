@@ -59,6 +59,7 @@ import { runGithubSync } from './sync/github.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
+import { verifyApiToken } from './storage/tokens.ts';
 import { dirname } from 'node:path';
 import { fetchUrlText } from './ingest/html.ts';
 import { storeTextFile } from './storage/local.ts';
@@ -70,11 +71,23 @@ export function createApiRouter(config: Config, db: Database) {
     next: () => void,
   ): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    const path = url.pathname;
+    // v1 prefix is canonical; bare /api/ remains an alias (D-060)
+    const path = url.pathname.replace(/^\/api\/v1(?=\/|$)/, '/api');
 
     if (!path.startsWith('/api/')) {
       next();
       return;
+    }
+
+    if (config.authRequired) {
+      const header = req.headers.authorization ?? '';
+      const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
+      const scope = presented ? verifyApiToken(dirname(config.pgliteDir), presented) : null;
+      const needsWrite = req.method !== 'GET' && req.method !== 'HEAD';
+      if (!scope || (needsWrite && scope !== 'rw')) {
+        sendApiError(res, apiError('contract', scope ? 'read-only token cannot write' : 'Missing or invalid token'));
+        return;
+      }
     }
 
     try {
