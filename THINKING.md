@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Vision v0.2 saved (`PRODUCT_VISION.md`, D-041). Long-range plans in `plans/` (PLAN-1…PLAN-8, all `PROPOSED`) awaiting user review. Near-term menu `DIVERGENCE_PLAN.md` (D1–D6 `PROPOSED`, D7 done).
+> Status: PLAN-3 A3-1/A3-2 已执行（Sync=源采集/Export=导出，sources 表 + GitHub 适配器，D-049…D-051）。B3-1 待凭据与外网；C3-1 调度未做。PLAN-4…PLAN-8 仍 PROPOSED。
 
 ## User approvals received 2026-11-16
 

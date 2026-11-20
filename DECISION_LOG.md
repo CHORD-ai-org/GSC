@@ -349,3 +349,75 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** clusters as a tag flavor of contexts (rejected — Vision §5.3 keeps them distinct: association vs purpose view); defer UI to a later plan (rejected — B1-2 is in PLAN-1 scope).
 - **Consequences:** the D-032 sidebar list (from the earlier UI spec) is amended by this decision; Cluster identity is `title` + `description`; membership is explicit, multi-homed, never inferred.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-1".
+
+## D-046 — Light Up workspace is a view, not a sidebar row (PLAN-2 Q1)
+
+- **Decision:** the Light Up review workspace is a full main-area view (`lightup`) with two tabs — Manual Input (the existing New form) and the acquisition pipeline. Entries: Raw Information `+ Add`, Overview `+ New`, and a Start quick action 「Light Up」. The sidebar list stays as decided (D-032/D-045).
+- **Reasoning:** PLAN-2 Q1 asked page vs inline panel; the review stage needs room for segment rows and per-row decisions, and the Vision dashboard (§7) has no separate Light Up page — acquisition is a flow, not a destination.
+- **Alternatives:** inline panel on Start (rejected — too cramped for review); new sidebar row (rejected — deviates from the authoritative sidebar list).
+- **Consequences:** `+ Add` on Raw Information and `+ New` on Overview now open the workspace (Manual tab = old form, unchanged fields); composer submit and Ctrl+O keep the fast direct-capture path.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-2".
+
+## D-047 — Rule-based segmentation with per-row human control (PLAN-2 Q2)
+
+- **Decision:** segmentation splits on blank-line paragraphs, Markdown headings and horizontal rules; tiny fragments merge into the previous chunk. Every row is editable/discardable before persist. Smart segmentation belongs to PLAN-4 (Agent).
+- **Reasoning:** PLAN-2 Q2 asked auto vs user-specified granularity; user control lives at the row level (edit/discard), which satisfies "User Review" without an agent.
+- **Alternatives:** fixed-size token windows (rejected — meaningless chunks); single monolith per input (rejected — skips segmentation entirely).
+- **Consequences:** `src/lib/lightup.ts` holds the pure segmentation rules with tests; the review table is the step-7 gate — nothing persists without confirmation.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-2".
+
+## D-048 — URL ingestion is fetch-and-preview only
+
+- **Decision:** `POST /api/ingest/url` fetches the page server-side (10s timeout, 2MB cap) and returns extracted title + plain text. It never persists; persisted items are always created through the review path or the fast direct-capture path.
+- **Reasoning:** browser CORS prevents client-side fetching of arbitrary URLs; ingestion (step 2) must stay separate from persistence (step 8) per the Light Up pipeline and "Preserve Before Interpreting".
+- **Alternatives:** client-side fetch via proxy service (rejected — external dependency); server auto-save on fetch (rejected — skips User Review).
+- **Consequences:** one new endpoint; extraction is naive HTML→text (no OCR, no PDF — boundary unchanged); failures map to `internal` (retryable) or `contract` (bad URL).
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-2".
+
+## D-049 — Naming: Sync = source acquisition; export page becomes Export (PLAN-3 前置)
+
+- **Decision:** the sidebar gains an `Export` row (the current export page content) and `Sync` becomes the new external-source acquisition page per Vision §3.2. Sidebar `ORGANIZATION` = Clusters, Contexts, Sync, Export. Settings → Data Management keeps its export buttons unchanged.
+- **Reasoning:** PLAN-3 flagged the naming collision; the Vision reserves "Sync" for ongoing acquisition. Renaming the export page preserves its functionality (change discipline) while freeing the name.
+- **Alternatives:** move export under Settings only (rejected — removes a standalone page); call the new page "Sources" (rejected — deviates from Vision vocabulary).
+- **Consequences:** DocsView text updated; `SyncView` (export) renamed `ExportView` in code.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-3".
+
+## D-050 — Synced items keep `origin: import`; secrets stay out of DB and git
+
+- **Decision:** the `ORIGINS` vocabulary (`user | import | agent`) is unchanged (D-022); synced items use `origin: import` with `source_label` `sync:<kind>:<ref>` (e.g. `sync:github:owner/repo#42`) as the provenance chain. Source tokens are stored in `.data/secrets.json` (gitignored), never in the database, never in git.
+- **Reasoning:** "who created it" already distinguishes user/agent from ingestion; adding a `sync` origin churns the Phase 01 taxonomy for no user-visible gain. PLAN-3 boundary requires keys on-machine only.
+- **Alternatives:** `origin: sync` enum extension (rejected — taxonomy churn); token column in `sources` table (rejected — boundary says 不入库).
+- **Consequences:** `sources` table holds metadata only (kind/label/scope/status/frequency/last_sync/last_error); a small secrets file store lives at `server/storage/secrets.ts`.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-3".
+
+## D-051 — GitHub first; manual sync default (PLAN-3 Q1/Q2)
+
+- **Decision:** source priority GitHub → Notion → Drive → X; v1 ships the GitHub adapter (token + `owner/repo` label, pulls issues as raw items) with adapter interface ready for the rest. Sync frequency default is **manual** ("Sync now"); `daily` is an optional setting value; webhooks are out. Dedupe on re-sync by exact `source_label` match.
+- **Reasoning:** PLAN-3 Q1/Q2 recommended exactly this order and a controllable default; GitHub is the only token-based source testable without OAuth app registration.
+- **Alternatives:** OAuth-first Notion/Drive (blocked — needs app credentials and user authorization flows); webhook-driven sync (rejected — C3-1 territory).
+- **Consequences:** B3-1 (X/Notion/Drive official connect + brand assets) is blocked on credentials and network; this environment has no external network, so the GitHub adapter is verified with stubbed fetch and marked for real-network verification.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-3".
+
+## D-052 — LLM provider: OpenAI-compatible adapter, config-driven (answers D1)
+
+- **Decision:** one OpenAI-compatible chat-completions adapter (`server/agent/llm.ts`) configured by `GSC_LLM_BASE_URL` / `GSC_LLM_API_KEY` / `GSC_LLM_MODEL` (defaults to the Deepseek API shape). Local OpenAI-compatible endpoints (llama.cpp / Ollama / LM Studio) work by pointing `BASE_URL` at localhost. Fetch is injectable; tests use a stub provider.
+- **Reasoning:** PLAN-4 Q2 deferred provider choice here; a config-driven OpenAI-compatible client covers both D1 options (cloud Deepseek and local endpoints) with one implementation.
+- **Alternatives:** hardcode Deepseek SDK (rejected — locks out local endpoints); per-provider adapters now (rejected — premature).
+- **Consequences:** real model calls are unverified in this offline environment (stub-tested); composer model chips remain display-only until a later wiring pass; `.env.example` documents the three variables.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-4".
+
+## D-053 — One review queue; kinds extended with dedupe and metadata
+
+- **Decision:** Agent and Detector outputs share the `proposals` table and one review-queue UI. `PROPOSAL_KINDS` gains `dedupe` (duplicate candidates) and `metadata` (missing-source/field findings) — additive only. The queue lives as a third tab 「提案队列」 of the Light Up workspace, with a compact 待审提案 section on Overview linking there.
+- **Reasoning:** PLAN-4 A4-1 asks for a queue; one governance surface is simpler than two, and the Vision places organization activity on Overview (§7). Keeps the sidebar list unchanged.
+- **Alternatives:** separate candidates table (rejected — two governance flows); sidebar page (rejected — authoritative list).
+- **Consequences:** contract + tests updated; queue filters by status; source tag distinguishes agent vs detector rows.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-4".
+
+## D-054 — Accept semantics per kind; single-process, manual triggers (PLAN-4 Q1)
+
+- **Decision:** accept applies what the model can apply today: `semantic_name` → title update (history event recorded), `association` → `related_to` relation, `cluster` → create Cluster with target (+related) as members; `classification` / `meta_tag` / `dedupe` / `metadata` resolve as review-marked only, with the UI saying so explicitly. Reject only resolves. Agent and Detector are single-process modules with manual triggers (「Agent 建议」/「运行 Detector」); no daemon.
+- **Reasoning:** PLAN-4 Q1 suggested single-process first to validate the boundary; Vision §10-4 requires proposals never write user data directly — applying only well-defined kinds keeps governance honest.
+- **Alternatives:** apply-all on accept (rejected — meta tags/dedupe have no model to write yet); background scheduler (rejected — C4-1 territory).
+- **Consequences:** accepting a semantic_name records an ordinary `updated` event; unapplied kinds carry a visible "resolve-only" note; detection dedupes against existing pending proposals.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行PLAN-4".

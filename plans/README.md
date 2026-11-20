@@ -13,7 +13,7 @@ Status: 全部 `PROPOSED` — 2026-11-20 制定，未逐条获批前不进入实
 | Context（目的性视图） | `contexts` + 显式成员 | 已对齐 ✓ |
 | Meta Tag | `domain` 单选字段 | 雏形；缺定义/取值/作用域三层（PLAN-8） |
 | Light Up（主动采集） | Composer 捕获 / 文件导入 / New 表单 | 雏形；缺管线 3–7 步（PLAN-2） |
-| Sync（外部源持续采集） | 现有 **Sync 页是导出** | ⚠️ **命名冲突**：需改名（建议现有页改叫 Export），Sync 专指源采集（PLAN-3） |
+| Sync（外部源持续采集） | `sources` 表 + GitHub 适配器（PLAN-3 A3-2 实现中） | ✅ 已裁决（D-049/D-050）：Sync 专指源采集，原导出页改名 Export；同步条目 `origin: import` + `sync:<kind>:<ref>` |
 | GSC Agent / Detector | 无；DIVERGENCE D1 是模型接入 | 智能层整体缺位（PLAN-4） |
 | GSC API / MCP / Provider | `node:http` 内部 API + GSC-CONTEXT.md 导出 | 契约雏形在 `src/lib/*`，无对外授权面（PLAN-6） |
 | Shared Cluster / 权限 | 无；DESIGN_BOUNDARIES 明确排除权限系统 | 需要先解除该边界（PLAN-7） |
@@ -22,7 +22,7 @@ Status: 全部 `PROPOSED` — 2026-11-20 制定，未逐条获批前不进入实
 
 | 计划 | 覆盖 Vision § | 一句话 | 依赖 | 远期阶段 |
 |---|---|---|---|---|
-| [PLAN-1 信息模型对齐](PLAN-1-information-model.md) | §2.1 §5 | Chunk/Cluster/Meta Tag 与现有 items/contexts 的模型合并或映射 | — | A→C |
+| [PLAN-1 信息模型对齐](PLAN-1-information-model.md) | §2.1 §5 | Chunk/Cluster/Meta Tag 与现有 items/contexts 的模型合并或映射 | — | A→C **A/B 段已执行 2026-11-20（D-042…D-045）** |
 | [PLAN-2 Light Up 采集](PLAN-2-light-up.md) | §3.1 | 8 步管线 + 手动/Agent 辅助双模式 | PLAN-1（A 阶段后可先行雏形） | A→C |
 | [PLAN-3 Sync 外部源](PLAN-3-sync-sources.md) | §3.2 | 外部源连接（X/GitHub/Notion/Drive）+ 品牌资产 + 同步状态 | PLAN-1 | A→C |
 | [PLAN-4 Agent + Detector](PLAN-4-agent-detector.md) | §4 | 解释/提议（Agent）与观察/候选（Detector）分工 + 人工治理 | PLAN-2、模型接入（D1） | A→C |

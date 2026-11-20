@@ -1,6 +1,6 @@
 # PLAN-2 — Light Up：用户主动采集管线
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §3.1 · 依赖：PLAN-1（A 阶段完成后即可动雏形）
+Status: `A2-1/B2-1/B2-2 已执行` — 2026-11-20（用户「开始执行PLAN-2」）。裁决：D-046 工作区视图化、D-047 规则切块+逐行人审、D-048 URL 只预览不落库。C2-1（批量队列/重试/大文档分段审阅）未做，留待续。 · 源：`PRODUCT_VISION.md` §3.1 · 依赖：PLAN-1 ✓
 
 ## 目标场景
 

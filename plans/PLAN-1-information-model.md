@@ -1,6 +1,6 @@
 # PLAN-1 — 信息模型对齐与演进（Chunk / Cluster / Meta Tag）
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §2.1、§5 · 依赖：无（其余轨道的地基）
+Status: `A/B 段已执行` — 2026-11-20（用户「开始执行PLAN-1」）。三问已裁决：D-042 Chunk=统称保留双类、D-043 Semantic Name=`title`、D-044 proposals 独立表；D-045 Clusters 落地。C1-1（全量回填+场景重跑）待 Phase 06 执行时进行。 · 源：`PRODUCT_VISION.md` §2.1、§5
 
 ## 目标场景
 

@@ -2,7 +2,7 @@
 
 Independent prototype of a persistent context infrastructure for human–AI collaboration.
 
-**Status:** Phase 05 (UI shell) in progress. Light shell with Overview composer, Canvas, Sync export and animation layer; Phase 04 data capabilities intact.
+**Status:** Layout v2 + PLAN-1/2/3 (model alignment, Light Up, Sync sources) implemented 2026-11-20. PLAN-4 (Agent + Detector) in progress. Long-range plans in `plans/`.
 
 ## Read first
 

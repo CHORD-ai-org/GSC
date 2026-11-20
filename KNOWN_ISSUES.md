@@ -69,6 +69,12 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 
 | Item | State |
 |---|---|
+| GitHub Sync real-network verification | adapter tested with stubbed fetch only — this environment cannot reach api.github.com. Run `Sync now` against a real `owner/repo` + token when network is available. |
+| Notion / Drive / X sources (PLAN-3 B3-1) | blocked on OAuth app credentials + network; connect form accepts them but sync returns a contract error until adapters land. Brand logos are letter badges until official assets can be vendored. |
+| Migration idempotency | migrations re-run every startup; files 0002–0004 now use `IF NOT EXISTS` — keep new migrations idempotent. |
+
+| Item | State |
+|---|---|
 | Canvas entry point (Q1) | Default: not a sidebar row; opened from Overview 「画布预览」 and `Ctrl+O`. Overview opens the canvas window (empty state); the empty state's 「画布预览」 activates the card grid. Confirm placement if a sidebar row or separate window is wanted. |
 | Sync placement (Q2) | Default: `ORGANIZATION` group (Contexts, Sync). Alternative: bottom cluster with Settings/Documentation. |
 | Composer submit without an LLM (Q3) | Captures text as `raw.document` with `source_label` `composer:<mode> · <model>`. Model inference is `DEFERRED` (`D-033`). |

@@ -1,6 +1,6 @@
 # PLAN-3 — Sync：外部源持续采集
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §3.2 · 依赖：PLAN-1（同一信息模型落库）、命名裁决（见下）
+Status: `A3-1/A3-2 已执行` — 2026-11-20（用户「开始执行PLAN-3」）。裁决：D-049 命名（Sync=采集、Export=导出）、D-050 origin=import+sync: 前缀来源标记、密钥 `.data/secrets.json`、D-051 GitHub 先行+手动默认。B3-1（Notion/Drive/X 官方接入+品牌素材）待凭据与外网；C3-1（调度/增量/去重升级）未做。 · 源：`PRODUCT_VISION.md` §3.2 · 依赖：PLAN-1 ✓
 
 ## 目标场景
 

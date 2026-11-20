@@ -235,6 +235,73 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Fidelity | screenshot review vs `UI_LAYOUT_PLAN.md` §2 | Overview = header + 3 counts + Recently Updated + Your Contexts; Raw/Object detail = required blocks verbatim (raw content not summarized); Context detail = Definition above / Members below; Recently = time groups + 访问/修改 tags; Settings = secondary nav |
 | Dark spot-check | `dark-07-object-detail.png` | new pages theme-aware |
 
+### PLAN-1 execution (2026-11-20, A/B stages)
+
+| File | Change |
+|---|---|
+| `PRODUCT_VISION.md` | Vision v0.2 (user-supplied) |
+| `plans/` | PLAN-1…PLAN-8 + README (vocabulary map) |
+| `INFORMATION_MODEL.md` | §11 terminology alignment, §12 Cluster, §13 proposal layer |
+| `server/persistence/migrations/0002_clusters.sql`, `0003_proposals.sql` | clusters + cluster_members + proposals tables |
+| `server/persistence/schema.ts`, `server/repo/clusters.ts`, `server/repo/proposals.ts` | Drizzle tables and repositories |
+| `src/lib/clusters.ts`, `src/lib/proposals.ts` | contracts + validators |
+| `server/router.ts`, `src/services/api.ts` | `/api/clusters*` + `/api/proposals*` endpoints and client |
+| `src/views/collections.tsx`, `detail.tsx`, `pages.tsx`, `src/app/App.tsx`, `Sidebar.tsx` | Clusters collection/detail/forms, sidebar entry, Overview "Existing Clusters" |
+| `scripts/api-checks.mjs`, `scripts/ui-shots.mjs` | 12 smoke checks; mount-wait before clicking (cold-load fix) |
+
+### PLAN-1 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 26 tests pass (2 new: cluster CRUD + multi-membership; proposal lifecycle) |
+| API smoke | `npm run api:check` | 12 checks pass (cluster member + proposal resolve added) |
+| Screenshots | `node scripts/ui-shots.mjs http://localhost:5174/ light` | 15 shots; `14-clusters-list` / `15-cluster-detail` verified vs D-045; pixel probe confirms theme consistency across the set |
+| Tooling note | `ui-shots.mjs \| head` | piping to `head` closes stdout early (SIGPIPE) and kills the run mid-way, mixing files from two runs — never truncate its output |
+
+### PLAN-2 execution (2026-11-20, A2-1/B2-1/B2-2)
+
+| File | Change |
+|---|---|
+| `src/lib/lightup.ts`, `lightup.test.ts` | normalization, rule segmentation (paragraphs / headings / rules, tiny-fragment merge), semantic-name suggestion, fast-path rule + 5 tests |
+| `server/ingest/html.ts` | URL fetch (10s/2MB) + naive HTML→text/title extraction |
+| `server/router.ts` | `POST /api/ingest/url` — fetch-and-preview only (D-048) |
+| `src/views/lightup.tsx` + `views.module.css` | Light Up workspace: Manual tab (old New form) + pipeline tab (URL/clipboard/multi-file intake → segment review rows → batch persist) |
+| `src/app/App.tsx`, `src/views/pages.tsx` | `lightup` view; entries: Raw `+ Add`, Overview `+ New`, Start quick action 「Light Up」 (D-046); batch create with source_label provenance |
+| `src/services/api.ts` | `ingestUrl` client |
+
+### PLAN-2 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 32 tests pass (5 lightup rules + 1 URL-ingest route incl. preview-only assertion) |
+| API smoke | `npm run api:check` | 12 checks pass |
+| Screenshots | `ui-prototype/shots/16-lightup-manual.png`, `17-lightup-review.png` | manual form tab renders; pipeline intake + 2 review rows (titles derived, keep/type/preview) + 「入库 2 条」 verified |
+
+### PLAN-3 execution (2026-11-20, A3-1/A3-2)
+
+| File | Change |
+|---|---|
+| `server/persistence/migrations/0004_sources.sql`, `schema.ts` | sources table (kind/label/scope/status/frequency/last_sync/last_error) |
+| `server/storage/secrets.ts` | token store at `.data/secrets.json` (gitignored; D-050) |
+| `server/repo/sources.ts`, `server/sync/github.ts` | source CRUD + GitHub adapter (issues → raw items, `sync:github:owner/repo#n`, dedupe by source_label) |
+| `server/router.ts` | `/api/sources*` + `POST /api/sources/:id/sync` (github only; others return contract error until B3-1) |
+| `src/lib/sources.ts`, `src/services/api.ts` | contracts + client |
+| `src/views/views.tsx` | new SyncView (source cards: identity/status/scope/last-sync/frequency + Sync now/pause/disconnect) ; old export page renamed `ExportView` |
+| `src/app/Sidebar.tsx`, `App.tsx` | sidebar ORGANIZATION gains Export (D-049); sources state + handlers |
+| migrations 0002–0004 | `IF NOT EXISTS` added — migrate re-runs all files every startup |
+
+### PLAN-3 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 35 tests pass (3 new: adapter import+dedupe, sync outcome recording, token outside DB) |
+| API smoke | `npm run api:check` | 12 checks pass |
+| Screenshots | `ui-prototype/shots/18-sync-sources.png`, `19-export.png` | connect form + source card (six elements) + Export page render |
+| Real-network note | api.github.com unreachable in this environment | GitHub sync verified with stubbed fetch; real-source verification pending (KNOWN_ISSUES) |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
