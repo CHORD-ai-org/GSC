@@ -40,6 +40,13 @@ export async function getContext(db: Database, id: string): Promise<ContextDetai
   return { ...toDTO(row), member_ids: members.map((m) => m.item_id) };
 }
 
+export async function deleteContext(db: Database, id: string): Promise<boolean> {
+  const [current] = await db.select().from(contexts).where(eq(contexts.id, id)).limit(1);
+  if (!current) return false;
+  await db.delete(contexts).where(eq(contexts.id, id));
+  return true;
+}
+
 export async function createContext(db: Database, body: CreateContextBody): Promise<ContextDTO> {
   const id = `ctx_${randomUUID()}`;
   const now = new Date();

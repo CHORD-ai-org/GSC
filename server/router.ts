@@ -24,6 +24,7 @@ import { listEvents } from './repo/events.ts';
 import {
   addContextMember,
   createContext,
+  deleteContext,
   getContext,
   listContexts,
   removeContextMember,
@@ -110,7 +111,7 @@ const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/items\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
   { pattern: /^\/api\/items\/[^/]+\/relations$/, methods: ['POST', 'DELETE'] },
   { pattern: /^\/api\/contexts$/, methods: ['GET', 'POST'] },
-  { pattern: /^\/api\/contexts\/[^/]+$/, methods: ['GET', 'PATCH'] },
+  { pattern: /^\/api\/contexts\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
   { pattern: /^\/api\/contexts\/[^/]+\/members$/, methods: ['POST', 'DELETE'] },
   { pattern: /^\/api\/clusters$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/clusters\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
@@ -409,6 +410,16 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         sendJson(res, 200, { ok: true, context });
+        return;
+      }
+
+      if (contextMatch && req.method === 'DELETE') {
+        const ok = await deleteContext(db, contextMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'Context not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
         return;
       }
 

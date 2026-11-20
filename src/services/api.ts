@@ -134,6 +134,10 @@ export function updateContext(id: string, body: unknown): Promise<MutationRespon
   });
 }
 
+export function deleteContext(id: string): Promise<{ ok: true; deleted: true }> {
+  return request<{ ok: true; deleted: true }>(`/api/contexts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export function addContextMember(id: string, itemId: string): Promise<MutationResponse> {
   return request<MutationResponse>(`/api/contexts/${encodeURIComponent(id)}/members`, {
     method: 'POST',
