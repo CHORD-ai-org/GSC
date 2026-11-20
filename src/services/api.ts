@@ -63,6 +63,8 @@ export type ApiResponse =
   | TagValueListResponse
   | TagValueResponse
   | ProfileResponse
+  | LlmConfigResponse
+  | LlmCheckResponse
   | { ok: true; deleted: true }
   | ApiError;
 
@@ -301,4 +303,21 @@ export function deleteTagValue(id: string): Promise<{ ok: true; deleted: true }>
 
 export function getProfile(): Promise<ProfileResponse> {
   return request<ProfileResponse>('/api/profile');
+}
+
+// Settings UI: runtime LLM provider configuration (the key is write-only)
+export type LlmPublicConfig = { base_url: string; model: string; key_set: boolean; key_hint: string };
+export type LlmConfigResponse = { ok: true; config: LlmPublicConfig };
+export type LlmCheckResponse = { ok: true; model: string; ms: number; reply: string };
+
+export function getLlmConfig(): Promise<LlmConfigResponse> {
+  return request<LlmConfigResponse>('/api/llm/config');
+}
+
+export function updateLlmConfig(body: { base_url?: string; model?: string; api_key?: string }): Promise<LlmConfigResponse> {
+  return request<LlmConfigResponse>('/api/llm/config', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export function checkLlm(): Promise<LlmCheckResponse> {
+  return request<LlmCheckResponse>('/api/llm/check', { method: 'POST' });
 }

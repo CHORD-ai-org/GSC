@@ -16,6 +16,8 @@ import { ApiFailure, readJson, sendApiError, sendJson } from './http.ts';
 import { RateLimiter, rateRuleFor } from './ratelimit.ts';
 import { idempotentWrite, newRequestId } from './idempotency.ts';
 import { logRequest } from './log.ts';
+import { chatComplete } from './agent/llm.ts';
+import { hasLlmApiKey, llmPublicConfig, resolveLlmConfig, writeLlmApiKey, writeLlmSettings } from './storage/settings.ts';
 import { createItem, deleteItem, getItem, listItems, updateItem } from './repo/items.ts';
 import { createRelation, listRelations } from './repo/relations.ts';
 import { listEvents } from './repo/events.ts';
@@ -128,6 +130,8 @@ const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/tags\/values$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/tags\/values\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
   { pattern: /^\/api\/profile$/, methods: ['GET'] },
+  { pattern: /^\/api\/llm\/config$/, methods: ['GET', 'PATCH'] },
+  { pattern: /^\/api\/llm\/check$/, methods: ['POST'] },
 ];
 
 function allowedMethodsFor(path: string): string[] | undefined {
@@ -756,7 +760,7 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         try {
-          const suggestions = await suggestForChunks(config, chunks.map((c, index) => ({
+          const suggestions = await suggestForChunks(resolveLlmConfig(config, secretsDir), chunks.map((c, index) => ({
             index,
             title: String((c as Record<string, unknown>).title ?? ''),
             content: String((c as Record<string, unknown>).content ?? ''),
@@ -774,6 +778,66 @@ export function createApiRouter(config: Config, db: Database) {
           sendJson(res, 200, { ok: true, report });
         } catch (e) {
           sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Detection failed'));
+        }
+        return;
+      }
+
+      // Settings UI: runtime LLM provider configuration (key stored encrypted, never returned).
+      if (path === '/api/llm/config' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, config: llmPublicConfig(config, secretsDir) });
+        return;
+      }
+
+      if (path === '/api/llm/config' && req.method === 'PATCH') {
+        const body = await readJson(req);
+        const b = (body ?? {}) as Record<string, unknown>;
+        const patch: { base_url?: string; model?: string } = {};
+        if (b.base_url !== undefined) {
+          if (typeof b.base_url !== 'string' || !/^https?:\/\//.test(b.base_url) || b.base_url.length > 512) {
+            sendApiError(res, apiError('contract', 'base_url must be an http(s) URL'));
+            return;
+          }
+          patch.base_url = b.base_url.replace(/\/$/, '');
+        }
+        if (b.model !== undefined) {
+          if (typeof b.model !== 'string' || !b.model.trim() || b.model.length > 128) {
+            sendApiError(res, apiError('contract', 'model must be a non-empty string'));
+            return;
+          }
+          patch.model = b.model.trim();
+        }
+        if (b.api_key !== undefined) {
+          if (typeof b.api_key !== 'string' || b.api_key.length > 512) {
+            sendApiError(res, apiError('contract', 'api_key must be a string of at most 512 chars'));
+            return;
+          }
+          if (b.api_key) writeLlmApiKey(secretsDir, b.api_key);
+        }
+        if (Object.keys(patch).length > 0) writeLlmSettings(secretsDir, patch);
+        sendJson(res, 200, { ok: true, config: llmPublicConfig(config, secretsDir) });
+        return;
+      }
+
+      if (path === '/api/llm/check' && req.method === 'POST') {
+        const effective = resolveLlmConfig(config, secretsDir);
+        if (!effective.llmApiKey && !/localhost|127\.0\.0\.1/.test(effective.llmBaseUrl)) {
+          sendApiError(res, apiError('contract', 'API key is not configured yet'));
+          return;
+        }
+        try {
+          const startedAt = Date.now();
+          const result = await chatComplete(effective, [
+            { role: 'system', content: 'You are a connectivity probe. Reply with exactly: OK' },
+            { role: 'user', content: 'ping' },
+          ]);
+          sendJson(res, 200, {
+            ok: true,
+            model: result.model,
+            ms: Date.now() - startedAt,
+            reply: result.content.trim().slice(0, 40),
+          });
+        } catch (e) {
+          sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'LLM check failed'));
         }
         return;
       }
