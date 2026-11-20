@@ -1,7 +1,11 @@
 /**
  * URL ingestion helpers (D-048): fetch-and-preview only. Extraction is a
  * naive HTML → plain-text pass; no OCR, no PDF, no persistence here.
+ * SSRF guard (O1-3): every URL — including redirect hops — is validated
+ * against private/reserved address space before fetching.
  */
+
+import { assertSafeIngestUrl, MAX_REDIRECTS, SsrfError } from './ssrf.ts';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const TIMEOUT_MS = 10_000;
@@ -37,21 +41,32 @@ export type UrlIngestResult = {
   text: string;
 };
 
-export async function fetchUrlText(rawUrl: string): Promise<UrlIngestResult> {
-  const url = new URL(rawUrl);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Only http(s) URLs are supported');
-  }
+export async function fetchUrlText(rawUrl: string, opts: { allowPrivate?: boolean } = {}): Promise<UrlIngestResult> {
+  const allowPrivate = opts.allowPrivate ?? false;
+  let url = await assertSafeIngestUrl(rawUrl, allowPrivate);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal, redirect: 'follow' });
+    // Manual redirect loop: each hop re-runs the SSRF checks (O1-3).
+    let res: Response | undefined;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      res = await fetch(url, { signal: controller.signal, redirect: 'manual' });
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) throw new Error(`Redirect without location (HTTP ${res.status})`);
+        res.body?.cancel().catch(() => {});
+        url = await assertSafeIngestUrl(new URL(location, url).toString(), allowPrivate);
+        continue;
+      }
+      break;
+    }
+    if (!res) throw new Error('Fetch produced no response');
     if (!res.ok) throw new Error(`Fetch failed with HTTP ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
     const body = buf.subarray(0, MAX_BYTES).toString('utf8');
     const isHtml = /<html|<!doctype html|<body/i.test(body) || (res.headers.get('content-type') ?? '').includes('html');
     return {
-      url: res.url || url.toString(),
+      url: url.toString(),
       title: isHtml ? htmlTitle(body) : '',
       text: isHtml ? htmlToText(body) : body.trim(),
     };
@@ -59,3 +74,5 @@ export async function fetchUrlText(rawUrl: string): Promise<UrlIngestResult> {
     clearTimeout(timer);
   }
 }
+
+export { SsrfError };

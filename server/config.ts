@@ -8,6 +8,8 @@ export type Config = {
   llmBaseUrl: string;
   llmApiKey: string;
   llmModel: string;
+  corsOrigins: string[];
+  allowPrivateIngest: boolean;
   authRequired: boolean;
 };
 
@@ -26,6 +28,10 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.deepseek.com/v1',
     llmApiKey: env.GSC_LLM_API_KEY ?? '',
     llmModel: env.GSC_LLM_MODEL ?? 'deepseek-chat',
+    // O1-7: explicit CORS allowlist; empty = same-origin only (browser blocks cross-origin)
+    corsOrigins: (env.GSC_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    // O1-3: dev/test escape hatch for loopback ingestion; production must stay off
+    allowPrivateIngest: env.GSC_INGEST_ALLOW_PRIVATE === '1',
     authRequired: env.GSC_AUTH_REQUIRED === '1',
   };
 }
