@@ -85,4 +85,33 @@ const invalid = await json('/api/items', {
 });
 if (invalid.status !== 400 || invalid.body.kind !== 'contract') throw new Error('error contract failed');
 
-process.stdout.write('[gsc-api-check] 10 checks passed\n');
+const cluster = await json('/api/clusters', {
+  method: 'POST',
+  body: JSON.stringify({ title: `Smoke Cluster ${Date.now()}`, description: 'api-check' }),
+});
+if (cluster.status !== 201 || !cluster.body.cluster?.id) throw new Error('create cluster failed');
+const clusterMember = await json(`/api/clusters/${cluster.body.cluster.id}/members`, {
+  method: 'POST',
+  body: JSON.stringify({ item_id: concept.body.item.id }),
+});
+if (clusterMember.status !== 201 || clusterMember.body.cluster?.member_ids?.length !== 1) {
+  throw new Error('cluster member failed');
+}
+
+const proposal = await json('/api/proposals', {
+  method: 'POST',
+  body: JSON.stringify({
+    kind: 'semantic_name',
+    target_id: concept.body.item.id,
+    proposed_value: 'Smoke semantic name',
+    source: 'detector',
+  }),
+});
+if (proposal.status !== 201 || proposal.body.proposal?.status !== 'pending') throw new Error('create proposal failed');
+const resolved = await json(`/api/proposals/${proposal.body.proposal.id}/resolve`, {
+  method: 'POST',
+  body: JSON.stringify({ status: 'rejected' }),
+});
+if (resolved.status !== 200 || resolved.body.proposal?.status !== 'rejected') throw new Error('resolve proposal failed');
+
+process.stdout.write('[gsc-api-check] 12 checks passed\n');

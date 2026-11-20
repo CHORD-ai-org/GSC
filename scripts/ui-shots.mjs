@@ -110,7 +110,13 @@ try {
   }
 
   await send('Page.navigate', { url: BASE }, sessionId);
-  await sleep(1800);
+  // wait for the app to mount (first load compiles the bundle; 1.8s is not enough)
+  for (let i = 0; i < 40; i += 1) {
+    const r = await evalJs(`document.querySelectorAll('nav button').length`);
+    if ((r.result.value ?? 0) > 0) break;
+    await sleep(250);
+  }
+  await sleep(400);
 
   await clickText('Settings');
   await clickText(MODE === 'dark' ? 'Dark' : 'Light');
@@ -152,6 +158,33 @@ try {
 
   await clickText('画布预览');
   await shot('13-canvas-preview');
+
+  await clickText('Clusters');
+  await shot('14-clusters-list');
+  await clickSel('button[class*="listRow"]');
+  await shot('15-cluster-detail');
+
+  await clickText('Start');
+  await clickText('Light Up');
+  await shot('16-lightup-manual');
+
+  await clickText('采集管线');
+  await evalJs(`(() => {
+    const ta = document.querySelector('textarea');
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    setter.call(ta, 'Chunking beats long context for retrieval quality.\\n\\n# Section Two\\nSecond paragraph talks about semantic identity of information units.');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await sleep(300);
+  await clickText('生成审阅');
+  await shot('17-lightup-review');
+
+  await clickText('Sync');
+  await shot('18-sync-sources');
+
+  await clickText('Export');
+  await shot('19-export');
 
   await send('Target.closeTarget', { targetId });
   ws.close();
