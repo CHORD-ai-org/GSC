@@ -152,6 +152,9 @@ try {
   await clickText('Settings');
   await shot('11-settings');
 
+  await clickText('Meta Tags');
+  await shot('21-settings-tags');
+
   await clickText('Start');
   await clickText('画布预览');
   await shot('12-canvas-empty');

@@ -47,20 +47,24 @@ function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: 
 }
 
 export function RawCollection({
-  items, badges, onNew, onSelect,
+  items, badges, tagDims, tagDimOptions, onNew, onSelect,
 }: {
   items: ItemDTO[];
   badges?: ItemBadges;
+  tagDims?: Record<string, string[]>;
+  tagDimOptions?: string[];
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
   const [q, setQ] = useState('');
   const [type, setType] = useState('all');
+  const [dim, setDim] = useState('all');
   const rows = useMemo(
     () => items.filter((i) => i.type.startsWith('raw.'))
       .filter((i) => type === 'all' || i.type === type)
+      .filter((i) => dim === 'all' || (tagDims?.[i.id] ?? []).includes(dim))
       .filter((i) => matches(i, q)),
-    [items, q, type],
+    [items, q, type, dim, tagDims],
   );
   return (
     <div className={styles.page}>
@@ -76,6 +80,12 @@ export function RawCollection({
           <option value="all">All Types</option>
           {RAW_TYPES.map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
         </select>
+        {tagDimOptions && tagDimOptions.length > 0 ? (
+          <select className={styles.select} value={dim} onChange={(e) => setDim(e.target.value)}>
+            <option value="all">All Tags</option>
+            {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        ) : null}
       </div>
       <ListHeader cols={['Name', 'Type · Source', 'Updated']} />
       <div className={styles.list}>
@@ -104,21 +114,25 @@ const OBJECT_TABS: { id: string; label: string }[] = [
 ];
 
 export function ObjectCollection({
-  items, sourceCounts, badges, onNew, onSelect,
+  items, sourceCounts, badges, tagDims, tagDimOptions, onNew, onSelect,
 }: {
   items: ItemDTO[];
   sourceCounts: Record<string, number>;
   badges?: ItemBadges;
+  tagDims?: Record<string, string[]>;
+  tagDimOptions?: string[];
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
+  const [dim, setDim] = useState('all');
   const rows = useMemo(
     () => items.filter((i) => (OBJECT_TYPES as readonly string[]).includes(i.type))
       .filter((i) => tab === 'all' || i.type === tab)
+      .filter((i) => dim === 'all' || (tagDims?.[i.id] ?? []).includes(dim))
       .filter((i) => matches(i, q)),
-    [items, q, tab],
+    [items, q, tab, dim, tagDims],
   );
   return (
     <div className={styles.page}>
@@ -130,6 +144,12 @@ export function ObjectCollection({
       <p className={styles.pageSub}>Explore and manage your structured knowledge.</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder="Search objects..." value={q} onChange={(e) => setQ(e.target.value)} />
+        {tagDimOptions && tagDimOptions.length > 0 ? (
+          <select className={styles.select} value={dim} onChange={(e) => setDim(e.target.value)}>
+            <option value="all">All Tags</option>
+            {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        ) : null}
       </div>
       <div className={styles.tabRow}>
         {OBJECT_TABS.map((t) => (

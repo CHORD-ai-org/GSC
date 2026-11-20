@@ -146,3 +146,12 @@
 /* Sync sources */.sourceCard{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-card);padding:12px 16px;margin-bottom:10px}
 .sourceBadge{width:32px;height:32px;flex:none;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px}
 .sourceMain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+
+/* Meta Tags (PLAN-8) */
+.tagRow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-soft)}
+.tagDim{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);background:var(--pill-track);border-radius:5px;padding:2px 8px}
+.tagValue{color:var(--ink);line-height:20px}
+.tagScope{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.tagConfirmed{color:var(--sem-confirmed);font-weight:600}
+.tagForm{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.tagForm .search{flex:1;min-width:140px}

@@ -13,6 +13,8 @@ import type { TimeGroup } from '../lib/format.ts';
 import { buildActivityDays } from '../lib/activity.ts';
 import { ActivityMap } from '../components/ActivityMap.tsx';
 import { SemLegend } from '../components/SemTag.tsx';
+import type { ReactNode } from 'react';
+import type { TagDefinitionDTO } from '../lib/tags.ts';
 import styles from './views.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
@@ -63,6 +65,7 @@ export function OverviewPage({
   contexts,
   clusters,
   pendingProposals,
+  tagSummary,
   onNew,
   onOpenItem,
   onOpenContext,
@@ -75,6 +78,7 @@ export function OverviewPage({
   contexts: ContextIndexEntry[];
   clusters: (ContextIndexEntry | { id: string; title: string; description: string; created_at: string; updated_at: string; member_ids: string[] })[];
   pendingProposals: { id: string; kind: string; proposed_value: string; source: string; created_at: string }[];
+  tagSummary: { name: string; count: number }[];
   onNew: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
@@ -201,6 +205,21 @@ export function OverviewPage({
               <span className={styles.rowType}>{c.member_ids.length} members</span>
               <span className={styles.rowTime}>{relativeTime(c.updated_at)}</span>
             </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title="Meta Tags" count={`${tagSummary.reduce((n, t) => n + t.count, 0)} values`} />
+        <div className={styles.list}>
+          {tagSummary.length === 0 ? (
+            <div className={styles.emptyLine}>No tag values yet. Tag dimensions live in Settings → Meta Tags.</div>
+          ) : tagSummary.map((t) => (
+            <div key={t.name} className={styles.refRow}>
+              <span className={styles.refKind}>dimension</span>
+              <span className={styles.kvValue}>{t.name}</span>
+              <span className={styles.rowTime}>{t.count} values</span>
+            </div>
           ))}
         </div>
       </div>
@@ -347,13 +366,14 @@ export function RecentlyPage({
 
 /* ── Settings: secondary navigation ───────────────────────────────────── */
 
-type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'privacy';
+type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'tags' | 'privacy';
 
 const SETTINGS_NAV: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'account', label: 'Account' },
   { id: 'data', label: 'Data Management' },
   { id: 'connections', label: 'Connections' },
+  { id: 'tags', label: 'Meta Tags' },
   { id: 'privacy', label: 'Privacy' },
 ];
 
@@ -366,6 +386,9 @@ export function SettingsPage({
   onExportMarkdown,
   onExportAgent,
   onManageData,
+  tagDefinitions,
+  onCreateTagDefinition,
+  profileBlock,
 }: {
   prefs: UiPrefs;
   onChange: (next: UiPrefs) => void;
@@ -375,8 +398,13 @@ export function SettingsPage({
   onExportMarkdown: () => void;
   onExportAgent: () => void;
   onManageData: () => void;
+  tagDefinitions: TagDefinitionDTO[];
+  onCreateTagDefinition: (name: string, description: string) => Promise<void>;
+  profileBlock?: ReactNode;
 }) {
   const [section, setSection] = useState<SettingsSection>('general');
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagDesc, setNewTagDesc] = useState('');
 
   return (
     <div className={styles.settingsLayout}>
@@ -509,7 +537,56 @@ export function SettingsPage({
               <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
               <div className={styles.settingValue}>通过 GSC-CONTEXT.md 导出文件连接（Sync 页或上方 Data Management 下载）。</div>
             </div>
-            <div className={styles.hint}>本地只读端点 / MCP 形态在 DIVERGENCE_PLAN D2 中为 PROPOSED，未实施。</div>
+            <div className={styles.hint}>本地只读端点 /api/v1/ 与 MCP server（npm run mcp）已可用（PLAN-6）；User Profile 输出见 Meta Tags。</div>
+          </>
+        ) : section === 'tags' ? (
+          <>
+            <h1 className={styles.pageTitle}>Meta Tags</h1>
+            <p className={styles.pageSub}>受控维度定义（D-064）。维度必须先定义才能赋值；取值自由。</p>
+            {tagDefinitions.map((d) => (
+              <div className={styles.settingBlock} key={d.id}>
+                <div className={styles.settingCaption}>{d.name.toUpperCase()}</div>
+                <div className={styles.settingValue}>{d.description || '（无描述）'}</div>
+              </div>
+            ))}
+            {profileBlock ? (
+              <div className={styles.settingBlock}>
+                <div className={styles.settingCaption}>USER PROFILE</div>
+                <div className={styles.settingValue}>跨应用输出给外部 Agent 的用户特征（D-066）。只输出已确认的取值。</div>
+                {profileBlock}
+              </div>
+            ) : null}
+            <div className={styles.settingBlock}>
+              <div className={styles.settingCaption}>NEW DIMENSION</div>
+              <div className={styles.tagForm}>
+                <input
+                  className={styles.search}
+                  placeholder="维度名称"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                />
+                <input
+                  className={styles.search}
+                  placeholder="含义说明"
+                  value={newTagDesc}
+                  onChange={(e) => setNewTagDesc(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={!newTagName.trim()}
+                  onClick={() => {
+                    const name = newTagName.trim();
+                    if (!name) return;
+                    setNewTagName('');
+                    setNewTagDesc('');
+                    void onCreateTagDefinition(name, newTagDesc.trim());
+                  }}
+                >
+                  添加维度
+                </button>
+              </div>
+            </div>
           </>
         ) : (
           <>

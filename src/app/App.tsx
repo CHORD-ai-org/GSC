@@ -11,6 +11,8 @@ import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pa
 import type { ContextIndexEntry } from '../views/pages.tsx';
 import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
 import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
+import { TagEditor } from '../components/TagEditor.tsx';
+import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { ClusterIndexEntry } from '../views/detail.tsx';
 import { LightUpView } from '../views/lightup.tsx';
 import type { SegmentRow } from '../views/lightup.tsx';
@@ -89,6 +91,8 @@ export default function App() {
   const [proposals, setProposals] = useState<ProposalDTO[]>([]);
   const [recentDay, setRecentDay] = useState('');
   const [clusterShares, setClusterShares] = useState<{ user_id: string; name: string; role: 'view' | 'add' }[]>([]);
+  const [tagDefinitions, setTagDefinitions] = useState<TagDefinitionDTO[]>([]);
+  const [tagValues, setTagValues] = useState<TagValueDTO[]>([]);
   const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +133,12 @@ export default function App() {
     }
   }, []);
 
+  const loadTags = useCallback(async () => {
+    const [defs, values] = await Promise.all([api.listTagDefinitions(), api.listTagValues()]);
+    setTagDefinitions(defs.definitions);
+    setTagValues(values.values);
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     const result = await api.getItem(id);
     setDetail(result);
@@ -139,6 +149,7 @@ export default function App() {
   useEffect(() => { void loadClusterIndex(); }, [loadClusterIndex]);
   useEffect(() => { void loadSources(); }, [loadSources]);
   useEffect(() => { void loadProposals(); }, [loadProposals]);
+  useEffect(() => { void loadTags(); }, [loadTags]);
   useEffect(() => {
     if (clusterId) void loadShareState(clusterId);
     else setClusterShares([]);
@@ -206,6 +217,30 @@ export default function App() {
     }
     return map;
   }, [clusters, contexts]);
+
+  // PLAN-8: tag-derived indexes for filtering and the overview summary
+  const tagDimsByItem = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const v of tagValues) {
+      if (!v.item_id) continue;
+      const name = tagDefinitions.find((d) => d.id === v.definition_id)?.name ?? v.definition_id;
+      map[v.item_id] = [...new Set([...(map[v.item_id] ?? []), name])];
+    }
+    return map;
+  }, [tagValues, tagDefinitions]);
+
+  const tagDimNames = useMemo(
+    () => tagDefinitions.map((d) => d.name),
+    [tagDefinitions],
+  );
+
+  const tagSummary = useMemo(
+    () => tagDefinitions.map((d) => ({
+      name: d.name,
+      count: tagValues.filter((v) => v.definition_id === d.id).length,
+    })),
+    [tagDefinitions, tagValues],
+  );
 
   function updatePrefs(next: UiPrefs) {
     setPrefs(next);
@@ -683,6 +718,43 @@ export default function App() {
     );
   }
 
+  async function addTagValue(body: { definition_id: string; value: string; scope: string }, attachToItem = true) {
+    try {
+      setError('');
+      await api.createTagValue(attachToItem && selectedId ? { ...body, item_id: selectedId } : body);
+      await loadTags();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Tagging failed');
+    }
+  }
+
+  async function confirmTagValue(id: string, confirmed: boolean) {
+    try {
+      await api.setTagValueConfirmed(id, confirmed);
+      await loadTags();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Confirm failed');
+    }
+  }
+
+  async function removeTagValue(id: string) {
+    try {
+      await api.deleteTagValue(id);
+      await loadTags();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Remove failed');
+    }
+  }
+
+  async function createTagDef(name: string, description: string) {
+    try {
+      await api.createTagDefinition({ name, description });
+      await loadTags();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Create dimension failed');
+    }
+  }
+
   function renderItemPage(kind: 'raw' | 'objects') {
     if (panel === 'new') {
       return formPage(
@@ -714,6 +786,15 @@ export default function App() {
         detail,
         items,
         contextIndex: contexts,
+        tags: (
+          <TagEditor
+            definitions={tagDefinitions}
+            values={tagValues.filter((v) => v.item_id === selectedId)}
+            onAdd={addTagValue}
+            onConfirm={confirmTagValue}
+            onDelete={removeTagValue}
+          />
+        ),
         onBack: () => setSelectedId(''),
         onEdit: openEdit,
         onDelete: () => void deleteSelected(),
@@ -723,9 +804,9 @@ export default function App() {
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
     return kind === 'raw' ? (
-      <RawCollection items={items} badges={itemBadges} onNew={() => go('lightup')} onSelect={selectItem} />
+      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} onNew={() => go('lightup')} onSelect={selectItem} />
     ) : (
-      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} onNew={() => openNew('object.concept')} onSelect={selectItem} />
+      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} onNew={() => openNew('object.concept')} onSelect={selectItem} />
     );
   }
 
@@ -763,6 +844,7 @@ export default function App() {
             contexts={contexts}
             clusters={clusters}
             pendingProposals={proposals}
+            tagSummary={tagSummary}
             onNew={() => go('lightup')}
             onOpenItem={openItemInPage}
             onOpenContext={openContextInPage}
@@ -914,7 +996,18 @@ export default function App() {
             onExportJson={() => void runExport(buildJsonExport)}
             onExportMarkdown={() => void runExport(buildMarkdownBundle)}
             onExportAgent={() => void runExport(buildAgentContext)}
-            onManageData={() => go('sync')}
+            onManageData={() => go('export')}
+            tagDefinitions={tagDefinitions}
+            onCreateTagDefinition={createTagDef}
+            profileBlock={
+              <TagEditor
+                definitions={tagDefinitions.filter((d) => d.id === 'tag_user_profile')}
+                values={tagValues.filter((v) => v.definition_id === 'tag_user_profile' && !v.item_id)}
+                onAdd={(body) => addTagValue(body, false)}
+                onConfirm={confirmTagValue}
+                onDelete={removeTagValue}
+              />
+            }
           />
         );
       case 'docs':

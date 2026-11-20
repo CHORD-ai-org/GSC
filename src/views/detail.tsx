@@ -86,11 +86,12 @@ function contextsContaining(index: ContextIndexEntry[], id: string): ContextInde
 }
 
 export function RawDetailView({
-  detail, items, contextIndex, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
   contextIndex: ContextIndexEntry[];
+  tags?: ReactNode;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -146,6 +147,8 @@ export function RawDetailView({
         ]} />
       </Block>
 
+      {tags ? <Block title="Meta Tags">{tags}</Block> : null}
+
       <Block title="被哪些 Structured Objects 引用">
         {referencedBy.length === 0 ? (
           <div className={styles.hint}>暂无对象引用此原始信息。</div>
@@ -182,11 +185,12 @@ export function RawDetailView({
 }
 
 export function ObjectDetailView({
-  detail, items, contextIndex, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
   contextIndex: ContextIndexEntry[];
+  tags?: ReactNode;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -245,6 +249,8 @@ export function ObjectDetailView({
           ...propFields.map(([key, value]) => [fieldLabels[key] ?? key, value as string] as [string, ReactNode]),
         ]} />
       </Block>
+
+      {tags ? <Block title="Meta Tags">{tags}</Block> : null}
 
       <Block title="Relationships">
         {related.length === 0 && relatedIncoming.length === 0 ? (
