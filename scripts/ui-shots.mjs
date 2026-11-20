@@ -186,6 +186,11 @@ try {
   await clickText('Export');
   await shot('19-export');
 
+  await clickText('Start');
+  await clickText('Light Up');
+  await clickText('提案队列');
+  await shot('20-review-queue');
+
   await send('Target.closeTarget', { targetId });
   ws.close();
 } finally {
