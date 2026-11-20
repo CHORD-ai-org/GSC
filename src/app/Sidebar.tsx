@@ -1,9 +1,10 @@
 import { GscLogo } from '../components/GscLogo.tsx';
+import { useT } from '../lib/i18n.tsx';
 import styles from './shell.module.css';
 
 export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
-  | 'clusters' | 'contexts' | 'sync' | 'export' | 'settings' | 'docs' | 'canvas';
+  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas';
 
 type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book';
 
@@ -35,32 +36,32 @@ function Icon({ name }: { name: IconName }) {
   }
 }
 
-type NavEntry = { id: ViewId; label: string; icon: IconName };
+type NavEntry = { id: ViewId; labelKey: string; icon: IconName };
 
-const GROUPS: { label: string; items: NavEntry[] }[] = [
-  { label: 'GENERAL', items: [
-    { id: 'start', label: 'Start', icon: 'home' },
-    { id: 'overview', label: 'Overview', icon: 'grid' },
-    { id: 'recently', label: 'Recently', icon: 'clock' },
+const GROUPS: { labelKey: string; items: NavEntry[] }[] = [
+  { labelKey: 'nav.general', items: [
+    { id: 'start', labelKey: 'nav.start', icon: 'home' },
+    { id: 'overview', labelKey: 'nav.overview', icon: 'grid' },
+    { id: 'recently', labelKey: 'nav.recently', icon: 'clock' },
   ] },
-  { label: 'INFORMATION', items: [
-    { id: 'raw', label: 'Raw Information', icon: 'file' },
-    { id: 'objects', label: 'Structured Objects', icon: 'box' },
+  { labelKey: 'nav.information', items: [
+    { id: 'raw', labelKey: 'nav.raw', icon: 'file' },
+    { id: 'objects', labelKey: 'nav.objects', icon: 'box' },
   ] },
-  { label: 'ORGANIZATION', items: [
-    { id: 'clusters', label: 'Clusters', icon: 'cluster' },
-    { id: 'contexts', label: 'Contexts', icon: 'layers' },
-    { id: 'sync', label: 'Sync', icon: 'sync' },
-    { id: 'export', label: 'Export', icon: 'export' },
+  { labelKey: 'nav.organization', items: [
+    { id: 'clusters', labelKey: 'nav.clusters', icon: 'cluster' },
+    { id: 'contexts', labelKey: 'nav.contexts', icon: 'layers' },
+    { id: 'sync', labelKey: 'nav.sync', icon: 'sync' },
   ] },
 ];
 
 const FOOTER: NavEntry[] = [
-  { id: 'settings', label: 'Settings', icon: 'gear' },
-  { id: 'docs', label: 'Documentation', icon: 'book' },
+  { id: 'settings', labelKey: 'nav.settings', icon: 'gear' },
+  { id: 'docs', labelKey: 'nav.docs', icon: 'book' },
 ];
 
 function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boolean; onNavigate: (id: ViewId) => void }) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -69,20 +70,21 @@ function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boo
       aria-current={active ? 'page' : undefined}
     >
       <Icon name={entry.icon} />
-      {entry.label}
+      {t(entry.labelKey)}
     </button>
   );
 }
 
 export function Sidebar({ view, onNavigate }: { view: ViewId; onNavigate: (id: ViewId) => void }) {
+  const t = useT();
   return (
     <nav className={styles.sidebar}>
       <div className={styles.brand}>
         <GscLogo height={18} />
       </div>
       {GROUPS.map((group) => (
-        <div className={styles.group} key={group.label}>
-          <div className={styles.groupLabel}>{group.label}</div>
+        <div className={styles.group} key={group.labelKey}>
+          <div className={styles.groupLabel}>{t(group.labelKey)}</div>
           {group.items.map((entry) => (
             <NavButton key={entry.id} entry={entry} active={view === entry.id} onNavigate={onNavigate} />
           ))}

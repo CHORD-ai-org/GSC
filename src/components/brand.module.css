@@ -1,0 +1,7 @@
+.logo{display:inline-block;flex:none;mask-size:contain;mask-repeat:no-repeat;mask-position:center;-webkit-mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;background:var(--ink)}
+.logo[data-brand='github']{background:var(--brand-github)}
+.logo[data-brand='notion']{background:var(--brand-notion)}
+.logo[data-brand='googledrive']{background:var(--brand-googledrive)}
+.logo[data-brand='x']{background:var(--brand-x)}
+.logo[data-brand='mimo']{background:var(--brand-mimo)}
+.logo[data-brand='deepseek']{background:var(--brand-deepseek)}

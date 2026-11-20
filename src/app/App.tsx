@@ -4,7 +4,9 @@ import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewId } from './Sidebar.tsx';
-import { CanvasView, DocsView, ExportView, SyncView } from '../views/views.tsx';
+import { CommandPalette } from '../components/CommandPalette.tsx';
+import type { PaletteItem } from '../components/CommandPalette.tsx';
+import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
 import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
 import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pages.tsx';
@@ -12,7 +14,9 @@ import type { ContextIndexEntry } from '../views/pages.tsx';
 import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
 import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
 import { TagEditor } from '../components/TagEditor.tsx';
+import { useT } from '../lib/i18n.tsx';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
+import type { LlmPublicConfig } from '../services/api.ts';
 import type { ClusterIndexEntry } from '../views/detail.tsx';
 import { LightUpStudio } from '../views/lightup.tsx';
 import type { PersistResult } from '../views/lightup.tsx';
@@ -67,6 +71,7 @@ function metaFrom(item?: ItemDTO) {
 }
 
 export default function App() {
+  const t = useT();
   const [view, setView] = useState<ViewId>('start');
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
@@ -94,6 +99,7 @@ export default function App() {
   const [clusterShares, setClusterShares] = useState<{ user_id: string; name: string; role: 'view' | 'add' }[]>([]);
   const [tagDefinitions, setTagDefinitions] = useState<TagDefinitionDTO[]>([]);
   const [tagValues, setTagValues] = useState<TagValueDTO[]>([]);
+  const [llmConfig, setLlmConfig] = useState<LlmPublicConfig | null>(null);
   const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +140,15 @@ export default function App() {
     }
   }, []);
 
+  const loadLlmConfig = useCallback(async () => {
+    try {
+      const result = await api.getLlmConfig();
+      setLlmConfig(result.config);
+    } catch {
+      setLlmConfig(null);
+    }
+  }, []);
+
   const loadTags = useCallback(async () => {
     const [defs, values] = await Promise.all([api.listTagDefinitions(), api.listTagValues()]);
     setTagDefinitions(defs.definitions);
@@ -151,6 +166,7 @@ export default function App() {
   useEffect(() => { void loadSources(); }, [loadSources]);
   useEffect(() => { void loadProposals(); }, [loadProposals]);
   useEffect(() => { void loadTags(); }, [loadTags]);
+  useEffect(() => { void loadLlmConfig(); }, [loadLlmConfig]);
   useEffect(() => {
     if (clusterId) void loadShareState(clusterId);
     else setClusterShares([]);
@@ -253,6 +269,50 @@ export default function App() {
     if (prefs.pageTransition) setMosaicToken((t) => t + 1);
     setView(next);
   }
+
+  /* P4: Ctrl+K command palette */
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const paletteItems = useMemo<PaletteItem[]>(() => {
+    const pages: PaletteItem[] = [
+      { id: 'pg-start', group: '页面', label: t('nav.start'), hint: 'start', run: () => go('start') },
+      { id: 'pg-overview', group: '页面', label: t('nav.overview'), hint: 'overview', run: () => go('overview') },
+      { id: 'pg-recently', group: '页面', label: t('nav.recently'), hint: 'recently', run: () => go('recently') },
+      { id: 'pg-raw', group: '页面', label: t('nav.raw'), hint: 'raw', run: () => go('raw') },
+      { id: 'pg-objects', group: '页面', label: t('nav.objects'), hint: 'objects', run: () => go('objects') },
+      { id: 'pg-clusters', group: '页面', label: t('nav.clusters'), hint: 'clusters', run: () => go('clusters') },
+      { id: 'pg-contexts', group: '页面', label: t('nav.contexts'), hint: 'contexts', run: () => go('contexts') },
+      { id: 'pg-lightup', group: '页面', label: 'Light Up', hint: 'lightup', run: () => go('lightup') },
+      { id: 'pg-sync', group: '页面', label: t('nav.sync'), hint: 'sync', run: () => go('sync') },
+      { id: 'pg-export', group: '页面', label: t('nav.export'), hint: 'sync', run: () => go('sync') },
+      { id: 'pg-settings', group: '页面', label: t('nav.settings'), hint: 'settings', run: () => go('settings') },
+      { id: 'pg-docs', group: '页面', label: t('nav.docs'), hint: 'docs', run: () => go('docs') },
+    ];
+    const commands: PaletteItem[] = [
+      { id: 'cmd-new', group: '命令', label: `${t('common.new')} · ${t('nav.raw')}`, hint: 'lightup', run: () => go('lightup') },
+      { id: 'cmd-connect', group: '命令', label: t('sync.connectBtn'), hint: 'sync', run: () => go('sync') },
+      { id: 'cmd-export', group: '命令', label: t('settings.exportAgent'), hint: 'sync', run: () => go('sync') },
+    ];
+    const itemResults: PaletteItem[] = items.slice(0, 30).map((item) => ({
+      id: `it-${item.id}`,
+      group: t('nav.raw'),
+      label: item.title,
+      hint: ITEM_LABELS[item.type],
+      run: () => { openItemInPage(item.id); },
+    }));
+    return [...commands, ...pages, ...itemResults];
+  }, [items, t]);
 
   function markVisited(id: string) {
     recordVisit(id);
@@ -588,7 +648,7 @@ export default function App() {
       const result = await api.proposeSuggestions(rows.map((r) => ({ title: r.title, content: r.content })));
       return result.suggestions.map((s) => ({ index: s.index, semantic_name: s.semantic_name }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Agent unavailable（需配置 GSC_LLM_*）');
+      setError(e instanceof Error ? e.message : t('lu.agentUnavailable'));
       return [];
     } finally {
       setLightupBusy(false);
@@ -656,7 +716,7 @@ export default function App() {
   }
 
   async function removeSourceEntry(source: SourceDTO) {
-    if (!window.confirm(`断开 ${source.label}？已同步的条目保留。`)) return;
+    if (!window.confirm(t('sync.disconnectConfirm', { label: source.label }))) return;
     try {
       setError('');
       await api.deleteSource(source.id);
@@ -754,6 +814,15 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Remove failed');
     }
+  }
+
+  async function saveLlmConfig(patch: { base_url?: string; model?: string; api_key?: string }) {
+    const result = await api.updateLlmConfig(patch);
+    setLlmConfig(result.config);
+  }
+
+  async function checkLlm() {
+    return api.checkLlm();
   }
 
   async function createTagDef(name: string, description: string) {
@@ -862,6 +931,9 @@ export default function App() {
             onOpenQueue={() => go('lightup')}
             onPickDay={(day) => { setRecentDay(day); go('recently'); }}
             onSeeAll={() => go('raw')}
+            onResolve={async (id, status) => {
+              await resolveProposalEntry({ id } as ProposalDTO, status);
+            }}
           />
         );
       case 'recently':
@@ -978,24 +1050,18 @@ export default function App() {
         return (
           <SyncView
             sources={sources}
-            busy={sourceBusy}
+            busy={sourceBusy || syncBusy}
             error={error}
             onCreate={createSourceEntry}
             onTogglePause={toggleSourcePause}
             onDelete={removeSourceEntry}
             onSync={syncSourceEntry}
             onFrequency={setSourceFrequency}
-          />
-        );
-      case 'export':
-        return (
-          <ExportView
             itemCount={items.length}
             contextCount={contexts.length}
             onExportJson={() => void runExport(buildJsonExport)}
             onExportMarkdown={() => void runExport(buildMarkdownBundle)}
             onExportAgent={() => void runExport(buildAgentContext)}
-            busy={syncBusy}
           />
         );
       case 'settings':
@@ -1008,9 +1074,12 @@ export default function App() {
             onExportJson={() => void runExport(buildJsonExport)}
             onExportMarkdown={() => void runExport(buildMarkdownBundle)}
             onExportAgent={() => void runExport(buildAgentContext)}
-            onManageData={() => go('export')}
+            onManageData={() => go('sync')}
             tagDefinitions={tagDefinitions}
             onCreateTagDefinition={createTagDef}
+            llmConfig={llmConfig}
+            onSaveLlm={saveLlmConfig}
+            onCheckLlm={checkLlm}
             profileBlock={
               <TagEditor
                 definitions={tagDefinitions.filter((d) => d.id === 'tag_user_profile')}
@@ -1029,8 +1098,9 @@ export default function App() {
 
   return (
     <>
-      <DotGridBackground quality={prefs.quality} theme={prefs.theme} />
+      {view === 'start' ? <DotGridBackground quality={prefs.quality} theme={prefs.theme} /> : null}
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
+      <CommandPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} />
       <div className={styles.app}>
         <Sidebar view={view} onNavigate={go} />
         <main className={styles.main}>

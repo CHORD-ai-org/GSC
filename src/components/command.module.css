@@ -1,0 +1,16 @@
+.overlay{position:fixed;inset:0;background:rgba(10,10,14,.32);z-index:150;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;animation:fadeIn .12s ease-out}
+.palette{width:min(560px,92vw);background:var(--bg-surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);display:flex;flex-direction:column;overflow:hidden;max-height:64vh}
+.inputRow{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--ink-3)}
+.input{flex:1;border:0;background:transparent;outline:none;font:inherit;font-size:14px;color:var(--ink)}
+.input::placeholder{color:var(--ink-3)}
+.list{flex:1;overflow:auto;padding:6px}
+.groupLabel{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3);padding:8px 10px 4px}
+.row{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;text-align:left}
+.row:hover,.row.active{background:var(--tint-sel)}
+.rowIcon{display:grid;place-items:center;color:var(--ink-2);flex:none}
+.rowLabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rowHint{font-family:var(--mono);font-size:10px;color:var(--ink-3);flex:none}
+.empty{padding:24px;text-align:center;color:var(--ink-3);font-size:12.5px}
+.foot{display:flex;gap:16px;padding:10px 16px;border-top:1px solid var(--line);color:var(--ink-3);font-size:10.5px}
+.kbd{font-family:var(--mono);font-size:9.5px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--pill-track)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
