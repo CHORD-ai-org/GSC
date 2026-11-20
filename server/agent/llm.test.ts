@@ -12,14 +12,14 @@ function stubFetch(handler: (url: string, init?: RequestInit) => { status?: numb
   return { fetchImpl, calls };
 }
 
-const MIMO = readConfig({ GSC_LLM_API_KEY: 'test-key' });
+const MIMO = readConfig({ GSC_LLM_API_KEY: 'test-key', GSC_LLM_BASE_URL: 'https://token-plan-cn.xiaomimimo.com/v1' });
 
 describe('MiMo LLM adapter (OpenAI-compatible)', () => {
   it('sends Bearer + api-key headers, model, and disables deep thinking on MiMo', async () => {
     const { fetchImpl, calls } = stubFetch(() => ({ body: { model: 'mimo-v2.6-flash', choices: [{ message: { content: 'OK' } }] } }));
     const result = await chatComplete(MIMO, [{ role: 'user', content: 'ping' }], fetchImpl);
     expect(result.content).toBe('OK');
-    expect(calls[0].url).toBe('https://api.xiaomimimo.com/v1/chat/completions');
+    expect(calls[0].url).toBe('https://token-plan-cn.xiaomimimo.com/v1/chat/completions');
     const headers = calls[0].init?.headers as Record<string, string>;
     expect(headers.authorization).toBe('Bearer test-key');
     expect(headers['api-key']).toBe('test-key');

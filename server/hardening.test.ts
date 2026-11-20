@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Readable } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readConfig } from './config.ts';
@@ -94,6 +94,58 @@ describe('phase 02 hardening (idempotency, integrity)', () => {
 
       // A different scope for the same value is a distinct assignment
       expect((await call('POST', '/api/tags/values', { ...tag, scope: 'project:gsc' })).status).toBe(201);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('settings ui llm config', () => {
+  it('stores the api key encrypted, never echoes it, and resolves at runtime', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'gsc-llmcfg-'));
+    try {
+      const handle = createDatabase();
+      await handle.exec(migrationSql());
+      const config = readConfig({ PGLITE_DIR: path.join(dir, 'pglite') });
+      const router = createApiRouter(config, handle.db);
+      const call = async (method: string, url: string, body?: unknown) => {
+        const res = fakeRes();
+        await router(fakeReq(method, url, body) as IncomingMessage, res as unknown as ServerResponse, () => {});
+        return { status: res.statusCode, json: JSON.parse(res.body || '{}') };
+      };
+
+      const initial = await call('GET', '/api/llm/config');
+      expect(initial.status).toBe(200);
+      expect(initial.json.config.key_set).toBe(false);
+
+      const saved = await call('PATCH', '/api/llm/config', {
+        base_url: 'https://api.xiaomimimo.com/v1',
+        model: 'mimo-v2.6-flash',
+        api_key: 'super-secret-key-123456',
+      });
+      expect(saved.status).toBe(200);
+      expect(saved.json.config.key_set).toBe(true);
+      expect(saved.json.config.key_hint).toBe('supe…3456');
+      expect(JSON.stringify(saved.json)).not.toContain('super-secret-key-123456'); // never echoed
+
+      // key is encrypted on disk
+      const raw = readFileSync(path.join(dir, 'secrets.json'), 'utf8');
+      expect(raw).not.toContain('super-secret-key-123456');
+      expect(raw).toContain('enc:v1:');
+
+      // keyless probe request is refused before any network call
+      const noKeyDir = mkdtempSync(path.join(tmpdir(), 'gsc-llmnok-'));
+      try {
+        const h2 = createDatabase();
+        await h2.exec(migrationSql());
+        const r2 = createApiRouter(readConfig({ PGLITE_DIR: path.join(noKeyDir, 'pglite') }), h2.db);
+        const res2 = fakeRes();
+        await r2(fakeReq('POST', '/api/llm/check') as IncomingMessage, res2 as unknown as ServerResponse, () => {});
+        expect(res2.statusCode).toBe(400);
+        expect(JSON.parse(res2.body).message).toMatch(/API key/);
+      } finally {
+        rmSync(noKeyDir, { recursive: true, force: true });
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

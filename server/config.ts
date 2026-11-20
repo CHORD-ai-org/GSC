@@ -25,8 +25,9 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     dbAdapter: 'pglite',
     pgliteDir: resolve(env.PGLITE_DIR ?? './.data/pglite'),
     storageDir: resolve(env.STORAGE_DIR ?? './data/files'),
-    // Xiaomi MiMo (OpenAI-compatible) is the default provider; override via env.
-    llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
+    // Xiaomi MiMo Token Plan (OpenAI-compatible, tp- keys) — CN cluster by default.
+    // Note: tp-* keys only work on token-plan-* hosts, not api.xiaomimimo.com.
+    llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://token-plan-cn.xiaomimimo.com/v1',
     llmApiKey: env.GSC_LLM_API_KEY ?? '',
     llmModel: env.GSC_LLM_MODEL ?? 'mimo-v2.6-flash',
     // O1-7: explicit CORS allowlist; empty = same-origin only (browser blocks cross-origin)

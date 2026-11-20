@@ -571,3 +571,25 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Reasoning:** the safe-delete trash mechanism cannot handle database directories on this dev machine; bypassing the safety hook is not acceptable, so the restore path degrades to a non-destructive copy strategy and documents the tradeoff.
 - **Consequences:** restore drill verified end-to-end (deleted item recovered); limitation recorded in KNOWN_ISSUES.
 - **Status:** `DECIDED` — 2026-11-20, discovered during the Phase 02 restore drill.
+
+## D-075 — Xiaomi MiMo becomes the default LLM provider
+
+- **Decision:** Default `GSC_LLM_BASE_URL=https://api.xiaomimimo.com/v1`, `GSC_LLM_MODEL=mimo-v2.6-flash` (pro variants env-switchable). The adapter sends both `Authorization: Bearer` and `api-key` headers (MiMo accepts either), disables deep thinking via `thinking:{type:'disabled'}` on MiMo hosts, and reads `content` only — `reasoning_content` is never surfaced or logged. Key is filled manually by the user in `.env.local`; `npm run llm:check` verifies connectivity. Composer model chip defaults to "MiMo".
+- **Reasoning:** user is on the MiMo token plan; the endpoint is OpenAI-compatible so the D-052 adapter needed only protocol quirks handling. Deep thinking off keeps semantic-name suggestions fast and cheap; structured output already goes through `extractJson`.
+- **Alternatives:** new provider abstraction (rejected — one OpenAI-compatible adapter suffices); Deepseek default kept (rejected — user explicitly chose MiMo).
+- **Consequences:** `server/agent/llm.ts` + `config.ts` defaults + `.env.local` placeholder + `scripts/llm-check.mjs`; 6 new adapter tests (headers/thinking/reasoning tolerance/keyless local/error snippet).
+- **Status:** `DECIDED` — 2026-11-20, user instruction "现在接入真实API，小米mimo的token plan，你先开发，然后我手动填充API KEY".
+
+## D-076 — Settings UI owns LLM provider config; Token Plan hosts for tp- keys
+
+- **Decision:** Settings gains a dedicated **Model** page (base URL / model / API key + 测试连接). The key is write-only through `PATCH /api/llm/config` and stored in the AES-GCM secret store (`llm_api_key`); `GET` returns only `key_set` + a 4-char hint. Effective config resolves at call time (Settings overlays env) so saves apply without restart. `POST /api/llm/check` runs a real probe from the server. Additionally, the default base URL is corrected to the **Token Plan CN cluster** `https://token-plan-cn.xiaomimimo.com/v1` — `tp-*` keys (the user's format) are rejected by `api.xiaomimimo.com`; verified live (`llm:check` PASS, real semantic-name suggestions returned).
+- **Reasoning:** user asked for in-Settings model/key configuration; keeping the key out of the browser and encrypted at rest preserves the D-069 security posture. The Token Plan ToS limits usage to coding tools — user chose this plan explicitly; noted for their awareness.
+- **Consequences:** `server/storage/settings.ts`, `/api/llm/config` + `/api/llm/check`, Settings→Model UI, client API functions; tests assert key never echoed and encrypted at rest.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "在setting添加专门配置model和apikey的地方".
+
+## D-077 — UI internationalization: zero-dependency zh/en switch
+
+- **Decision:** Lightweight in-repo i18n (`src/lib/i18n.tsx` context + `src/lib/strings.ts` flat zh/en dictionary, ~230 keys). Language lives in prefs (`gsc.ui.prefs.v1`), switchable from Settings → General → Language (中文 default). `relativeTime` and time groups are language-aware; product names (GSC / Light Up / Meta Tags / model ids) stay untranslated by design. Full coverage of sidebar, Start/Overview/Recently/Settings, collections, details, Sync/Export/Docs/Canvas, Light Up Studio, Semantic Object Sheet, TagEditor, Composer.
+- **Reasoning:** the repo avoids unnecessary dependencies (spec §8); a flat tuple-free dictionary with fallback-to-zh is the smallest coherent mechanism. Chinese is the default to match the user base.
+- **Consequences:** ~230 keys in `strings.ts`; every view component binds `useT()`/`useRelativeTime()`; verified bilingual via screenshots (zh/en Start+Overview+Settings); leftover scanner clean.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "添加语言切换（国际化）功能".
