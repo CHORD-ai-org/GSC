@@ -143,4 +143,22 @@ export const sources = pgTable('sources', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents };
+export const tagDefinitions = pgTable('tag_definitions', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
+export const tagValues = pgTable('tag_values', {
+  id: text('id').primaryKey(),
+  definition_id: text('definition_id').notNull().references(() => tagDefinitions.id, { onDelete: 'cascade' }),
+  item_id: text('item_id').references(() => items.id, { onDelete: 'cascade' }),
+  value: text('value').notNull(),
+  scope: text('scope').notNull().default('global'),
+  confirmed: integer('confirmed').notNull().default(0),
+  owner_id: text('owner_id').notNull().default('usr_local'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues };
