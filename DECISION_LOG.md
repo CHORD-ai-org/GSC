@@ -557,3 +557,17 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Decision:** The O1-7 CORS gate allows requests whose `Origin` host equals the `Host` header without consulting the allowlist (and without emitting CORS headers). Cross-origin requests still require `GSC_CORS_ORIGINS`. Vite dev proxy keeps `changeOrigin: false` so the browser Host survives.
 - **Reasoning:** browsers send `Origin` on same-origin POSTs; the initial M1-A gate rejected them (surfaced as Light Up persist failing with 403 in the browser while curl probes passed). Regression test added.
 - **Status:** `DECIDED` — 2026-11-20, bug found in Phase 4 verification of the Light Up redesign.
+
+## D-073 — Phase 02 hardening scope (idempotency, integrity, backup, logging)
+
+- **Decision:** Idempotency-Key support on `POST /api/items`, `POST /api/relations`, `POST /api/proposals/:id/resolve` (replay stored 2xx, 409 on same-key/different-body); `tag_values` unique on (definition, COALESCE(item_id,''), value, scope) with earliest-row dedupe; `db:backup`/`db:restore` tooling with confirm-gated restore; structured JSON request logs with `X-Request-Id` and a sensitive-field denylist. Soft delete stays DEFERRED (O4-1).
+- **Reasoning:** spec §4 names duplicate-confirmation as a hard requirement; §8 requires predictable deletion/recovery and safe logging. Scope kept minimal — no workflow engine, no event sourcing.
+- **Consequences:** new `idempotency_keys` table (0007); additive `X-Request-Id` response header; duplicate tag assignment now 409 (was silently duplicated).
+- **Status:** `DECIDED` — 2026-11-20, user Backend Foundation spec.
+
+## D-074 — Restore semantics deviate to overwrite mode under sandbox delete hooks
+
+- **Decision:** `db-restore.mjs` attempts directory rename-aside first; when the environment intercepts deletes/renames (safe-delete shim), it falls back to copy-aside + overwrite-in-place. Restored state is authoritative; stale relation files (unknown OIDs) are ignored by PostgreSQL.
+- **Reasoning:** the safe-delete trash mechanism cannot handle database directories on this dev machine; bypassing the safety hook is not acceptable, so the restore path degrades to a non-destructive copy strategy and documents the tradeoff.
+- **Consequences:** restore drill verified end-to-end (deleted item recovered); limitation recorded in KNOWN_ISSUES.
+- **Status:** `DECIDED` — 2026-11-20, discovered during the Phase 02 restore drill.

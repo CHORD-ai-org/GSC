@@ -65,6 +65,13 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 | Context Space vs View boundary | `CONTEXT_VIEWS.md` |
 | Context persistence | `contexts` and `context_members` tables |
 
+## Backend Foundation — known limitations
+
+1. **restore 覆盖模式**（D-074）：本机 safe-delete 钩子拦删除/改名 → restore 退化为「留档+覆盖」；旧关系文件（未知 OID）残留但被 PG 忽略。干净环境走 rename-aside 路径。
+2. **幂等/限流为单进程存储**：多实例部署需共享存储（同 M1 限制）。
+3. postgres 适配器（O2-5）与软删除（O4-1）按 ROADMAP 时序未做。
+4. 迁移无版本表（启动幂等重放，≤10 迁移可靠）；量变时补。
+
 ## Light Up redesign — known UX limitations
 
 1. **拆分按内容中部段落边界**（非光标处）——「Split at cursor」为 deferred；语义上仍产生两个诚实的块。

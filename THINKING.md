@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: Light Up UX 重设计已交付（Studio 五阶段 + Semantic Object Sheet，D-071/D-072，71 tests）。GLOBAL_OPTIMIZATION M2（可观测+CI）待开工。
+> Status: 后端基础工程 Phase 00–06 已交付（BACKEND_* 六文档 + 幂等/约束/备份恢复/日志，D-073/D-074，73 tests）。GLOBAL_OPTIMIZATION M2（healthz/metrics/lint/CI）待开工。
 
 ## User approvals received 2026-11-16
 

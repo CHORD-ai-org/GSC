@@ -403,6 +403,28 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 
 Dot-grid background is now **empty at rest**: nothing renders until the pointer moves inside the window, only the cells around the cursor fade in (smoothstep falloff within a quality-dependent radius), and the effect fades out after ~2.2s idle or when the pointer leaves. Verified via CDP with `Input.dispatchMouseEvent`: `anim-1-rest.png` (clean background) and `anim-2-hover.png` (localized dash cluster around the cursor only).
 
+### Backend Foundation Phases 00–06 (2026-11-20)
+
+| Phase | Deliverable | Evidence |
+|---|---|---|
+| 00 Audit | `BACKEND_CURRENT_STATE.md` | constraint/test/API sweep; 4 proposed changes with six-element analysis |
+| 01 Domain/DB | `DOMAIN_MODEL.md`, `DATABASE_DESIGN.md`, `PROVENANCE_MODEL.md`, `API_DESIGN.md` | decisions D-042…D-074 cross-referenced; spec §3 provenance questions answered |
+| 02 Hardening | idempotency (items/relations/resolve), 0007 (idempotency_keys + tag_values unique), `db:backup`/`db:restore`, `server/{log,idempotency}.ts` | `hardening.test.ts` 2/2; 73 tests total; restore drill passed (deleted item recovered) |
+| 03 Cluster | verified existing | `router.test.ts` multi-home + `sharing.test.ts` |
+| 04 Meta Tags | verified existing + uniqueness | `tags.test.ts` + `hardening.test.ts` |
+| 05 API readiness | `SECURITY_MODEL.md`, `BACKEND_ROADMAP.md` | 12 api-checks; auth probes (401/403) |
+| 06 Verification | check/build/73 tests/api:check green | this table |
+
+### Backend Foundation checks (2026-11-20)
+
+| Check | Method | Result |
+|---|---|---|
+| Idempotent create | POST /items with same Idempotency-Key ×2 + body mismatch | same id replayed; mismatch 409; no duplicates; headerless unchanged |
+| Tag uniqueness | duplicate (def,item,value,scope) | 409 conflict; different scope allowed |
+| Backup/restore drill | backup → create → delete → stop → restore → restart → GET | deleted item RESTORED |
+| Logging | X-Request-Id on responses | present; denylist covers title/content/token |
+| Suite | `npm test` | 73 pass |
+
 ### Light Up UX redesign (2026-11-20, D-071/D-072)
 
 | File | Change |
