@@ -10,6 +10,9 @@ import type { ItemDTO } from '../lib/items.ts';
 import type { ContextDTO } from '../lib/contexts.ts';
 import { TIME_GROUPS, relativeTime, timeGroup } from '../lib/format.ts';
 import type { TimeGroup } from '../lib/format.ts';
+import { buildActivityDays } from '../lib/activity.ts';
+import { ActivityMap } from '../components/ActivityMap.tsx';
+import { SemLegend } from '../components/SemTag.tsx';
 import styles from './views.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
@@ -59,19 +62,25 @@ export function OverviewPage({
   items,
   contexts,
   clusters,
+  pendingProposals,
   onNew,
   onOpenItem,
   onOpenContext,
   onOpenCluster,
+  onOpenQueue,
+  onPickDay,
   onSeeAll,
 }: {
   items: ItemDTO[];
   contexts: ContextIndexEntry[];
   clusters: (ContextIndexEntry | { id: string; title: string; description: string; created_at: string; updated_at: string; member_ids: string[] })[];
+  pendingProposals: { id: string; kind: string; proposed_value: string; source: string; created_at: string }[];
   onNew: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
   onOpenCluster: (id: string) => void;
+  onOpenQueue: () => void;
+  onPickDay: (day: string) => void;
   onSeeAll: () => void;
 }) {
   const rawCount = items.filter((i) => i.type.startsWith('raw.')).length;
@@ -88,6 +97,11 @@ export function OverviewPage({
     () => [...contexts].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4),
     [contexts],
   );
+  const activity = useMemo(() => buildActivityDays(items, pendingProposals), [items, pendingProposals]);
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  const weekItems = items.filter((i) => i.created_at >= weekStart.toISOString()).length;
+  const weekPending = pendingProposals.length;
   return (
     <div className={styles.page}>
       <div className={styles.headRow}>
@@ -144,6 +158,38 @@ export function OverviewPage({
       </div>
 
       <div className={styles.section}>
+        <SectionLabel title="Organization Activity" count={`本周新增 ${weekItems} 条 · ${weekPending} 条待审`} />
+        <SemLegend />
+        <div style={{ marginTop: 10 }}>
+          <ActivityMap cells={activity} onPickDay={onPickDay} />
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title="Review Queue" count={`${pendingProposals.length} pending`} />
+        <div className={styles.list}>
+          {pendingProposals.length === 0 ? (
+            <div className={styles.emptyLine}>没有待审提案。</div>
+          ) : pendingProposals.slice(0, 3).map((p) => (
+            <button key={p.id} type="button" className={styles.listRow} onClick={onOpenQueue}>
+              <span className={styles.rowGlyph}>{p.source === 'detector' ? 'DET' : 'AGT'}</span>
+              <span className={styles.rowTitle}>{p.proposed_value}</span>
+              <span className={styles.rowType}>{p.kind}</span>
+              <span className={styles.rowTime}>待审</span>
+            </button>
+          ))}
+          {pendingProposals.length > 3 ? (
+            <button type="button" className={styles.listRow} onClick={onOpenQueue}>
+              <span className={styles.rowGlyph}>···</span>
+              <span className={styles.rowTitle}>查看全部提案</span>
+              <span className={styles.rowType}></span>
+              <span className={styles.rowTime}></span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={styles.section}>
         <SectionLabel title="Your Contexts" count={`${contexts.length}`} />
         <div className={styles.list}>
           {recentContexts.length === 0 ? (
@@ -180,12 +226,16 @@ export function RecentlyPage({
   items,
   contexts,
   visits,
+  dayFilter,
+  onClearDay,
   onOpenItem,
   onOpenContext,
 }: {
   items: ItemDTO[];
   contexts: ContextIndexEntry[];
   visits: Record<string, string | undefined>;
+  dayFilter: string;
+  onClearDay: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
 }) {
@@ -199,12 +249,14 @@ export function RecentlyPage({
       if (kind === 'contexts') continue;
       const visitedAt = visits[item.id];
       const useVisit = Boolean(visitedAt && visitedAt > item.updated_at);
+      const at = useVisit ? (visitedAt as string) : item.updated_at;
+      if (dayFilter && !at.startsWith(dayFilter) && !item.created_at.startsWith(dayFilter)) continue;
       out.push({
         key: item.id,
         title: item.title,
         tag: ITEM_LABELS[item.type],
         glyph: ITEM_GLYPHS[item.type],
-        at: useVisit ? (visitedAt as string) : item.updated_at,
+        at,
         visited: useVisit,
         open: () => onOpenItem(item.id),
       });
@@ -213,19 +265,21 @@ export function RecentlyPage({
       for (const c of contexts) {
         const visitedAt = visits[c.id];
         const useVisit = Boolean(visitedAt && visitedAt > c.updated_at);
+        const at = useVisit ? (visitedAt as string) : c.updated_at;
+        if (dayFilter && !at.startsWith(dayFilter) && !c.created_at.startsWith(dayFilter)) continue;
         out.push({
           key: c.id,
           title: c.title,
           tag: 'Context',
           glyph: 'CTX',
-          at: useVisit ? (visitedAt as string) : c.updated_at,
+          at,
           visited: useVisit,
           open: () => onOpenContext(c.id),
         });
       }
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));
-  }, [items, contexts, visits, kind, onOpenItem, onOpenContext]);
+  }, [items, contexts, visits, kind, dayFilter, onOpenItem, onOpenContext]);
 
   const grouped = useMemo(() => {
     const map = new Map<TimeGroup, RecentRow[]>();
@@ -249,6 +303,13 @@ export function RecentlyPage({
     <div className={styles.page}>
       <h1 className={styles.pageTitle}>Recently</h1>
       <p className={styles.pageSub}>Return to information you've recently worked with.</p>
+
+      {dayFilter ? (
+        <div className={styles.tabRow}>
+          <span className={styles.rowType}>筛选日期 {dayFilter}</span>
+          <button type="button" className={styles.tab} onClick={onClearDay}>清除 ×</button>
+        </div>
+      ) : null}
 
       <div className={styles.tabRow}>
         {tabs.map((t) => (

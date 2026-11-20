@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { ITEM_LABELS, RAW_TYPES } from '../lib/items.ts';
 import type { ItemType } from '../lib/items.ts';
 import { normalizeText, segmentText } from '../lib/lightup.ts';
+import { isApplicableProposalKind } from '../lib/proposals.ts';
+import type { ProposalDTO } from '../lib/proposals.ts';
 import styles from './views.module.css';
 
 export type SegmentRow = {
@@ -31,16 +33,24 @@ export function LightUpView({
   manualContent,
   onPreviewUrl,
   onSubmitRows,
+  onPropose,
+  proposals,
+  onResolve,
+  onDetect,
   busy,
   error,
 }: {
   manualContent: ReactNode;
   onPreviewUrl: (url: string) => Promise<{ title: string; text: string; url: string }>;
   onSubmitRows: (rows: SegmentRow[], sourceLabel: string) => Promise<void>;
+  onPropose: (rows: SegmentRow[]) => Promise<{ index: number; semantic_name: string }[]>;
+  proposals: ProposalDTO[];
+  onResolve: (proposal: ProposalDTO, status: 'accepted' | 'rejected') => Promise<void>;
+  onDetect: () => Promise<void>;
   busy: boolean;
   error: string;
 }) {
-  const [tab, setTab] = useState<'manual' | 'pipeline'>('manual');
+  const [tab, setTab] = useState<'manual' | 'pipeline' | 'queue'>('manual');
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [sourceLabel, setSourceLabel] = useState('lightup:text');
@@ -50,6 +60,15 @@ export function LightUpView({
 
   function updateRow(key: string, patch: Partial<SegmentRow>) {
     setRows((current) => current.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  async function applyAgentSuggestions() {
+    const suggestions = await onPropose(rows);
+    const byIndex = new Map(suggestions.map((s) => [s.index, s]));
+    setRows((current) => current.map((row, index) => {
+      const suggestion = byIndex.get(index);
+      return suggestion?.semantic_name ? { ...row, title: suggestion.semantic_name } : row;
+    }));
   }
 
   async function fetchUrl() {
@@ -124,6 +143,9 @@ export function LightUpView({
         <button type="button" className={`${styles.tab} ${tab === 'pipeline' ? styles.on : ''}`} onClick={() => setTab('pipeline')}>
           采集管线
         </button>
+        <button type="button" className={`${styles.tab} ${tab === 'queue' ? styles.on : ''}`} onClick={() => setTab('queue')}>
+          提案队列
+        </button>
       </div>
 
       {tab === 'manual' ? (
@@ -133,7 +155,7 @@ export function LightUpView({
           </div>
           {manualContent}
         </>
-      ) : (
+      ) : tab === 'pipeline' ? (
         <>
           <div className={styles.section}>
             <h2 className={styles.blockTitle}>1–2 · 输入与摄取</h2>
@@ -170,6 +192,9 @@ export function LightUpView({
                 value={sourceLabel}
                 onChange={(e) => setSourceLabel(e.target.value)}
               />
+              <button type="button" className={styles.secondaryButton} disabled={busy || rows.length === 0} onClick={() => void applyAgentSuggestions()}>
+                Agent 建议
+              </button>
               <button type="button" className={styles.primaryButton} onClick={generate} disabled={busy}>生成审阅</button>
             </div>
           </div>
@@ -241,7 +266,43 @@ export function LightUpView({
             <div className={styles.hint}>原文逐字入库；语义名可随时在详情页修改。</div>
           </div>
         </>
-      )}
+      ) : tab === 'queue' ? (
+        <>
+          <div className={styles.hint} style={{ margin: '8px 0 16px' }}>
+            Agent 解释并提议，Detector 观察并标记候选（Vision §4.2）。所有提议在此等待人工裁决——接受前不写入任何用户数据。
+          </div>
+          <div className={styles.toolbar}>
+            <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void onDetect()}>
+              运行 Detector
+            </button>
+            <div className={styles.hint}>查重 · 关联候选 · 缺来源检查（增量，跳过已有待审）</div>
+          </div>
+          {proposals.length === 0 ? (
+            <div className={styles.emptyLine}>队列为空。用「Agent 建议」或「运行 Detector」产生提议。</div>
+          ) : proposals.map((p) => (
+            <div key={p.id} className={styles.reviewRow}>
+              <div className={styles.keepBox}>{p.source}</div>
+              <div className={styles.reviewFields}>
+                <strong>{p.kind}</strong>
+                <span className={styles.rowType}>{p.proposed_value}</span>
+                <span className={styles.rowType}>{p.rationale}</span>
+                <span className={styles.rowType}>target {p.target_id}{p.related_id ? ` · related ${p.related_id}` : ''}</span>
+                {!isApplicableProposalKind(p.kind) ? (
+                  <span className={styles.rowType}>该类型接受后仅标记已审（应用在模型扩展后）</span>
+                ) : null}
+              </div>
+              {p.status === 'pending' ? (
+                <div className={styles.reviewFields}>
+                  <button type="button" className={styles.primaryButton} disabled={busy} onClick={() => void onResolve(p, 'accepted')}>接受</button>
+                  <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void onResolve(p, 'rejected')}>拒绝</button>
+                </div>
+              ) : (
+                <div className={styles.keepBox}>{p.status}</div>
+              )}
+            </div>
+          ))}
+        </>
+      ) : null}
     </div>
   );
 }

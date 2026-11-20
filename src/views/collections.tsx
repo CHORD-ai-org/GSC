@@ -4,8 +4,11 @@ import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.
 import type { ItemDTO } from '../lib/items.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import type { ClusterIndexEntry } from './detail.tsx';
+import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
 import { relativeTime } from '../lib/format.ts';
 import styles from './views.module.css';
+
+export type ItemBadges = Record<string, { kind: 'cluster' | 'context'; title: string }[]>;
 
 function matches(item: ItemDTO, q: string): boolean {
   const needle = q.trim().toLowerCase();
@@ -34,10 +37,20 @@ function ListHeader({ cols }: { cols: [string, string, string] }) {
   );
 }
 
+function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: string }[] }) {
+  if (!badges?.length) return null;
+  return (
+    <div className={styles.rowBadges}>
+      {badges.slice(0, 2).map((b) => <MemberBadge key={`${b.kind}-${b.title}`} kind={b.kind} title={b.title} />)}
+    </div>
+  );
+}
+
 export function RawCollection({
-  items, onNew, onSelect,
+  items, badges, onNew, onSelect,
 }: {
   items: ItemDTO[];
+  badges?: ItemBadges;
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
@@ -73,6 +86,7 @@ export function RawCollection({
             <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
             <span className={styles.rowTitle}>{item.title}</span>
             <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
+            <RowBadges badges={badges?.[item.id]} />
             <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
           </button>
         ))}
@@ -90,10 +104,11 @@ const OBJECT_TABS: { id: string; label: string }[] = [
 ];
 
 export function ObjectCollection({
-  items, sourceCounts, onNew, onSelect,
+  items, sourceCounts, badges, onNew, onSelect,
 }: {
   items: ItemDTO[];
   sourceCounts: Record<string, number>;
+  badges?: ItemBadges;
   onNew: () => void;
   onSelect: (id: string) => void;
 }) {
@@ -132,6 +147,7 @@ export function ObjectCollection({
             <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
             <span className={styles.rowTitle}>{item.title}</span>
             <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {sourceCounts[item.id] ?? 0} sources</span>
+            <RowBadges badges={badges?.[item.id]} />
             <span className={styles.rowTime}>{relativeTime(item.updated_at)}</span>
           </button>
         ))}

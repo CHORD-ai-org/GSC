@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar.tsx';
 import type { ViewId } from './Sidebar.tsx';
 import { CanvasView, DocsView, ExportView, SyncView } from '../views/views.tsx';
 import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
+import type { ProposalDTO } from '../lib/proposals.ts';
 import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pages.tsx';
 import type { ContextIndexEntry } from '../views/pages.tsx';
 import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
@@ -85,6 +86,8 @@ export default function App() {
   const [lightupBusy, setLightupBusy] = useState(false);
   const [sources, setSources] = useState<SourceDTO[]>([]);
   const [sourceBusy, setSourceBusy] = useState(false);
+  const [proposals, setProposals] = useState<ProposalDTO[]>([]);
+  const [recentDay, setRecentDay] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -109,6 +112,11 @@ export default function App() {
     setSources(list.sources);
   }, []);
 
+  const loadProposals = useCallback(async () => {
+    const list = await api.listProposals('pending');
+    setProposals(list.proposals);
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     const result = await api.getItem(id);
     setDetail(result);
@@ -118,6 +126,7 @@ export default function App() {
   useEffect(() => { void loadContextIndex(); }, [loadContextIndex]);
   useEffect(() => { void loadClusterIndex(); }, [loadClusterIndex]);
   useEffect(() => { void loadSources(); }, [loadSources]);
+  useEffect(() => { void loadProposals(); }, [loadProposals]);
   useEffect(() => {
     if (!selectedId) { setDetail(undefined); return; }
     void loadDetail(selectedId);
@@ -167,6 +176,20 @@ export default function App() {
   const selected = detail?.item;
   const selectedContext = contexts.find((c) => c.id === contextId);
   const selectedCluster = clusters.find((c) => c.id === clusterId);
+
+  const itemBadges = useMemo(() => {
+    const map: Record<string, { kind: 'cluster' | 'context'; title: string }[]> = {};
+    const add = (id: string, badge: { kind: 'cluster' | 'context'; title: string }) => {
+      map[id] = [...(map[id] ?? []), badge];
+    };
+    for (const cluster of clusters) {
+      for (const id of cluster.member_ids) add(id, { kind: 'cluster', title: cluster.title });
+    }
+    for (const context of contexts) {
+      for (const id of context.member_ids) add(id, { kind: 'context', title: context.title });
+    }
+    return map;
+  }, [clusters, contexts]);
 
   function updatePrefs(next: UiPrefs) {
     setPrefs(next);
@@ -497,6 +520,45 @@ export default function App() {
     }
   }
 
+  async function proposeForSegments(rows: SegmentRow[]): Promise<{ index: number; semantic_name: string }[]> {
+    setLightupBusy(true);
+    try {
+      setError('');
+      const result = await api.proposeSuggestions(rows.map((r) => ({ title: r.title, content: r.content })));
+      return result.suggestions.map((s) => ({ index: s.index, semantic_name: s.semantic_name }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Agent unavailable（需配置 GSC_LLM_*）');
+      return [];
+    } finally {
+      setLightupBusy(false);
+    }
+  }
+
+  async function resolveProposalEntry(proposal: ProposalDTO, status: 'accepted' | 'rejected') {
+    try {
+      setError('');
+      await api.resolveProposal(proposal.id, status);
+      await loadProposals();
+      await refresh();
+      await loadClusterIndex();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Resolve failed');
+    }
+  }
+
+  async function detectNow() {
+    setLightupBusy(true);
+    try {
+      setError('');
+      await api.runDetect();
+      await loadProposals();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Detection failed');
+    } finally {
+      setLightupBusy(false);
+    }
+  }
+
   async function runExport(build: (source: ExportSource) => { filename: string; mime: string; content: string }) {
     setSyncBusy(true);
     try {
@@ -623,9 +685,9 @@ export default function App() {
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
     return kind === 'raw' ? (
-      <RawCollection items={items} onNew={() => go('lightup')} onSelect={selectItem} />
+      <RawCollection items={items} badges={itemBadges} onNew={() => go('lightup')} onSelect={selectItem} />
     ) : (
-      <ObjectCollection items={items} sourceCounts={sourceCounts} onNew={() => openNew('object.concept')} onSelect={selectItem} />
+      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} onNew={() => openNew('object.concept')} onSelect={selectItem} />
     );
   }
 
@@ -662,10 +724,13 @@ export default function App() {
             items={items}
             contexts={contexts}
             clusters={clusters}
+            pendingProposals={proposals}
             onNew={() => go('lightup')}
             onOpenItem={openItemInPage}
             onOpenContext={openContextInPage}
             onOpenCluster={(id) => { setClusterId(id); markVisited(id); go('clusters'); }}
+            onOpenQueue={() => go('lightup')}
+            onPickDay={(day) => { setRecentDay(day); go('recently'); }}
             onSeeAll={() => go('raw')}
           />
         );
@@ -675,6 +740,8 @@ export default function App() {
             items={items}
             contexts={contexts}
             visits={visits}
+            dayFilter={recentDay}
+            onClearDay={() => setRecentDay('')}
             onOpenItem={openItemInPage}
             onOpenContext={openContextInPage}
           />
@@ -692,6 +759,10 @@ export default function App() {
               return { title: result.title, text: result.text, url: result.url };
             }}
             onSubmitRows={persistSegments}
+            onPropose={proposeForSegments}
+            proposals={proposals}
+            onResolve={resolveProposalEntry}
+            onDetect={detectNow}
             busy={lightupBusy}
             error={error}
           />

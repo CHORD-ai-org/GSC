@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, Subhead } from '../components/ui.tsx';
+import { BadgeRow, MemberBadge, SemTag } from '../components/SemTag.tsx';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
 import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
 import type { ClusterDTO } from '../lib/clusters.ts';
@@ -57,10 +58,10 @@ function DetailShell({
   );
 }
 
-function Block({ title, children }: { title: string; children: ReactNode }) {
+function Block({ title, tag, children }: { title: string; tag?: ReactNode; children: ReactNode }) {
   return (
     <section className={styles.block}>
-      <h2 className={styles.blockTitle}>{title}</h2>
+      <h2 className={styles.blockTitle}>{title}{tag ? <span style={{ marginLeft: 8 }}>{tag}</span> : null}</h2>
       {children}
     </section>
   );
@@ -109,7 +110,15 @@ export function RawDetailView({
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>Edit</Button><Button small onClick={onDelete}>Delete</Button></>}
     >
-      <Block title="原始内容">
+      {referencedBy.length > 0 ? (
+        <div className={styles.pairChipRow}>
+          <span className={styles.pairChip} onClick={() => onOpenItem(referencedBy[0].from_id)}>
+            ⇄ 配对对象：{titleOf(referencedBy[0].from_id)}
+          </span>
+        </div>
+      ) : null}
+
+      <Block title="原始内容" tag={<SemTag kind="original" />}>
         <div className={styles.rawContent}>{item.fields.content_text ?? '（无文本内容）'}</div>
         <div className={styles.hint}>Raw content is stored verbatim. Derived objects live separately and never overwrite it.</div>
       </Block>
@@ -206,7 +215,15 @@ export function ObjectDetailView({
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>Edit</Button><Button small onClick={onDelete}>Delete</Button></>}
     >
-      <Block title="Definition">
+      {sources.length > 0 || sourceItemId ? (
+        <div className={styles.pairChipRow}>
+          <span className={styles.pairChip} onClick={() => onOpenItem(sources[0]?.to_id ?? sourceItemId)}>
+            ⇄ 配对原文：{titleOf(sources[0]?.to_id ?? sourceItemId)}
+          </span>
+        </div>
+      ) : null}
+
+      <Block title="Definition" tag={<SemTag kind={item.origin === 'agent' ? 'machine' : 'confirmed'} label={item.origin === 'agent' ? '机器创建' : '语义身份'} />}>
         {coreFields.length === 0 ? (
           <div className={styles.hint}>该对象还没有核心定义。</div>
         ) : coreFields.map(([key, value]) => (
