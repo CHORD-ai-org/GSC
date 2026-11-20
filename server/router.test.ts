@@ -79,7 +79,7 @@ describe('API routes', () => {
     expect(result.json.kind).toBe('not_found');
   });
 
-  it('deletes an item and cascades its relations and events', async () => {
+  it('soft-deletes an item into trash and purges with cascade', async () => {
     const raw = await call('POST', '/api/items', {
       type: 'raw.document',
       title: 'Paper',
@@ -100,17 +100,33 @@ describe('API routes', () => {
       to_id: raw.json.item.id,
     });
 
+    // soft delete: gone from normal access, lands in trash, relations preserved
     const deleted = await call('DELETE', `/api/items/${raw.json.item.id}`);
     expect(deleted.status).toBe(200);
     expect(deleted.json.deleted).toBe(true);
-
     const gone = await call('GET', `/api/items/${raw.json.item.id}`);
     expect(gone.status).toBe(404);
+    const trash = await call('GET', '/api/trash');
+    expect(trash.json.items.some((i: { id: string }) => i.id === raw.json.item.id)).toBe(true);
     const survivor = await call('GET', `/api/items/${obj.json.item.id}`);
-    expect(survivor.json.relations.outgoing).toHaveLength(0);
+    expect(survivor.json.relations.outgoing).toHaveLength(1);
 
+    // double delete is a 404
     const again = await call('DELETE', `/api/items/${raw.json.item.id}`);
     expect(again.status).toBe(404);
+
+    // restore brings it back with relations intact
+    const restored = await call('POST', `/api/items/${raw.json.item.id}/restore`);
+    expect(restored.status).toBe(200);
+    const back = await call('GET', `/api/items/${raw.json.item.id}`);
+    expect(back.status).toBe(200);
+
+    // purge is the hard delete with cascade
+    await call('DELETE', `/api/items/${raw.json.item.id}`);
+    const purged = await call('POST', `/api/items/${raw.json.item.id}/purge`);
+    expect(purged.status).toBe(200);
+    const survivor2 = await call('GET', `/api/items/${obj.json.item.id}`);
+    expect(survivor2.json.relations.outgoing).toHaveLength(0);
   });
 
   it('manages clusters and multi-homed members', async () => {

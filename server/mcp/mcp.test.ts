@@ -65,3 +65,50 @@ describe('gsc mcp server', () => {
     expect(await handle({ jsonrpc: '2.0', method: 'notifications/initialized' })).toBeNull();
   });
 });
+
+describe('gsc mcp hardening (INTEGRATION_HARDENING P0-C)', () => {
+  it('carries safety annotations on every tool', () => {
+    for (const tool of MCP_TOOLS) {
+      expect(tool.annotations).toBeDefined();
+      expect(typeof tool.annotations?.readOnlyHint).toBe('boolean');
+      expect(typeof tool.annotations?.destructiveHint).toBe('boolean');
+    }
+    const propose = MCP_TOOLS.find((t) => t.name === 'gsc_propose')!;
+    expect(propose.annotations?.readOnlyHint).toBe(false);
+    const read = MCP_TOOLS.find((t) => t.name === 'gsc_get_chunk')!;
+    expect(read.annotations?.readOnlyHint).toBe(true);
+  });
+
+  it('routes gsc_search to the search endpoint', async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify({ ok: true, hits: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const handle = createMcpHandler(fetchImpl, 'http://test', 'tok');
+    const res = (await handle({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'gsc_search', arguments: { q: 'chunking 命名' } } })) as { result: { content: { text: string }[] } };
+    expect(calls[0]).toBe(`http://test/api/v1/search?q=${encodeURIComponent('chunking 命名')}`);
+    expect(JSON.parse(res.result.content[0].text)).toEqual({ ok: true, hits: [] });
+  });
+
+  it('passes pagination through on list tools', async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify({ ok: true, items: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const handle = createMcpHandler(fetchImpl, 'http://test', 'tok');
+    await handle({ jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'gsc_list_chunks', arguments: { type: 'raw.document', limit: 5, cursor: 'abc' } } });
+    expect(calls[0]).toContain('limit=5');
+    expect(calls[0]).toContain('cursor=abc');
+  });
+
+  it('returns structured error codes on tool failure', async () => {
+    const handle = createMcpHandler(stubFetch({}), 'http://test', 'tok');
+    const res = (await handle({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'gsc_get_chunk', arguments: { id: 'missing' } } })) as {
+      result: { isError: boolean; content: { text: string }[] };
+    };
+    expect(res.result.isError).toBe(true);
+    expect(JSON.parse(res.result.content[0].text)).toEqual({ error: { code: 'not_found', message: 'no route' } });
+  });
+});

@@ -3,6 +3,17 @@
  * initialize / tools/list / tools/call — backed by the GSC HTTP API
  * (never opens PGlite directly; one domain contract, see API_CONTRACT.md).
  * Run: GSC_API_TOKEN=... npm run mcp
+ *
+ * INTEGRATION_HARDENING (P0-C) — commercial DX/observability baseline:
+ * - every tool carries MCP `annotations` (readOnly/idempotent/destructive) so an
+ *   agent can schedule safely without guessing;
+ * - list tools accept `limit`/`cursor` passthrough (no unbounded payloads);
+ * - `gsc_search` and `gsc_get_cluster` round out the read surface;
+ * - tool failures return a structured `{ error: { code, message } }` (not a bare
+ *   string) and every call is timed + logged to stderr.
+ *
+ * NOTE: stdout is reserved for JSON-RPC. All logging goes to stderr so the
+ * protocol stream stays clean.
  */
 import { createInterface } from 'node:readline';
 
@@ -13,49 +24,89 @@ type JsonRpc = { jsonrpc: '2.0'; id?: number | string | null; method?: string; p
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+export type McpAnnotations = {
+  readOnlyHint?: boolean;
+  idempotentHint?: boolean;
+  destructiveHint?: boolean;
+  openWorldHint?: boolean;
+};
+
 export type McpTool = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: McpAnnotations;
 };
+
+const READ_ONLY: McpAnnotations = { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false };
 
 export const MCP_TOOLS: McpTool[] = [
   {
     name: 'gsc_get_chunk',
     description: 'Retrieve one GSC chunk (information unit) by id, with provenance, relations and history.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_list_chunks',
-    description: 'List/search GSC chunks. Optional filters: type (e.g. raw.document, object.concept), domain, q (substring).',
+    description: 'List/search GSC chunks. Optional filters: type (e.g. raw.document, object.concept), domain, q (substring); plus limit/cursor for paging.',
     inputSchema: {
       type: 'object',
       properties: {
         type: { type: 'string' },
         domain: { type: 'string' },
         q: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 200 },
+        cursor: { type: 'string' },
       },
     },
+    annotations: READ_ONLY,
+  },
+  {
+    name: 'gsc_search',
+    description: 'Full-text search across chunk titles, bodies, tag values, clusters and contexts. Returns grouped hits with snippets.',
+    inputSchema: {
+      type: 'object',
+      properties: { q: { type: 'string', minLength: 1 } },
+      required: ['q'],
+    },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_browse_clusters',
     description: 'List GSC clusters (related-information groups) with member counts.',
-    inputSchema: { type: 'object', properties: {} },
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 200 }, cursor: { type: 'string' } },
+    },
+    annotations: READ_ONLY,
+  },
+  {
+    name: 'gsc_get_cluster',
+    description: 'Get one cluster (related-information group) with its member chunk ids and ownership/role.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_browse_contexts',
     description: 'List GSC context views (purpose-oriented assemblies).',
-    inputSchema: { type: 'object', properties: {} },
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 200 }, cursor: { type: 'string' } },
+    },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_get_context',
     description: 'Get one context view with its explicit member ids.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_get_user_profile',
     description: 'Read the user profile: user-confirmed values on the User Profile dimension (technical background, coding preferences, working style). Confirmed-only, per PLAN-8 D-066.',
     inputSchema: { type: 'object', properties: {} },
+    annotations: READ_ONLY,
   },
   {
     name: 'gsc_propose',
@@ -71,8 +122,32 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ['kind', 'target_id', 'proposed_value'],
     },
+    // Non-destructive (creates a reviewable proposal) but not read-only and not idempotent.
+    annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
   },
 ];
+
+/** Tool failure carrying an API error `kind` as its machine-readable code. */
+export class McpToolError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'McpToolError';
+    this.code = code;
+  }
+}
+
+/** stderr-only logger: stdout is reserved for the JSON-RPC stream. */
+function mcpLog(level: 'info' | 'warn' | 'error', msg: string, fields: Record<string, unknown>): void {
+  process.stderr.write(`${JSON.stringify({ ts: new Date().toISOString(), level, msg, ...fields })}\n`);
+}
+
+function paging(args: Record<string, unknown>): string {
+  const qs = new URLSearchParams();
+  if (typeof args.limit === 'number' && args.limit > 0) qs.set('limit', String(Math.min(200, Math.floor(args.limit))));
+  if (typeof args.cursor === 'string' && args.cursor) qs.set('cursor', args.cursor);
+  return qs.size ? `&${qs}` : '';
+}
 
 export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string = BASE, token: string = TOKEN) {
   return async function handle(msg: JsonRpc): Promise<object | null> {
@@ -86,8 +161,11 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
           ...(init?.headers ?? {}),
         },
       });
-      const body = await res.json();
-      if (!res.ok || body.ok === false) throw new Error(body.message ?? `HTTP ${res.status}`);
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || body.ok === false) {
+        const code = typeof body.kind === 'string' ? body.kind : `http_${res.status}`;
+        throw new McpToolError(code, typeof body.message === 'string' ? body.message : `HTTP ${res.status}`);
+      }
       return body;
     };
 
@@ -96,7 +174,7 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
         return reply({
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'gsc-mcp', version: '0.1.0' },
+          serverInfo: { name: 'gsc-mcp', version: '0.2.0' },
         });
       case 'notifications/initialized':
         return null;
@@ -105,7 +183,8 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
       case 'tools/call': {
         const name = String(msg.params?.name ?? '');
         const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
-        const text = async () => JSON.stringify(await (async () => {
+        const startedAt = Date.now();
+        const run = async () => {
           switch (name) {
             case 'gsc_get_chunk':
               return call(`/api/v1/items/${encodeURIComponent(String(args.id))}`);
@@ -114,12 +193,21 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
               for (const key of ['type', 'domain', 'q']) {
                 if (typeof args[key] === 'string' && args[key]) qs.set(key, String(args[key]));
               }
-              return call(`/api/v1/items${qs.size ? `?${qs}` : ''}`);
+              const page = paging(args);
+              return call(`/api/v1/items${qs.size ? `?${qs}` : ''}${qs.size ? page : page.replace(/^&/, '?')}`);
             }
-            case 'gsc_browse_clusters':
-              return call('/api/v1/clusters');
-            case 'gsc_browse_contexts':
-              return call('/api/v1/contexts');
+            case 'gsc_search':
+              return call(`/api/v1/search?q=${encodeURIComponent(String(args.q ?? ''))}`);
+            case 'gsc_browse_clusters': {
+              const page = paging(args);
+              return call(`/api/v1/clusters${page.replace(/^&/, '?')}`);
+            }
+            case 'gsc_get_cluster':
+              return call(`/api/v1/clusters/${encodeURIComponent(String(args.id))}`);
+            case 'gsc_browse_contexts': {
+              const page = paging(args);
+              return call(`/api/v1/contexts${page.replace(/^&/, '?')}`);
+            }
             case 'gsc_get_context':
               return call(`/api/v1/contexts/${encodeURIComponent(String(args.id))}`);
             case 'gsc_get_user_profile':
@@ -127,13 +215,21 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
             case 'gsc_propose':
               return call('/api/v1/proposals', { method: 'POST', body: JSON.stringify(args) });
             default:
-              throw new Error(`Unknown tool: ${name}`);
+              throw new McpToolError('unknown_tool', `Unknown tool: ${name}`);
           }
-        })(), null, 2);
+        };
         try {
-          return reply({ content: [{ type: 'text', text: await text() }] });
+          const result = await run();
+          mcpLog('info', 'mcp.tool', { tool: name, ms: Date.now() - startedAt, ok: true });
+          return reply({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
         } catch (e) {
-          return reply({ content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : 'tool failed'}` }], isError: true });
+          const code = e instanceof McpToolError ? e.code : 'internal';
+          const message = e instanceof Error ? e.message : 'tool failed';
+          mcpLog('warn', 'mcp.tool', { tool: name, ms: Date.now() - startedAt, ok: false, code });
+          return reply({
+            content: [{ type: 'text', text: JSON.stringify({ error: { code, message } }) }],
+            isError: true,
+          });
         }
       }
       default:
@@ -148,6 +244,7 @@ const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].repla
 if (isMain) {
   const handler = createMcpHandler();
   const rl = createInterface({ input: process.stdin });
+  mcpLog('info', 'mcp.start', { base: BASE, authed: Boolean(TOKEN) });
   rl.on('line', (line) => {
     if (!line.trim()) return;
     let msg: JsonRpc;

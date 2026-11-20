@@ -1,5 +1,6 @@
 import type { EventDTO } from '../lib/events.ts';
 import type { ItemDTO } from '../lib/items.ts';
+import type { NewsItem, NewsText } from '../lib/news.ts';
 import type { RelationDTO } from '../lib/relations.ts';
 import type { ApiError } from '../lib/api.ts';
 import type { ContextDTO, ContextDetailDTO } from '../lib/contexts.ts';
@@ -56,7 +57,17 @@ export type ApiResponse =
   | SourceSyncResponse
   | AgentSuggestResponse
   | AgentDetectResponse
+  | TrashResponse
+  | RestoreResponse
+  | PurgeResponse
+  | NewsListResponse
+  | NewsOneResponse
+  | NewsDeleteResponse
+  | SearchResponse
+  | ItemPageResponse
   | UserListResponse
+  | UserCreateResponse
+  | UserDeleteResponse
   | ShareListResponse
   | TagDefinitionListResponse
   | TagDefinitionResponse
@@ -83,13 +94,80 @@ async function request<T extends ApiResponse>(path: string, init?: RequestInit):
   return body as T;
 }
 
-export function listItems(params: { type?: string; domain?: string; q?: string }): Promise<ItemListResponse> {
+export type TrashResponse = { ok: true; items: ItemDTO[] };
+export type RestoreResponse = { ok: true; restored: true };
+export type PurgeResponse = { ok: true; purged: true };
+
+export function listTrash(): Promise<TrashResponse> {
+  return request<TrashResponse>('/api/trash');
+}
+
+export function restoreItem(id: string): Promise<RestoreResponse> {
+  return request<RestoreResponse>(`/api/items/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+}
+
+export function purgeItem(id: string): Promise<PurgeResponse> {
+  return request<PurgeResponse>(`/api/items/${encodeURIComponent(id)}/purge`, { method: 'POST' });
+}
+
+export type NewsListResponse = { ok: true; news: NewsItem[] };
+export type NewsOneResponse = { ok: true; news: NewsItem };
+export type NewsDeleteResponse = { ok: true; deleted: true };
+
+export function listNews(): Promise<NewsListResponse> {
+  return request<NewsListResponse>('/api/news');
+}
+
+export function createNews(input: { title: NewsText; summary: NewsText; published: boolean }): Promise<NewsOneResponse> {
+  return request<NewsOneResponse>('/api/news', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateNews(id: string, patch: { title?: NewsText; summary?: NewsText; published?: boolean }): Promise<NewsOneResponse> {
+  return request<NewsOneResponse>(`/api/news/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+
+export function deleteNews(id: string): Promise<NewsDeleteResponse> {
+  return request<NewsDeleteResponse>(`/api/news/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export type SearchHit = {
+  id: string;
+  group: 'items' | 'objects' | 'clusters' | 'contexts';
+  kind: string;
+  title: string;
+  snippet: string;
+  updated_at: string;
+};
+export type SearchResponse = { ok: true; hits: SearchHit[] };
+
+export function search(q: string): Promise<SearchResponse> {
+  return request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`);
+}
+
+export type ItemPageResponse = { ok: true; items: ItemDTO[]; next_cursor?: string; total: number };
+
+export function listItemsPage(params: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number }): Promise<ItemPageResponse> {
   const search = new URLSearchParams();
   if (params.type && params.type !== 'all') search.set('type', params.type);
   if (params.domain && params.domain !== 'all') search.set('domain', params.domain);
   if (params.q) search.set('q', params.q);
+  if (params.cursor) search.set('cursor', params.cursor);
+  if (params.limit) search.set('limit', String(params.limit));
   const query = search.size ? `?${search.toString()}` : '';
-  return request<ItemListResponse>(`/api/items${query}`);
+  return request<ItemPageResponse>(`/api/items${query}`);
+}
+
+/* Full list: follows next_cursor (T202 server pagination) transparently. */
+export async function listItems(params: { type?: string; domain?: string; q?: string }): Promise<ItemListResponse> {
+  const items: ItemDTO[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < 50; i += 1) {
+    const page = await listItemsPage({ ...params, cursor });
+    items.push(...page.items);
+    if (!page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+  return { ok: true, items };
 }
 
 export function getItem(id: string): Promise<ItemDetailResponse> {
@@ -243,7 +321,20 @@ export function runDetect(): Promise<AgentDetectResponse> {
 export type UserDTO = { id: string; name: string; created_at: string };
 export type ShareDTO = { cluster_id: string; user_id: string; name: string; role: 'view' | 'add'; created_at: string };
 export type UserListResponse = { ok: true; users: UserDTO[] };
+export type UserCreateResponse = { ok: true; user: UserDTO };
+export type UserDeleteResponse = { ok: true; deleted: true };
 export type ShareListResponse = { ok: true; shares: ShareDTO[] };
+
+export function createUser(name: string): Promise<UserCreateResponse> {
+  return request<UserCreateResponse>('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteUser(id: string): Promise<UserDeleteResponse> {
+  return request<UserDeleteResponse>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
 
 export function listUsers(): Promise<UserListResponse> {
   return request<UserListResponse>('/api/users');

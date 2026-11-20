@@ -13,12 +13,16 @@ import {
   validateUpdateContextBody,
 } from '../src/lib/contexts.ts';
 import { ApiFailure, readJson, sendApiError, sendJson } from './http.ts';
+import { metrics, renderMetrics } from './metrics.ts';
+import { sql } from 'drizzle-orm';
 import { RateLimiter, rateRuleFor } from './ratelimit.ts';
 import { idempotentWrite, newRequestId } from './idempotency.ts';
 import { logRequest } from './log.ts';
 import { chatComplete } from './agent/llm.ts';
-import { hasLlmApiKey, llmPublicConfig, resolveLlmConfig, writeLlmApiKey, writeLlmSettings } from './storage/settings.ts';
-import { createItem, deleteItem, getItem, listItems, updateItem } from './repo/items.ts';
+import { clearLocalUserId, hasLlmApiKey, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
+import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
+import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
+import { searchAll } from './repo/search.ts';
 import { createRelation, listRelations } from './repo/relations.ts';
 import { listEvents } from './repo/events.ts';
 import {
@@ -81,6 +85,7 @@ import { readSecret, writeSecret } from './storage/secrets.ts';
 import { DEFAULT_USER_ID, verifyApiToken } from './storage/tokens.ts';
 import {
   createUser,
+  deleteUser,
   getUser,
   listShares,
   listUsers,
@@ -108,6 +113,10 @@ function safeHost(origin: string): string {
 /* Known routes: powers the 405 + Allow fallback (O1-1). */
 const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/items$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/search$/, methods: ['GET'] },
+  { pattern: /^\/api\/trash$/, methods: ['GET'] },
+  { pattern: /^\/api\/items\/[^/]+\/restore$/, methods: ['POST'] },
+  { pattern: /^\/api\/items\/[^/]+\/purge$/, methods: ['POST'] },
   { pattern: /^\/api\/items\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
   { pattern: /^\/api\/items\/[^/]+\/relations$/, methods: ['POST', 'DELETE'] },
   { pattern: /^\/api\/contexts$/, methods: ['GET', 'POST'] },
@@ -127,12 +136,15 @@ const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/agent\/propose$/, methods: ['POST'] },
   { pattern: /^\/api\/agent\/detect$/, methods: ['POST'] },
   { pattern: /^\/api\/users$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/users\/[^/]+$/, methods: ['DELETE'] },
   { pattern: /^\/api\/tags\/definitions$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/tags\/values$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/tags\/values\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
   { pattern: /^\/api\/profile$/, methods: ['GET'] },
   { pattern: /^\/api\/llm\/config$/, methods: ['GET', 'PATCH'] },
   { pattern: /^\/api\/llm\/check$/, methods: ['POST'] },
+  { pattern: /^\/api\/news$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/news\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
 ];
 
 function allowedMethodsFor(path: string): string[] | undefined {
@@ -140,6 +152,17 @@ function allowedMethodsFor(path: string): string[] | undefined {
     if (route.pattern.test(path)) return route.methods;
   }
   return undefined;
+}
+
+/**
+ * Low-cardinality route label for metrics: collapse id-shaped segments so
+ * `/api/items/raw_abc123` and `/api/items/raw_def456` share one series.
+ */
+function metricRoute(path: string): string {
+  return path
+    .split('/')
+    .map((seg) => (/^[a-z]{2,5}_[0-9a-z-]{6,}$/i.test(seg) || /^[0-9a-f-]{16,}$/i.test(seg) ? ':id' : seg))
+    .join('/');
 }
 
 export function createApiRouter(config: Config, db: Database) {
@@ -151,6 +174,30 @@ export function createApiRouter(config: Config, db: Database) {
     const url = new URL(req.url ?? '/', 'http://localhost');
     // v1 prefix is canonical; bare /api/ remains an alias (D-060)
     const path = url.pathname.replace(/^\/api\/v1(?=\/|$)/, '/api');
+
+    // Ops endpoints (INTEGRATION_HARDENING P0-B): liveness, readiness, metrics.
+    // Handled before the /api gate and intentionally excluded from RED metrics —
+    // health probes are high-frequency noise that would drown the signal.
+    if (url.pathname === '/healthz') {
+      sendJson(res, 200, { ok: true, uptime_s: Number(process.uptime().toFixed(1)) });
+      return;
+    }
+    if (url.pathname === '/readyz') {
+      try {
+        await db.execute(sql`select 1`);
+        sendJson(res, 200, { ok: true, db: 'up' });
+      } catch (e) {
+        sendJson(res, 503, { ok: false, db: 'down', message: e instanceof Error ? e.message : 'db unavailable' });
+      }
+      return;
+    }
+    if (url.pathname === '/metrics') {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/plain; version=0.0.4; charset=utf-8');
+      res.setHeader('cache-control', 'no-store');
+      res.end(renderMetrics());
+      return;
+    }
 
     if (!path.startsWith('/api/')) {
       next();
@@ -194,11 +241,15 @@ export function createApiRouter(config: Config, db: Database) {
       if (!logged) {
         logged = true;
         logRequest({ reqId, method: req.method ?? '?', path, status: res.statusCode, ms: Date.now() - startedAt });
+        metrics.httpRequests.inc({ method: req.method ?? '?', route: metricRoute(path), status: String(res.statusCode) });
+        metrics.httpDuration.observe({ method: req.method ?? '?', route: metricRoute(path) }, Date.now() - startedAt);
       }
       return origEnd(...args);
     }) as typeof res.end;
 
     let viewerId = DEFAULT_USER_ID;
+    const boundUser = readLocalUserId(dirname(config.pgliteDir));
+    if (boundUser && (await getUser(db, boundUser))) viewerId = boundUser;
 
     if (config.authRequired) {
       const header = headers.authorization ?? '';
@@ -271,14 +322,56 @@ export function createApiRouter(config: Config, db: Database) {
         return await shareFor(db, clusterId, viewerId);
       }
 
+      if (path === '/api/trash' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, items: await listDeletedItems(db) });
+        return;
+      }
+
+      const restoreMatch = path.match(/^\/api\/items\/([^/]+)\/restore$/);
+      if (restoreMatch && req.method === 'POST') {
+        const ok = await restoreItem(db, restoreMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'Item not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, restored: true });
+        return;
+      }
+
+      const purgeMatch = path.match(/^\/api\/items\/([^/]+)\/purge$/);
+      if (purgeMatch && req.method === 'POST') {
+        const ok = await purgeItem(db, purgeMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'Item not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, purged: true });
+        return;
+      }
+
+      if (path === '/api/search' && req.method === 'GET') {
+        const q = url.searchParams.get('q') ?? '';
+        const hits = await searchAll(db, q);
+        const allowed = await visibleItemIds();
+        sendJson(res, 200, { ok: true, hits: allowed ? hits.filter((h) => h.group !== 'items' && h.group !== 'objects' ? true : allowed.has(h.id)) : hits });
+        return;
+      }
+
       if (path === '/api/items' && req.method === 'GET') {
-        const items = await listItems(db, {
+        const filters = {
           type: url.searchParams.get('type') ?? undefined,
           domain: url.searchParams.get('domain') ?? undefined,
           q: url.searchParams.get('q') ?? undefined,
-        });
+        };
         const allowed = await visibleItemIds();
-        sendJson(res, 200, { ok: true, items: allowed ? items.filter((i) => allowed.has(i.id)) : items });
+        /* T202: cursor pagination — cursor/limit present or always (default 50) */
+        const page = await listItemsPaged(db, {
+          ...filters,
+          cursor: url.searchParams.get('cursor') ?? undefined,
+          limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+        });
+        const items = allowed ? page.items.filter((i) => allowed.has(i.id)) : page.items;
+        sendJson(res, 200, { ok: true, items, next_cursor: page.next_cursor, total: page.total });
         return;
       }
 
@@ -637,7 +730,26 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid user name'));
           return;
         }
-        sendJson(res, 201, { ok: true, user: await createUser(db, name.trim()) });
+        const user = await createUser(db, name.trim());
+        /* T103: first created user binds as the local account */
+        if (!readLocalUserId(dirname(config.pgliteDir))) {
+          writeLocalUserId(dirname(config.pgliteDir), user.id);
+        }
+        sendJson(res, 201, { ok: true, user });
+        return;
+      }
+
+      const userMatch = path.match(/^\/api\/users\/([^/]+)$/);
+      if (userMatch && req.method === 'DELETE') {
+        const ok = await deleteUser(db, userMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'User not found'));
+          return;
+        }
+        if (readLocalUserId(dirname(config.pgliteDir)) === userMatch[1]) {
+          clearLocalUserId(dirname(config.pgliteDir));
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
         return;
       }
 
@@ -854,6 +966,56 @@ export function createApiRouter(config: Config, db: Database) {
       }
 
       // PLAN-8 (D-064/D-066): Meta Tag definitions, values and profile output.
+      // Settings -> News management: admin-authored announcements (news.json).
+      if (path === '/api/news' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, news: readNews(dirname(config.pgliteDir)) });
+        return;
+      }
+
+      if (path === '/api/news' && req.method === 'POST') {
+        const body = await readJson(req);
+        const b = (body ?? {}) as Record<string, unknown>;
+        const title = (b.title ?? {}) as Record<string, unknown>;
+        if (typeof title.zh !== 'string' && typeof title.en !== 'string') {
+          sendApiError(res, apiError('contract', 'title (zh or en) is required'));
+          return;
+        }
+        const item = createNewsItem(dirname(config.pgliteDir), {
+          title: b.title,
+          summary: b.summary,
+          published: b.published,
+        });
+        sendJson(res, 201, { ok: true, news: item });
+        return;
+      }
+
+      const newsMatch = path.match(/^\/api\/news\/([^/]+)$/);
+      if (newsMatch && req.method === 'PATCH') {
+        const body = await readJson(req);
+        const b = (body ?? {}) as Record<string, unknown>;
+        const item = updateNewsItem(dirname(config.pgliteDir), newsMatch[1], {
+          title: b.title,
+          summary: b.summary,
+          published: b.published,
+        });
+        if (!item) {
+          sendApiError(res, apiError('not_found', 'News item not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, news: item });
+        return;
+      }
+
+      if (newsMatch && req.method === 'DELETE') {
+        const ok = deleteNewsItem(dirname(config.pgliteDir), newsMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'News item not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
       if (path === '/api/tags/definitions' && req.method === 'GET') {
         sendJson(res, 200, { ok: true, definitions: await listTagDefinitions(db) });
         return;
