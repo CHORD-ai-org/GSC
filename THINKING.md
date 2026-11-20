@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: PLAN-4 A4-1/B4-1/B4-2 已执行（Agent 提议 + Detector 巡检 + 提案队列，D-052…D-054；D1 provider 一并拍板）。真实模型调用待 GSC_LLM_* 配置；C4-1 未做。PLAN-5…PLAN-8 仍 PROPOSED。
+> Status: PLAN-6 A6-1/A6-2/B6-1/B6-2-TS 已执行（/api/v1/ 契约冻结 + token 鉴权 + MCP server + JS SDK，D-058…D-060）。Claude Code 真机实测与 Python SDK 待做；C6-1 未做。PLAN-7/8 仍 PROPOSED。
 
 ## User approvals received 2026-11-16
 

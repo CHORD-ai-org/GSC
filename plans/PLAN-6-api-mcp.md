@@ -1,6 +1,6 @@
 # PLAN-6 — 外部基础设施：GSC API / MCP / Provider
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §6 · 依赖：PLAN-1（稳定契约）、最小权限集（见 PLAN-7 前置）
+Status: `A6-1/A6-2/B6-1/B6-2(TS) 已执行` — 2026-11-20（用户「开始执行06」）。裁决：D-058 最小 token 鉴权入界（DESIGN_BOUNDARIES 已修订）、D-059 手写 stdio MCP（经 HTTP API）、D-060 /api/v1/ 契约冻结 + `API_CONTRACT.md`。B6-1 的 Claude Code/Codex 真机实测与 Python SDK 未做；C6-1 未做。 · 源：`PRODUCT_VISION.md` §6
 
 ## 目标场景
 

@@ -326,6 +326,47 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | Screenshots | `ui-prototype/shots/20-review-queue.png` | queue tab with rows, accept/reject, resolve-only notes verified |
 | LLM note | no network/key in this environment | proposer verified with stub only; real calls pending `GSC_LLM_*` config (KNOWN_ISSUES) |
 
+### PLAN-5 execution (2026-11-20, A5-1/B5-1/B5-2)
+
+| File | Change |
+|---|---|
+| `src/styles/tokens.css` | semantic dictionary `--sem-original/confirmed/machine/alert` (both themes, D-055) |
+| `src/components/SemTag.tsx` + `semtag.module.css` | SemTag chips + legend + neutral MemberBadge (D-057) |
+| `src/lib/activity.ts` + `activity.test.ts` | day buckets (created/updated/pending) + test |
+| `src/components/ActivityMap.tsx` + `activity.module.css` | 12-week density map, segment colors per dictionary, click-to-filter (D-056) |
+| `src/views/detail.tsx` | 原文/语义 identity chips on blocks; ⇄ 配对芯片 (raw↔object pairing, D-057 B5-2) |
+| `src/views/collections.tsx`, `pages.tsx`, `App.tsx` | row membership badges; Overview activity section + legend; Recently day-filter chip |
+
+### PLAN-5 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 42 tests pass (1 new: activity bucketing) |
+| Screenshots | `02-overview.png` (legend + density map + 本周新增/待审 counts), `05-raw-detail.png` (原文 chip + pairing chip), `06-objects-list.png` (row badges) | verified |
+| Accessibility | SemTag always renders text labels | color never sole encoding (D-055) |
+
+### PLAN-6 execution (2026-11-20, A6-1/A6-2/B6-1/B6-2-TS)
+
+| File | Change |
+|---|---|
+| `API_CONTRACT.md` | v1 surface frozen (endpoints, error kinds, consumers) |
+| `server/storage/tokens.ts` + `tokens.test.ts`, `scripts/create-token.mjs` | PAT tokens (sha256 at rest, read/rw scopes, mint/revoke) |
+| `server/router.ts`, `server/config.ts` | `/api/v1/*` canonical (bare `/api/` alias), auth gate on `GSC_AUTH_REQUIRED=1` |
+| `server/mcp/index.ts` + `mcp.test.ts` | stdio MCP server (initialize/tools/list/tools/call; 6 tools) backed by the HTTP API |
+| `sdk/gsc.mjs` + `sdk/README.md` | single-file fetch client (listChunks/getChunk/search/clusters/contexts/propose) |
+| `DESIGN_BOUNDARIES.md` | amendment: minimal token auth in scope (D-058) |
+| `package.json` | `npm run mcp` |
+
+### PLAN-6 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 46 tests pass (4 new: MCP handshake/tools/route/errors, token mint-verify-revoke) |
+| MCP live smoke | `printf jsonrpc \| node server/mcp/index.ts` against live API | init `gsc-mcp`, 6 tools listed, `gsc_list_chunks` returned 9 items via `/api/v1/` |
+| Auth | unit (tokens.test.ts) | read/rw scopes verified; wrong token → null; revoke effective |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).

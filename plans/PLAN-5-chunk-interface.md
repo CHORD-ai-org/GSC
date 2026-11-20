@@ -1,6 +1,6 @@
 # PLAN-5 — Chunk 界面重设计（结构先于字段）
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §8 · 依赖：PLAN-1（Chunk 定义稳定）
+Status: `A5-1/B5-1/B5-2 已执行` — 2026-11-20（用户「开始执行05」）。裁决：D-055 四色语义字典（双主题）、D-056 密度图入 Overview+点击筛 Recently、D-057 中性归属徽标+配对芯片（B5-2 走联动分支，因 D-042 未合并）。C5-1（虚拟滚动/下钻）未做。 · 源：`PRODUCT_VISION.md` §8 · 依赖：PLAN-1 ✓
 
 ## 目标场景
 

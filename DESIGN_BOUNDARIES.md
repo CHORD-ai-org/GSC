@@ -38,6 +38,10 @@ Do not implement unless explicitly requested later:
 - Complex conflict resolution
 - Automatic memory consolidation
 - Fully automated Context Assembly
+
+### Amendment (2026-11-20, D-058)
+
+Minimal **token authorization** is now in scope: PAT-style tokens with `read` / `rw` scopes, on-machine only (`.data/api-tokens.json`), enforced when `GSC_AUTH_REQUIRED=1`. This is not a permission system — no users, roles, or per-resource ACLs. Full permission management stays out (PLAN-7 must return here before expanding).
 - Advanced knowledge evolution workflows
 - Complete Thylas Overview integration
 - Full User / Workspace / Coworker / Artifact domains

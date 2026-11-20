@@ -445,3 +445,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** membership ribbon colors per cluster (rejected — unstable semantics); merging detail pages (rejected — D-042).
 - **Consequences:** badge component with ⊘/◈-style icons; `SemTag` covers state only.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行05".
+
+## D-058 — Minimal token auth enters scope (boundary amendment)
+
+- **Decision:** `DESIGN_BOUNDARIES.md` is amended: a minimal PAT-style token layer is now in scope — tokens in `.data/api-tokens.json` (sha256-hashed, gitignored) with `read` / `rw` scopes, enforced only when `GSC_AUTH_REQUIRED=1`. Without the flag the local API stays open (loopback dev). Token minting via `scripts/create-token.mjs`.
+- **Reasoning:** PLAN-6 A6-2 required approval to cross the "no permission system" boundary; user instruction "开始执行06" is that approval; tokens are the smallest authorization that makes "未授权读不到私有信息" testable.
+- **Alternatives:** full user/permission system (PLAN-7 territory); always-on auth (rejected — breaks the local frontend until a token UI exists).
+- **Consequences:** router gains an auth gate for `/api/v1/*` when enabled; frontend keeps working in open mode; scope granularity (per-cluster) deferred to C6-1/PLAN-7.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行06".
+
+## D-059 — MCP: hand-rolled stdio server over the HTTP API
+
+- **Decision:** `server/mcp/index.ts` implements the minimal MCP stdio surface (JSON-RPC 2.0: `initialize`, `tools/list`, `tools/call`) with tools `gsc_get_chunk`, `gsc_list_chunks`, `gsc_browse_clusters`, `gsc_browse_contexts`, `gsc_get_context`, `gsc_propose`. It calls the HTTP API (never opens PGlite directly — single-connection embedded DB). No new npm dependencies; official SDK swap is a later option. stdio first (PLAN-6 Q1); `GSC-CONTEXT.md` export stays as the offline fallback (Q2).
+- **Reasoning:** API and MCP must share one domain contract (Vision §6.3); hand-rolling the small protocol surface avoids a dependency and is testable with a stub fetch.
+- **Alternatives:** MCP SDK dependency (rejected — dependency discipline); MCP opening the DB (rejected — PGlite lock + duplicated contract); HTTP-remote MCP (deferred).
+- **Consequences:** `npm run mcp` runs the server with `GSC_API_URL` + `GSC_API_TOKEN`; tools return JSON text content; updates/creates go through `gsc_propose` only (governance preserved).
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行06".
+
+## D-060 — Contract freeze: /api/v1/ prefix + API_CONTRACT.md
+
+- **Decision:** all endpoints accept `/api/v1/*` (the existing `/api/*` stays as a documented alias); `API_CONTRACT.md` freezes the v1 surface (endpoints, DTO sources of truth, error kinds/status mapping). The SDK is a single-file fetch client `sdk/gsc.mjs` (+ README example); Python SDK deferred.
+- **Reasoning:** PLAN-6 A6-1 calls for a versioned, locked contract; alias keeps the existing frontend and tests untouched while giving external consumers a stable prefix.
+- **Alternatives:** hard rename to /api/v1 only (rejected — breaks client and checks in one step); OpenAPI codegen (rejected — heavy for this stage).
+- **Consequences:** router normalizes the prefix; contract tests remain the enforcement; docs updated.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行06".
