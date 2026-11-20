@@ -9,16 +9,29 @@ Type sources of truth: `src/lib/{items,relations,events,contexts,clusters,propos
 ## Error shape (all failures)
 
 ```json
-{ "ok": false, "kind": "<contract|not_found|duplicate|conflict|db_unavailable|internal>", "message": "...", "retryable": false }
+{ "ok": false, "kind": "<kind>", "message": "...", "retryable": false }
 ```
 
-| kind | HTTP |
-|---|---|
-| contract | 400 |
-| not_found | 404 |
-| duplicate / conflict | 409 |
-| db_unavailable | 503 |
-| internal | 502 |
+| kind | HTTP | Meaning |
+|---|---|---|
+| contract | 400 | malformed body / invalid fields / SSRF-refused URL |
+| unauthorized | 401 | missing or invalid token (auth mode) |
+| forbidden | 403 | valid token but insufficient scope / disallowed origin |
+| not_found | 404 | unknown resource |
+| method_not_allowed | 405 | known path, wrong method (see `Allow` header) |
+| duplicate / conflict | 409 | state conflict |
+| payload_too_large | 413 | body exceeds 64 KB |
+| rate_limited | 429 | token bucket exhausted (`Retry-After` header, `retryable: true`) |
+| db_unavailable | 503 | persistence down (`retryable: true`) |
+| internal | 502 | server/upstream failure (`retryable: true`) |
+
+## Cross-cutting (O1 series)
+
+- **Security headers** on every response: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`.
+- **CORS**: same-origin only by default; explicit allowlist via `GSC_CORS_ORIGINS` (comma-separated). Disallowed origins → 403. `OPTIONS` preflight → 204.
+- **Rate limits** (per token id, or socket address when unauthenticated; single-process store): writes 60/min, `/ingest/*` 10/min, `/agent/*` 5/min. Reads are unlimited.
+- **Input limits**: title ≤ 512 chars, field values ≤ 65536, tag values ≤ 2000, scope ≤ 200, long texts ≤ 8000. Exceeding → 400 `contract`.
+- **URL ingestion SSRF guard**: http(s) only, no embedded credentials, ports 80/443/8080/8443, DNS-resolved addresses must be public; every redirect hop re-validated (max 3). Dev escape hatch `GSC_INGEST_ALLOW_PRIVATE=1`.
 
 ## Endpoints
 

@@ -27,7 +27,7 @@ function fakeRes(): FakeRes {
 }
 
 function fakeReq(method: string, url: string, body?: unknown): IncomingMessage {
-  const payload = body === undefined ? '' : JSON.stringify(body);
+  const payload = body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body);
   const req = Readable.from([payload]) as IncomingMessage;
   req.method = method;
   req.url = url;
@@ -40,7 +40,8 @@ let router: ReturnType<typeof createApiRouter>;
 beforeEach(async () => {
   handle = createDatabase();
   await handle.exec(migrationSql());
-  router = createApiRouter(readConfig({}), handle.db);
+  // O1-3: this fixture serves loopback ingestion tests; production default is strict
+  router = createApiRouter(readConfig({ GSC_INGEST_ALLOW_PRIVATE: '1' }), handle.db);
 });
 
 async function call(method: string, url: string, body?: unknown) {
@@ -238,5 +239,107 @@ describe('API routes', () => {
     const detail = await call('GET', `/api/items/${concept.json.item.id}`);
     expect(detail.json.relations.outgoing).toHaveLength(1);
     expect(detail.json.events.some((e: { action: string }) => e.action === 'created')).toBe(true);
+  });
+});
+
+describe('HTTP semantics (O1-1/O1-2/O1-7)', () => {
+  it('maps malformed JSON and empty body to 400 contract, oversized title to 400', async () => {
+    const bad = await call('POST', '/api/items', 'not-json{');
+    expect(bad.status).toBe(400);
+    expect(bad.json.kind).toBe('contract');
+    expect(bad.json.message).toMatch(/Malformed/);
+
+    const empty = await call('POST', '/api/items', undefined);
+    expect(empty.status).toBe(400);
+
+    const oversized = await call('POST', '/api/items', {
+      type: 'raw.document', title: 'x'.repeat(600), domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'ok' },
+    });
+    expect(oversized.status).toBe(400);
+    expect(oversized.json.kind).toBe('contract');
+  });
+
+  it('answers 405 + Allow for known paths with wrong methods', async () => {
+    const res = fakeRes();
+    await router(fakeReq('DELETE', '/api/items') as IncomingMessage, res as unknown as ServerResponse, () => {});
+    expect(res.statusCode).toBe(405);
+    expect(res.headers.allow).toContain('GET');
+    expect(JSON.parse(res.body).kind).toBe('method_not_allowed');
+  });
+
+  it('sets security headers on every response', async () => {
+    const res = fakeRes();
+    await router(fakeReq('GET', '/api/items') as IncomingMessage, res as unknown as ServerResponse, () => {});
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['referrer-policy']).toBe('no-referrer');
+  });
+
+  it('allows same-host Origin without CORS headers (browsers send Origin on same-origin POSTs)', async () => {
+    const res = fakeRes();
+    const req = fakeReq('POST', '/api/items', {
+      type: 'raw.document', title: 'same-origin', domain: 'knowledge', origin: 'user', fields: { content_text: 'x' },
+    }) as IncomingMessage;
+    req.headers = { origin: 'http://localhost:5174', host: 'localhost:5174' };
+    await router(req, res as unknown as ServerResponse, () => {});
+    expect(res.statusCode).toBe(201);
+  });
+
+  it('rejects disallowed CORS origins and echoes allowed ones', async () => {
+    const denied = fakeRes();
+    const reqDenied = fakeReq('GET', '/api/items') as IncomingMessage;
+    reqDenied.headers = { origin: 'https://evil.example' };
+    await router(reqDenied, denied as unknown as ServerResponse, () => {});
+    expect(denied.statusCode).toBe(403);
+
+    const corsRouter = createApiRouter(readConfig({ GSC_CORS_ORIGINS: 'https://app.example' }), handle.db);
+    const ok = fakeRes();
+    const reqOk = fakeReq('GET', '/api/items') as IncomingMessage;
+    reqOk.headers = { origin: 'https://app.example' };
+    await corsRouter(reqOk, ok as unknown as ServerResponse, () => {});
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers['access-control-allow-origin']).toBe('https://app.example');
+  });
+
+  it('uses 401 for missing token and 403 for read-only writes (O1-1)', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const pathMod = await import('node:path');
+    const { createApiToken } = await import('./storage/tokens.ts');
+    const dir = mkdtempSync(pathMod.join(tmpdir(), 'gsc-http-'));
+    try {
+      const authRouter = createApiRouter(readConfig({ PGLITE_DIR: pathMod.join(dir, 'pglite'), GSC_AUTH_REQUIRED: '1' }), handle.db);
+      const callAuth = async (method: string, url: string, body?: unknown, token?: string) => {
+        const res = fakeRes();
+        const req = fakeReq(method, url, body) as IncomingMessage;
+        if (token) req.headers = { authorization: `Bearer ${token}` };
+        await authRouter(req, res as unknown as ServerResponse, () => {});
+        return { status: res.statusCode, json: JSON.parse(res.body || '{}') };
+      };
+      const noTok = await callAuth('GET', '/api/items');
+      expect(noTok.status).toBe(401);
+      expect(noTok.json.kind).toBe('unauthorized');
+      const readTok = createApiToken(dir, 'r', 'read');
+      const write = await callAuth('POST', '/api/items', {
+        type: 'raw.document', title: 'x', domain: 'knowledge', origin: 'user', fields: { content_text: 'x' },
+      }, readTok.token);
+      expect(write.status).toBe(403);
+      expect(write.json.kind).toBe('forbidden');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('SSRF guard (O1-3)', () => {
+  it('blocks loopback/private/metadata URLs when private ingest is not allowed', async () => {
+    const strict = createApiRouter(readConfig({}), handle.db);
+    for (const url of ['http://127.0.0.1:8080/x', 'http://169.254.169.254/latest/meta-data', 'http://10.0.0.5/x', 'http://192.168.1.1/x', 'http://[::1]/x']) {
+      const res = fakeRes();
+      await strict(fakeReq('POST', '/api/ingest/url', { url }) as IncomingMessage, res as unknown as ServerResponse, () => {});
+      expect(res.statusCode, url).toBe(400);
+      expect(JSON.parse(res.body).kind, url).toBe('contract');
+    }
   });
 });

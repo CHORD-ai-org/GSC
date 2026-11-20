@@ -12,7 +12,10 @@ import {
   validateCreateContextBody,
   validateUpdateContextBody,
 } from '../src/lib/contexts.ts';
-import { readJson, sendApiError, sendJson } from './http.ts';
+import { ApiFailure, readJson, sendApiError, sendJson } from './http.ts';
+import { RateLimiter, rateRuleFor } from './ratelimit.ts';
+import { idempotentWrite, newRequestId } from './idempotency.ts';
+import { logRequest } from './log.ts';
 import { createItem, deleteItem, getItem, listItems, updateItem } from './repo/items.ts';
 import { createRelation, listRelations } from './repo/relations.ts';
 import { listEvents } from './repo/events.ts';
@@ -86,8 +89,53 @@ import { clusterOwner, itemOwner } from './repo/clusters.ts';
 import { clusterMembers } from './persistence/schema.ts';
 import { eq } from 'drizzle-orm';
 import { dirname } from 'node:path';
-import { fetchUrlText } from './ingest/html.ts';
+import { fetchUrlText, SsrfError } from './ingest/html.ts';
 import { storeTextFile } from './storage/local.ts';
+
+const rateLimiter = new RateLimiter(); // O1-5: single-process bucket store
+
+function safeHost(origin: string): string {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return '';
+  }
+}
+
+/* Known routes: powers the 405 + Allow fallback (O1-1). */
+const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
+  { pattern: /^\/api\/items$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/items\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
+  { pattern: /^\/api\/items\/[^/]+\/relations$/, methods: ['POST', 'DELETE'] },
+  { pattern: /^\/api\/contexts$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/contexts\/[^/]+$/, methods: ['GET', 'PATCH'] },
+  { pattern: /^\/api\/contexts\/[^/]+\/members$/, methods: ['POST', 'DELETE'] },
+  { pattern: /^\/api\/clusters$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/clusters\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
+  { pattern: /^\/api\/clusters\/[^/]+\/members$/, methods: ['POST', 'DELETE'] },
+  { pattern: /^\/api\/clusters\/[^/]+\/shares$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/clusters\/[^/]+\/shares\/[^/]+$/, methods: ['DELETE'] },
+  { pattern: /^\/api\/proposals$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/proposals\/[^/]+\/resolve$/, methods: ['POST'] },
+  { pattern: /^\/api\/sources$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/sources\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
+  { pattern: /^\/api\/sources\/[^/]+\/sync$/, methods: ['POST'] },
+  { pattern: /^\/api\/ingest\/url$/, methods: ['POST'] },
+  { pattern: /^\/api\/agent\/propose$/, methods: ['POST'] },
+  { pattern: /^\/api\/agent\/detect$/, methods: ['POST'] },
+  { pattern: /^\/api\/users$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/tags\/definitions$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/tags\/values$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/tags\/values\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
+  { pattern: /^\/api\/profile$/, methods: ['GET'] },
+];
+
+function allowedMethodsFor(path: string): string[] | undefined {
+  for (const route of KNOWN_ROUTES) {
+    if (route.pattern.test(path)) return route.methods;
+  }
+  return undefined;
+}
 
 export function createApiRouter(config: Config, db: Database) {
   return async function router(
@@ -104,18 +152,78 @@ export function createApiRouter(config: Config, db: Database) {
       return;
     }
 
+    // O1-7: explicit CORS allowlist (default = same-origin only) and preflight.
+    // Browsers send Origin on same-origin POSTs too: same-host Origin is allowed
+    // without CORS headers (it IS the same origin). Only cross-origin needs the list.
+    const headers = req.headers ?? {};
+    const origin = headers.origin;
+    if (origin) {
+      const originHost = safeHost(origin);
+      const requestHost = headers.host ?? '';
+      const sameOrigin = originHost !== '' && originHost === requestHost;
+      if (!sameOrigin && !config.corsOrigins.includes(origin)) {
+        sendApiError(res, apiError('forbidden', 'Origin not allowed'));
+        return;
+      }
+      if (!sameOrigin) {
+        res.setHeader('access-control-allow-origin', origin);
+        res.setHeader('vary', 'Origin');
+        res.setHeader('access-control-allow-methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+        res.setHeader('access-control-allow-headers', 'content-type, authorization, idempotency-key, x-request-id');
+        res.setHeader('access-control-max-age', '600');
+      }
+    }
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    // Phase 02: request correlation + structured completion log (no bodies, no titles).
+    const reqId = (typeof headers['x-request-id'] === 'string' && headers['x-request-id']) || newRequestId();
+    res.setHeader('x-request-id', reqId);
+    const startedAt = Date.now();
+    const origEnd = res.end.bind(res);
+    let logged = false;
+    (res as unknown as { end: typeof res.end }).end = ((...args: Parameters<typeof res.end>) => {
+      if (!logged) {
+        logged = true;
+        logRequest({ reqId, method: req.method ?? '?', path, status: res.statusCode, ms: Date.now() - startedAt });
+      }
+      return origEnd(...args);
+    }) as typeof res.end;
+
     let viewerId = DEFAULT_USER_ID;
 
     if (config.authRequired) {
-      const header = req.headers.authorization ?? '';
+      const header = headers.authorization ?? '';
       const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
       const token = presented ? verifyApiToken(dirname(config.pgliteDir), presented) : null;
       const needsWrite = req.method !== 'GET' && req.method !== 'HEAD';
-      if (!token || (needsWrite && token.scope !== 'rw')) {
-        sendApiError(res, apiError('contract', token ? 'read-only token cannot write' : 'Missing or invalid token'));
+      if (!token) {
+        // O1-1: missing/invalid credentials are 401, not 400
+        sendApiError(res, apiError('unauthorized', 'Missing or invalid token'));
+        return;
+      }
+      if (needsWrite && token.scope !== 'rw') {
+        sendApiError(res, apiError('forbidden', 'read-only token cannot write'));
         return;
       }
       viewerId = token.userId;
+    }
+
+    // O1-5: token-bucket throttle per identity (token id or client IP)
+    const rateRule = rateRuleFor(path, req.method ?? 'GET');
+    if (rateRule) {
+      // Key by token identity when authenticated, else by socket address (XFF is spoofable;
+      // trust-proxy support is a documented limitation for multi-instance deployments).
+      const rateKey = `${rateRule.name}:${viewerId !== DEFAULT_USER_ID ? viewerId : (req.socket?.remoteAddress ?? 'local')}`;
+      const wait = rateLimiter.take(rateKey, rateRule.rule);
+      if (wait !== null) {
+        res.setHeader('retry-after', String(wait));
+        sendApiError(res, apiError('rate_limited', `Too many requests; retry in ${wait}s`));
+        return;
+      }
     }
 
     try {
@@ -175,17 +283,21 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create item body'));
           return;
         }
-        const item = await createItem(db, body, async (id, fields) => {
-          if (body.type !== 'raw.filecontent') return fields;
-          const stored = await storeTextFile(
-            config,
-            id,
-            fields.filename ?? 'import.txt',
-            fields.content_text ?? '',
-          );
-          return { ...fields, ...stored };
-        }, viewerId);
-        sendJson(res, 201, { ok: true, item });
+        const idemKey = typeof headers['idempotency-key'] === 'string' ? headers['idempotency-key'] : undefined;
+        const result = await idempotentWrite(db, idemKey, 'POST /api/items', body, async () => {
+          const item = await createItem(db, body, async (id, fields) => {
+            if (body.type !== 'raw.filecontent') return fields;
+            const stored = await storeTextFile(
+              config,
+              id,
+              fields.filename ?? 'import.txt',
+              fields.content_text ?? '',
+            );
+            return { ...fields, ...stored };
+          }, viewerId);
+          return { status: 201, json: { ok: true, item } };
+        });
+        sendJson(res, result.status, result.json);
         return;
       }
 
@@ -243,12 +355,15 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create relation body'));
           return;
         }
-        const result = await createRelation(db, body);
-        if (!result.ok) {
-          sendApiError(res, apiError(result.reason, result.message));
-          return;
-        }
-        sendJson(res, 201, { ok: true, relation: result.relation });
+        const idemKey = typeof headers['idempotency-key'] === 'string' ? headers['idempotency-key'] : undefined;
+        const result = await idempotentWrite(db, idemKey, 'POST /api/relations', body, async () => {
+          const created = await createRelation(db, body);
+          if (!created.ok) {
+            return { status: created.reason === 'not_found' ? 404 : 409, json: apiError(created.reason, created.message) };
+          }
+          return { status: 201, json: { ok: true, relation: created.relation } };
+        });
+        sendJson(res, result.status, result.json);
         return;
       }
 
@@ -586,9 +701,13 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         try {
-          const result = await fetchUrlText(rawUrl);
+          const result = await fetchUrlText(rawUrl, { allowPrivate: config.allowPrivateIngest });
           sendJson(res, 200, { ok: true, ...result });
         } catch (e) {
+          if (e instanceof SsrfError) {
+            sendApiError(res, apiError('contract', e.message));
+            return;
+          }
           sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Fetch failed'));
         }
         return;
@@ -616,12 +735,15 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid resolve proposal body'));
           return;
         }
-        const proposal = await resolveProposalApplying(db, proposalMatch[1], body.status);
-        if (!proposal) {
-          sendApiError(res, apiError('not_found', 'Proposal not found'));
-          return;
-        }
-        sendJson(res, 200, { ok: true, proposal });
+        const idemKey = typeof headers['idempotency-key'] === 'string' ? headers['idempotency-key'] : undefined;
+        const result = await idempotentWrite(db, idemKey, `POST ${path}`, body, async () => {
+          const proposal = await resolveProposalApplying(db, proposalMatch[1], body.status);
+          if (!proposal) {
+            return { status: 404, json: apiError('not_found', 'Proposal not found') };
+          }
+          return { status: 200, json: { ok: true, proposal } };
+        });
+        sendJson(res, result.status, result.json);
         return;
       }
 
@@ -690,12 +812,16 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid tag value body'));
           return;
         }
-        const value = await createTagValue(db, body, viewerId);
-        if (!value) {
-          sendApiError(res, apiError('contract', 'Unknown tag definition (controlled definitions, D-064)'));
+        const result = await createTagValue(db, body, viewerId);
+        if (!result.ok) {
+          if (result.reason === 'conflict') {
+            sendApiError(res, apiError('conflict', 'This tag value is already assigned (definition, item, value, scope)'));
+          } else {
+            sendApiError(res, apiError('contract', 'Unknown tag definition (controlled definitions, D-064)'));
+          }
           return;
         }
-        sendJson(res, 201, { ok: true, value });
+        sendJson(res, 201, { ok: true, value: result.value });
         return;
       }
 
@@ -741,8 +867,18 @@ export function createApiRouter(config: Config, db: Database) {
         return;
       }
 
+      const allowed = allowedMethodsFor(path);
+      if (allowed) {
+        res.setHeader('allow', allowed.join(', '));
+        sendApiError(res, apiError('method_not_allowed', `Method ${req.method} not allowed`));
+        return;
+      }
       sendJson(res, 404, apiError('not_found', 'Unknown API route'));
     } catch (error) {
+      if (error instanceof ApiFailure) {
+        sendApiError(res, error.api);
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Internal error';
       sendApiError(res, apiError('internal', message));
     }

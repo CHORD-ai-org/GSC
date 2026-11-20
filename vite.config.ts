@@ -6,7 +6,9 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      '/api': 'http://127.0.0.1:8788',
+      // changeOrigin:false keeps the browser Host so the API's same-origin
+      // check (O1-7) sees Origin === Host and allows the dev frontend.
+      '/api': { target: 'http://127.0.0.1:8788', changeOrigin: false },
     },
   },
   build: {
