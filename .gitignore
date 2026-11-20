@@ -29,6 +29,7 @@ yarn-error.log*
 .cache/
 .data/
 data/files/
+data/files.replaced-*/
 
 # Editor and OS files
 .DS_Store
