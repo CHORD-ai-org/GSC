@@ -85,24 +85,28 @@ export async function resolveProposalApplying(
 ): Promise<ProposalDTO | undefined> {
   const existing = await getProposal(db, id);
   if (!existing) return undefined;
-  const resolved = await resolveProposal(db, id, status);
-  if (!resolved || status !== 'accepted') return resolved;
-  if (existing.kind === 'semantic_name') {
-    await updateItem(db, existing.target_id, { title: existing.proposed_value });
-  } else if (existing.kind === 'association' && existing.related_id) {
-    await createRelation(db, {
-      kind: 'related_to',
-      from_id: existing.target_id,
-      to_id: existing.related_id,
-      note: `proposal ${existing.id}`,
-    });
-  } else if (existing.kind === 'cluster') {
-    const cluster = await createCluster(db, {
-      title: existing.proposed_value,
-      description: `From proposal ${existing.id}`,
-    });
-    await addClusterMember(db, cluster.id, existing.target_id);
-    if (existing.related_id) await addClusterMember(db, cluster.id, existing.related_id);
-  }
-  return resolved;
+  // O1-4: resolve + apply commit or roll back together (no half-applied proposals).
+  return db.transaction(async (tx) => {
+    const t = tx as unknown as Database;
+    const resolved = await resolveProposal(t, id, status);
+    if (!resolved || status !== 'accepted') return resolved;
+    if (existing.kind === 'semantic_name') {
+      await updateItem(t, existing.target_id, { title: existing.proposed_value });
+    } else if (existing.kind === 'association' && existing.related_id) {
+      await createRelation(t, {
+        kind: 'related_to',
+        from_id: existing.target_id,
+        to_id: existing.related_id,
+        note: `proposal ${existing.id}`,
+      });
+    } else if (existing.kind === 'cluster') {
+      const cluster = await createCluster(t, {
+        title: existing.proposed_value,
+        description: `From proposal ${existing.id}`,
+      });
+      await addClusterMember(t, cluster.id, existing.target_id);
+      if (existing.related_id) await addClusterMember(t, cluster.id, existing.related_id);
+    }
+    return resolved;
+  }) as Promise<ProposalDTO | undefined>;
 }

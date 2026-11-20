@@ -87,30 +87,35 @@ export async function createItem(
 ): Promise<ItemDTO> {
   const id = idFor(body.type);
   const now = new Date();
-  await db.insert(items).values({
-    id,
-    type: body.type,
-    title: body.title,
-    domain: body.domain ?? 'knowledge',
-    origin: body.origin ?? 'user',
-    source_label: body.source_label ?? '',
-    status: defaultStatus(body.type),
-    owner_id: ownerId ?? 'usr_local',
-    created_at: now,
-    updated_at: now,
-  });
+  // File/storage preparation happens before the transaction: it is not transactional.
   const rawFields = body.fields ?? {};
   const fields = prepareFields ? await prepareFields(id, rawFields) : rawFields;
-  const content: Record<string, string | null> = { item_id: id };
-  for (const key of fieldKeysFor(body.type)) content[key] = fields[key] ?? null;
-  await db.insert(itemContent).values(content as typeof itemContent.$inferInsert);
-  await db.insert(events).values({
-    id: `evt_${randomUUID()}`,
-    item_id: id,
-    at: now,
-    actor: body.origin ?? 'user',
-    action: 'created',
-    detail: `${body.type} created`,
+  // O1-4: items + content + events commit or roll back together.
+  await db.transaction(async (tx) => {
+    const t = tx as unknown as Database;
+    await t.insert(items).values({
+      id,
+      type: body.type,
+      title: body.title,
+      domain: body.domain ?? 'knowledge',
+      origin: body.origin ?? 'user',
+      source_label: body.source_label ?? '',
+      status: defaultStatus(body.type),
+      owner_id: ownerId ?? 'usr_local',
+      created_at: now,
+      updated_at: now,
+    });
+    const content: Record<string, string | null> = { item_id: id };
+    for (const key of fieldKeysFor(body.type)) content[key] = fields[key] ?? null;
+    await t.insert(itemContent).values(content as typeof itemContent.$inferInsert);
+    await t.insert(events).values({
+      id: `evt_${randomUUID()}`,
+      item_id: id,
+      at: now,
+      actor: body.origin ?? 'user',
+      action: 'created',
+      detail: `${body.type} created`,
+    });
   });
   return getItem(db, id) as Promise<ItemDTO>;
 }

@@ -161,4 +161,15 @@ export const tagValues = pgTable('tag_values', {
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues };
+export const idempotencyKeys = pgTable('idempotency_keys', {
+  key: text('key').notNull(),
+  endpoint: text('endpoint').notNull(),
+  request_hash: text('request_hash').notNull(),
+  status: integer('status').notNull(),
+  body: text('body').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.key, table.endpoint] }),
+}));
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys };

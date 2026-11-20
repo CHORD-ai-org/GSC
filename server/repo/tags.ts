@@ -57,21 +57,28 @@ export async function createTagValue(
   db: Database,
   body: CreateTagValueBody,
   ownerId: string,
-): Promise<TagValueDTO | undefined> {
+): Promise<{ ok: true; value: TagValueDTO } | { ok: false; reason: 'no_definition' | 'conflict' }> {
   const def = await getTagDefinition(db, body.definition_id);
-  if (!def) return undefined;
+  if (!def) return { ok: false, reason: 'no_definition' };
+  // Uniqueness (0007): the same (definition, item, value, scope) may be assigned once.
+  const existing = await listTagValues(db, { itemId: body.item_id, definitionId: body.definition_id });
+  const scope = body.scope ?? 'global';
+  const value = body.value.trim();
+  if (existing.some((v) => v.value === value && v.scope === scope && v.item_id === (body.item_id ?? ''))) {
+    return { ok: false, reason: 'conflict' };
+  }
   const id = `tv_${randomUUID()}`;
   await db.insert(tagValues).values({
     id,
     definition_id: body.definition_id,
     item_id: body.item_id ?? null,
-    value: body.value.trim(),
-    scope: body.scope ?? 'global',
+    value,
+    scope,
     confirmed: body.confirmed ? 1 : 0,
     owner_id: ownerId,
     created_at: new Date(),
   });
-  return valueDTO((await db.select().from(tagValues).where(eq(tagValues.id, id)).limit(1))[0]);
+  return { ok: true, value: valueDTO((await db.select().from(tagValues).where(eq(tagValues.id, id)).limit(1))[0]) };
 }
 
 export async function listTagValues(
