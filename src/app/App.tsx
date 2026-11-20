@@ -88,6 +88,8 @@ export default function App() {
   const [sourceBusy, setSourceBusy] = useState(false);
   const [proposals, setProposals] = useState<ProposalDTO[]>([]);
   const [recentDay, setRecentDay] = useState('');
+  const [clusterShares, setClusterShares] = useState<{ user_id: string; name: string; role: 'view' | 'add' }[]>([]);
+  const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -117,6 +119,16 @@ export default function App() {
     setProposals(list.proposals);
   }, []);
 
+  const loadShareState = useCallback(async (id: string) => {
+    try {
+      const [shares, users] = await Promise.all([api.listClusterShares(id), api.listUsers()]);
+      setClusterShares(shares.shares.map((s) => ({ user_id: s.user_id, name: s.name, role: s.role })));
+      setUserList(users.users.map((u) => ({ id: u.id, name: u.name })));
+    } catch {
+      setClusterShares([]);
+    }
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     const result = await api.getItem(id);
     setDetail(result);
@@ -127,6 +139,10 @@ export default function App() {
   useEffect(() => { void loadClusterIndex(); }, [loadClusterIndex]);
   useEffect(() => { void loadSources(); }, [loadSources]);
   useEffect(() => { void loadProposals(); }, [loadProposals]);
+  useEffect(() => {
+    if (clusterId) void loadShareState(clusterId);
+    else setClusterShares([]);
+  }, [clusterId, loadShareState]);
   useEffect(() => {
     if (!selectedId) { setDetail(undefined); return; }
     void loadDetail(selectedId);
@@ -629,6 +645,28 @@ export default function App() {
     }
   }
 
+  async function shareClusterEntry(name: string, role: 'view' | 'add') {
+    if (!clusterId) return;
+    try {
+      setError('');
+      await api.shareCluster(clusterId, { name, role });
+      await loadShareState(clusterId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Share failed');
+    }
+  }
+
+  async function revokeShareEntry(userId: string) {
+    if (!clusterId) return;
+    try {
+      setError('');
+      await api.revokeClusterShare(clusterId, userId);
+      await loadShareState(clusterId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Revoke failed');
+    }
+  }
+
   const linkTargets = useMemo(() => {
     if (!selected) return [];
     const kind = form.kind as RelationKind;
@@ -785,12 +823,16 @@ export default function App() {
             <ClusterDetailView
               detail={selectedCluster}
               items={items}
+              shares={clusterShares}
+              users={userList}
               onBack={() => setClusterId('')}
               onEdit={openEditCluster}
               onDelete={() => void deleteSelectedCluster()}
               onAdd={(id) => void changeClusterMember('add', id)}
               onRemove={(id) => void changeClusterMember('remove', id)}
               onOpenItem={openItemInPage}
+              onShare={shareClusterEntry}
+              onRevoke={revokeShareEntry}
             />
           );
         }

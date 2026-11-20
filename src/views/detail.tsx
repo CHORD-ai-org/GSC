@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Subhead } from '../components/ui.tsx';
 import { BadgeRow, MemberBadge, SemTag } from '../components/SemTag.tsx';
@@ -314,17 +315,23 @@ export function ObjectDetailView({
 }
 
 export function ClusterDetailView({
-  detail, items, onBack, onEdit, onDelete, onAdd, onRemove, onOpenItem,
+  detail, items, shares, users, onBack, onEdit, onDelete, onAdd, onRemove, onOpenItem, onShare, onRevoke,
 }: {
   detail?: ClusterIndexEntry;
   items: ItemDTO[];
+  shares?: { user_id: string; name: string; role: 'view' | 'add' }[];
+  users?: { id: string; name: string }[];
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onAdd: (itemId: string) => void;
   onRemove: (itemId: string) => void;
   onOpenItem: (id: string) => void;
+  onShare: (name: string, role: 'view' | 'add') => Promise<void>;
+  onRevoke: (userId: string) => Promise<void>;
 }) {
+  const [shareName, setShareName] = useState('');
+  const [shareRole, setShareRole] = useState<'view' | 'add'>('view');
   if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>Loading…</div></div>;
   const candidates = items.filter((item) => !detail.member_ids.includes(item.id));
   return (
@@ -377,6 +384,30 @@ export function ClusterDetailView({
           }}>Add</Button>
         </div>
         <div className={styles.hint}>Explicit membership; a Chunk may belong to multiple Clusters.</div>
+      </Block>
+
+      <Block title="Sharing">
+        <div className={styles.addRow}>
+          <select className={styles.settingInput} value={shareName} onChange={(e) => setShareName(e.target.value)}>
+            <option value="">选择用户…</option>
+            {(users ?? []).map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+          </select>
+          <select className={styles.select} value={shareRole} onChange={(e) => setShareRole(e.target.value as 'view' | 'add')}>
+            <option value="view">view（只读）</option>
+            <option value="add">add（可加成员）</option>
+          </select>
+          <Button small onClick={() => { if (shareName) { void onShare(shareName, shareRole); setShareName(''); } }}>共享</Button>
+        </div>
+        {(shares ?? []).length === 0 ? (
+          <div className={styles.hint}>尚未共享。共享后对方只能看到本 Cluster 的成员 Chunk，你名下其他信息不可见。</div>
+        ) : (shares ?? []).map((s) => (
+          <div className={styles.refRow} key={s.user_id}>
+            <span className={styles.refKind}>{s.role}</span>
+            <span className={styles.kvValue}>{s.name}</span>
+            <button type="button" className={styles.removeButton} onClick={() => void onRevoke(s.user_id)}>回收</button>
+          </div>
+        ))}
+        <div className={styles.hint}>回收立即生效；授予与回收都会记入审计。</div>
       </Block>
     </DetailShell>
   );
