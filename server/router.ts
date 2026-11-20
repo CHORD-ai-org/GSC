@@ -43,6 +43,25 @@ import {
   validateCreateProposalBody,
   validateResolveProposalBody,
 } from '../src/lib/proposals.ts';
+import {
+  createSource,
+  deleteSource,
+  getSource,
+  listSources,
+  markSync,
+  updateSource,
+} from './repo/sources.ts';
+import {
+  validateCreateSourceBody,
+  validateUpdateSourceBody,
+} from '../src/lib/sources.ts';
+import { runGithubSync } from './sync/github.ts';
+import { suggestForChunks } from './agent/proposer.ts';
+import { runDetection } from './agent/detector.ts';
+import { isApplicableProposalKind } from '../src/lib/proposals.ts';
+import { readSecret, writeSecret } from './storage/secrets.ts';
+import { dirname } from 'node:path';
+import { fetchUrlText } from './ingest/html.ts';
 import { storeTextFile } from './storage/local.ts';
 
 export function createApiRouter(config: Config, db: Database) {
@@ -299,6 +318,96 @@ export function createApiRouter(config: Config, db: Database) {
         return;
       }
 
+      if (path === '/api/sources' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, sources: await listSources(db) });
+        return;
+      }
+
+      const secretsDir = dirname(config.pgliteDir);
+
+      if (path === '/api/sources' && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!validateCreateSourceBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid create source body'));
+          return;
+        }
+        const source = await createSource(db, body);
+        if (body.token) writeSecret(secretsDir, source.id, body.token);
+        sendJson(res, 201, { ok: true, source });
+        return;
+      }
+
+      const sourceMatch = path.match(/^\/api\/sources\/([^/]+)$/);
+      if (sourceMatch && req.method === 'PATCH') {
+        const body = await readJson(req);
+        if (!validateUpdateSourceBody(body)) {
+          sendApiError(res, apiError('contract', 'Invalid update source body'));
+          return;
+        }
+        const source = await updateSource(db, sourceMatch[1], body);
+        if (!source) {
+          sendApiError(res, apiError('not_found', 'Source not found'));
+          return;
+        }
+        if (typeof body.token === 'string') writeSecret(secretsDir, source.id, body.token);
+        sendJson(res, 200, { ok: true, source });
+        return;
+      }
+
+      if (sourceMatch && req.method === 'DELETE') {
+        const removed = await deleteSource(db, sourceMatch[1]);
+        if (!removed) {
+          sendApiError(res, apiError('not_found', 'Source not found'));
+          return;
+        }
+        writeSecret(secretsDir, sourceMatch[1], '');
+        sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      const sourceSyncMatch = path.match(/^\/api\/sources\/([^/]+)\/sync$/);
+      if (sourceSyncMatch && req.method === 'POST') {
+        const source = await getSource(db, sourceSyncMatch[1]);
+        if (!source) {
+          sendApiError(res, apiError('not_found', 'Source not found'));
+          return;
+        }
+        if (source.status === 'paused') {
+          sendApiError(res, apiError('conflict', 'Source is paused'));
+          return;
+        }
+        if (source.kind !== 'github') {
+          sendApiError(res, apiError('contract', `Sync for ${source.kind} is not implemented yet (PLAN-3 B3-1)`));
+          return;
+        }
+        try {
+          const result = await runGithubSync(db, source, readSecret(secretsDir, source.id));
+          await markSync(db, source.id, { ok: true });
+          sendJson(res, 200, { ok: true, result });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Sync failed';
+          await markSync(db, source.id, { ok: false, message });
+          sendApiError(res, apiError('internal', message));
+        }
+        return;
+      }
+
+      if (path === '/api/ingest/url' && req.method === 'POST') {
+        const body = await readJson(req);
+        const rawUrl = (body as Record<string, unknown>)?.url;
+        if (typeof rawUrl !== 'string' || !/^https?:\/\//i.test(rawUrl)) {
+          sendApiError(res, apiError('contract', 'Invalid url'));
+          return;
+        }
+        try {
+          const result = await fetchUrlText(rawUrl);
+          sendJson(res, 200, { ok: true, ...result });
+        } catch (e) {
+          sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Fetch failed'));
+        }
+        return;
+      }
+
       if (path === '/api/proposals' && req.method === 'GET') {
         sendJson(res, 200, { ok: true, proposals: await listProposals(db, url.searchParams.get('status') ?? undefined) });
         return;
@@ -321,12 +430,68 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid resolve proposal body'));
           return;
         }
+        const existing = (await listProposals(db)).find((p) => p.id === proposalMatch[1]);
+        if (!existing) {
+          sendApiError(res, apiError('not_found', 'Proposal not found'));
+          return;
+        }
         const proposal = await resolveProposal(db, proposalMatch[1], body.status);
         if (!proposal) {
           sendApiError(res, apiError('not_found', 'Proposal not found'));
           return;
         }
+        // D-054: acceptance applies only well-defined kinds; the rest are review-marked.
+        if (body.status === 'accepted' && isApplicableProposalKind(existing.kind)) {
+          if (existing.kind === 'semantic_name') {
+            await updateItem(db, existing.target_id, { title: existing.proposed_value });
+          } else if (existing.kind === 'association' && existing.related_id) {
+            await createRelation(db, {
+              kind: 'related_to',
+              from_id: existing.target_id,
+              to_id: existing.related_id,
+              note: `proposal ${existing.id}`,
+            });
+          } else if (existing.kind === 'cluster') {
+            const cluster = await createCluster(db, {
+              title: existing.proposed_value,
+              description: `From proposal ${existing.id}`,
+            });
+            await addClusterMember(db, cluster.id, existing.target_id);
+            if (existing.related_id) await addClusterMember(db, cluster.id, existing.related_id);
+          }
+        }
         sendJson(res, 200, { ok: true, proposal });
+        return;
+      }
+
+      if (path === '/api/agent/propose' && req.method === 'POST') {
+        const body = await readJson(req);
+        const chunks = (body as Record<string, unknown>)?.chunks;
+        if (!Array.isArray(chunks) || chunks.length === 0 || chunks.length > 20
+          || chunks.some((c) => typeof (c as Record<string, unknown>)?.content !== 'string')) {
+          sendApiError(res, apiError('contract', 'Invalid chunks'));
+          return;
+        }
+        try {
+          const suggestions = await suggestForChunks(config, chunks.map((c, index) => ({
+            index,
+            title: String((c as Record<string, unknown>).title ?? ''),
+            content: String((c as Record<string, unknown>).content ?? ''),
+          })));
+          sendJson(res, 200, { ok: true, suggestions });
+        } catch (e) {
+          sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Agent failed'));
+        }
+        return;
+      }
+
+      if (path === '/api/agent/detect' && req.method === 'POST') {
+        try {
+          const report = await runDetection(db);
+          sendJson(res, 200, { ok: true, report });
+        } catch (e) {
+          sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Detection failed'));
+        }
         return;
       }
 

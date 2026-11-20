@@ -5,6 +5,7 @@ import type { ApiError } from '../lib/api.ts';
 import type { ContextDTO, ContextDetailDTO } from '../lib/contexts.ts';
 import type { ClusterDTO, ClusterDetailDTO } from '../lib/clusters.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
+import type { SourceDTO, SyncResult } from '../lib/sources.ts';
 
 export type ItemListResponse = { ok: true; items: ItemDTO[] };
 export type ItemDetailResponse = {
@@ -25,6 +26,11 @@ export type ClusterDetailResponse = { ok: true; cluster: ClusterDetailDTO };
 export type DeleteClusterResponse = { ok: true; deleted: true };
 export type ProposalListResponse = { ok: true; proposals: ProposalDTO[] };
 export type ProposalDetailResponse = { ok: true; proposal: ProposalDTO };
+export type UrlIngestResponse = { ok: true; url: string; title: string; text: string };
+export type SourceListResponse = { ok: true; sources: SourceDTO[] };
+export type SourceDetailResponse = { ok: true; source: SourceDTO };
+export type DeleteSourceResponse = { ok: true; deleted: true };
+export type SourceSyncResponse = { ok: true; result: SyncResult };
 export type ApiResponse =
   | ItemListResponse
   | ItemDetailResponse
@@ -37,6 +43,11 @@ export type ApiResponse =
   | DeleteClusterResponse
   | ProposalListResponse
   | ProposalDetailResponse
+  | UrlIngestResponse
+  | SourceListResponse
+  | SourceDetailResponse
+  | DeleteSourceResponse
+  | SourceSyncResponse
   | ApiError;
 
 async function request<T extends ApiResponse>(path: string, init?: RequestInit): Promise<T> {
@@ -170,4 +181,31 @@ export function resolveProposal(id: string, status: 'accepted' | 'rejected'): Pr
     method: 'POST',
     body: JSON.stringify({ status }),
   });
+}
+
+export function ingestUrl(url: string): Promise<UrlIngestResponse> {
+  return request<UrlIngestResponse>('/api/ingest/url', { method: 'POST', body: JSON.stringify({ url }) });
+}
+
+export function listSources(): Promise<SourceListResponse> {
+  return request<SourceListResponse>('/api/sources');
+}
+
+export function createSource(body: unknown): Promise<SourceDetailResponse> {
+  return request<SourceDetailResponse>('/api/sources', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function updateSource(id: string, body: unknown): Promise<SourceDetailResponse> {
+  return request<SourceDetailResponse>(`/api/sources/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteSource(id: string): Promise<DeleteSourceResponse> {
+  return request<DeleteSourceResponse>(`/api/sources/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function syncSource(id: string): Promise<SourceSyncResponse> {
+  return request<SourceSyncResponse>(`/api/sources/${encodeURIComponent(id)}/sync`, { method: 'POST' });
 }

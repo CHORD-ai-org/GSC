@@ -112,6 +112,95 @@ describe('API routes', () => {
     expect(again.status).toBe(404);
   });
 
+  it('manages clusters and multi-homed members', async () => {
+    const a = await call('POST', '/api/items', {
+      type: 'raw.document', title: 'Chunk A', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'a' },
+    });
+    const b = await call('POST', '/api/items', {
+      type: 'raw.document', title: 'Chunk B', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'b' },
+    });
+    const c1 = await call('POST', '/api/clusters', { title: 'Research', description: 'first' });
+    const c2 = await call('POST', '/api/clusters', { title: 'Project' });
+    expect(c1.status).toBe(201);
+
+    const add = await call('POST', `/api/clusters/${c1.json.cluster.id}/members`, { item_id: a.json.item.id });
+    expect(add.status).toBe(201);
+    expect(add.json.cluster.member_ids).toEqual([a.json.item.id]);
+    const dup = await call('POST', `/api/clusters/${c1.json.cluster.id}/members`, { item_id: a.json.item.id });
+    expect(dup.status).toBe(409);
+    await call('POST', `/api/clusters/${c2.json.cluster.id}/members`, { item_id: a.json.item.id });
+    const multi = await call('GET', `/api/clusters/${c2.json.cluster.id}`);
+    expect(multi.json.cluster.member_ids).toEqual([a.json.item.id]);
+
+    const upd = await call('PATCH', `/api/clusters/${c1.json.cluster.id}`, { title: 'Research 2026' });
+    expect(upd.json.cluster.title).toBe('Research 2026');
+
+    const removed = await call('DELETE', `/api/clusters/${c1.json.cluster.id}/members`, { item_id: a.json.item.id });
+    expect(removed.json.cluster.member_ids).toEqual([]);
+
+    const gone = await call('DELETE', `/api/clusters/${c2.json.cluster.id}`);
+    expect(gone.json.deleted).toBe(true);
+    const missing = await call('GET', `/api/clusters/${c2.json.cluster.id}`);
+    expect(missing.status).toBe(404);
+    void b;
+  });
+
+  it('runs the proposal lifecycle', async () => {
+    const item = await call('POST', '/api/items', {
+      type: 'object.concept', title: 'Old name', domain: 'knowledge', origin: 'user',
+      fields: { definition: 'def' },
+    });
+    const proposal = await call('POST', '/api/proposals', {
+      kind: 'semantic_name',
+      target_id: item.json.item.id,
+      proposed_value: 'Better semantic name',
+      rationale: 'clearer',
+      source: 'agent',
+    });
+    expect(proposal.status).toBe(201);
+    expect(proposal.json.proposal.status).toBe('pending');
+
+    const pending = await call('GET', '/api/proposals?status=pending');
+    expect(pending.json.proposals).toHaveLength(1);
+    const resolved = await call('POST', `/api/proposals/${proposal.json.proposal.id}/resolve`, { status: 'accepted' });
+    expect(resolved.json.proposal.status).toBe('accepted');
+    expect(resolved.json.proposal.resolved_at).not.toBe('');
+    const after = await call('GET', '/api/proposals?status=pending');
+    expect(after.json.proposals).toHaveLength(0);
+  });
+
+  it('ingests a URL as preview only', async () => {
+    const http = await import('node:http');
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end('<html><head><title>Sample Page</title><style>.x{color:red}</style></head><body><h1>Heading</h1><p>Body text with a <a href="#">link</a>.</p><script>evil()</script></body></html>');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as { port: number }).port;
+    try {
+      const result = await call('POST', '/api/ingest/url', { url: `http://127.0.0.1:${port}/page` });
+      expect(result.status).toBe(200);
+      expect(result.json.title).toBe('Sample Page');
+      expect(result.json.text).toContain('Heading');
+      expect(result.json.text).toContain('Body text with a link.');
+      expect(result.json.text).not.toContain('evil');
+      expect(result.json.text).not.toContain('color:red');
+
+      const items = await call('GET', '/api/items');
+      const before = items.json.items.length;
+      await call('POST', '/api/ingest/url', { url: `http://127.0.0.1:${port}/again` });
+      const afterList = await call('GET', '/api/items');
+      expect(afterList.json.items.length).toBe(before); // preview only, nothing persisted
+
+      const bad = await call('POST', '/api/ingest/url', { url: 'ftp://nope' });
+      expect(bad.status).toBe(400);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('creates a context, adds members and returns context detail', async () => {
     const raw = await call('POST', '/api/items', {
       type: 'raw.document', title: 'Source', domain: 'knowledge', origin: 'user',
