@@ -5,6 +5,9 @@ export type Config = {
   dbAdapter: 'pglite';
   pgliteDir: string;
   storageDir: string;
+  llmBaseUrl: string;
+  llmApiKey: string;
+  llmModel: string;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): Config {
@@ -19,5 +22,8 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     dbAdapter: 'pglite',
     pgliteDir: resolve(env.PGLITE_DIR ?? './.data/pglite'),
     storageDir: resolve(env.STORAGE_DIR ?? './data/files'),
+    llmBaseUrl: env.GSC_LLM_BASE_URL ?? 'https://api.deepseek.com/v1',
+    llmApiKey: env.GSC_LLM_API_KEY ?? '',
+    llmModel: env.GSC_LLM_MODEL ?? 'deepseek-chat',
   };
 }

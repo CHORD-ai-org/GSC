@@ -104,4 +104,17 @@ export const proposals = pgTable('proposals', {
   resolved_at: timestamp('resolved_at', { withTimezone: true }),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals };
+export const sources = pgTable('sources', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  label: text('label').notNull(),
+  scope: text('scope').notNull().default(''),
+  status: text('status').notNull().default('connected'),
+  frequency: text('frequency').notNull().default('manual'),
+  last_sync_at: timestamp('last_sync_at', { withTimezone: true }),
+  last_error: text('last_error').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources };

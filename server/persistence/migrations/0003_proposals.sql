@@ -1,4 +1,4 @@
-CREATE TABLE proposals (
+CREATE TABLE IF NOT EXISTS proposals (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
   target_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
