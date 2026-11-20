@@ -83,6 +83,7 @@ export async function createItem(
   db: Database,
   body: CreateItemBody,
   prepareFields?: (id: string, fields: ItemFields) => Promise<ItemFields>,
+  ownerId?: string,
 ): Promise<ItemDTO> {
   const id = idFor(body.type);
   const now = new Date();
@@ -94,6 +95,7 @@ export async function createItem(
     origin: body.origin ?? 'user',
     source_label: body.source_label ?? '',
     status: defaultStatus(body.type),
+    owner_id: ownerId ?? 'usr_local',
     created_at: now,
     updated_at: now,
   });

@@ -8,8 +8,10 @@ import path from 'node:path';
 
 export type TokenScope = 'read' | 'rw';
 
-type TokenRecord = { name: string; scope: TokenScope; sha256: string };
+type TokenRecord = { name: string; scope: TokenScope; sha256: string; userId?: string };
 type TokenMap = Record<string, TokenRecord>;
+
+export const DEFAULT_USER_ID = 'usr_local';
 
 function fileFor(dataDir: string): string {
   return path.join(dataDir, 'api-tokens.json');
@@ -28,20 +30,20 @@ function readAll(dataDir: string): TokenMap {
 }
 
 /** Mint a token; returns the plaintext exactly once. */
-export function createApiToken(dataDir: string, name: string, scope: TokenScope): { id: string; token: string } {
+export function createApiToken(dataDir: string, name: string, scope: TokenScope, userId: string = DEFAULT_USER_ID): { id: string; token: string } {
   mkdirSync(dataDir, { recursive: true });
   const token = `gsc_${randomBytes(24).toString('hex')}`;
   const id = `tok_${randomBytes(6).toString('hex')}`;
   const map = readAll(dataDir);
-  map[id] = { name, scope, sha256: hash(token) };
+  map[id] = { name, scope, sha256: hash(token), userId };
   writeFileSync(fileFor(dataDir), JSON.stringify(map, null, 2), 'utf8');
   return { id, token };
 }
 
-export function verifyApiToken(dataDir: string, presented: string): TokenScope | null {
+export function verifyApiToken(dataDir: string, presented: string): { scope: TokenScope; userId: string } | null {
   const digest = hash(presented);
   for (const record of Object.values(readAll(dataDir))) {
-    if (record.sha256 === digest) return record.scope;
+    if (record.sha256 === digest) return { scope: record.scope, userId: record.userId ?? DEFAULT_USER_ID };
   }
   return null;
 }

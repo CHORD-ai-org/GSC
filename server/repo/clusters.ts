@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
-import { clusterMembers, clusters } from '../persistence/schema.ts';
+import { clusterMembers, clusters, items } from '../persistence/schema.ts';
 import type {
   ClusterDTO,
   ClusterDetailDTO,
@@ -38,17 +38,28 @@ export async function getCluster(db: Database, id: string): Promise<ClusterDetai
   return { ...toDTO(row), member_ids: members.map((m) => m.item_id) };
 }
 
-export async function createCluster(db: Database, body: CreateClusterBody): Promise<ClusterDTO> {
+export async function createCluster(db: Database, body: CreateClusterBody, ownerId?: string): Promise<ClusterDTO> {
   const id = `clu_${randomUUID()}`;
   const now = new Date();
   await db.insert(clusters).values({
     id,
     title: body.title,
     description: body.description ?? '',
+    owner_id: ownerId ?? 'usr_local',
     created_at: now,
     updated_at: now,
   });
   return toDTO((await db.select().from(clusters).where(eq(clusters.id, id)).limit(1))[0]);
+}
+
+export async function clusterOwner(db: Database, id: string): Promise<string | undefined> {
+  const [row] = await db.select({ owner_id: clusters.owner_id }).from(clusters).where(eq(clusters.id, id)).limit(1);
+  return row?.owner_id;
+}
+
+export async function itemOwner(db: Database, id: string): Promise<string | undefined> {
+  const [row] = await db.select({ owner_id: items.owner_id }).from(items).where(eq(items.id, id)).limit(1);
+  return row?.owner_id;
 }
 
 export async function updateCluster(

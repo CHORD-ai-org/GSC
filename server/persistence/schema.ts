@@ -8,6 +8,7 @@ export const items = pgTable('items', {
   origin: text('origin').notNull().default('user'),
   source_label: text('source_label').notNull().default(''),
   status: text('status').notNull().default('draft'),
+  owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
@@ -79,6 +80,7 @@ export const clusters = pgTable('clusters', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   description: text('description').notNull().default(''),
+  owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
@@ -90,6 +92,30 @@ export const clusterMembers = pgTable('cluster_members', {
 }, (table) => ({
   pk: primaryKey({ columns: [table.cluster_id, table.item_id] }),
 }));
+
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
+export const clusterShares = pgTable('cluster_shares', {
+  cluster_id: text('cluster_id').notNull().references(() => clusters.id, { onDelete: 'cascade' }),
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('view'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.cluster_id, table.user_id] }),
+}));
+
+export const clusterShareEvents = pgTable('cluster_share_events', {
+  id: text('id').primaryKey(),
+  cluster_id: text('cluster_id').notNull().references(() => clusters.id, { onDelete: 'cascade' }),
+  user_id: text('user_id').notNull(),
+  role: text('role').notNull(),
+  action: text('action').notNull(),
+  at: timestamp('at', { withTimezone: true }).notNull(),
+});
 
 export const proposals = pgTable('proposals', {
   id: text('id').primaryKey(),
@@ -117,4 +143,4 @@ export const sources = pgTable('sources', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources };
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents };

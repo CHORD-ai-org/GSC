@@ -9,9 +9,9 @@ describe('api tokens (D-058)', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'gsc-tokens-'));
     try {
       const read = createApiToken(dir, 'reader', 'read');
-      const rw = createApiToken(dir, 'writer', 'rw');
-      expect(verifyApiToken(dir, read.token)).toBe('read');
-      expect(verifyApiToken(dir, rw.token)).toBe('rw');
+      const rw = createApiToken(dir, 'writer', 'rw', 'usr_bob');
+      expect(verifyApiToken(dir, read.token)).toEqual({ scope: 'read', userId: 'usr_local' });
+      expect(verifyApiToken(dir, rw.token)).toEqual({ scope: 'rw', userId: 'usr_bob' });
       expect(verifyApiToken(dir, 'gsc_wrong')).toBeNull();
       expect(revokeApiToken(dir, read.id)).toBe(true);
       expect(verifyApiToken(dir, read.token)).toBeNull();
