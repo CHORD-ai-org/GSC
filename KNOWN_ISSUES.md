@@ -1,6 +1,6 @@
 # KNOWN_ISSUES.md — Limitations and Unresolved Problems
 
-Updated: 2026-11-19 (Phase 05 UI shell in progress).
+Updated: 2026-11-20 (Light Up UX audit recorded).
 
 ## Resolved in Phase 01
 
@@ -95,3 +95,22 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 3. Adding permissions or Coworker concepts before requested.
 4. Silent import of Thylas runtime code or tokens.
 5. Adding types or retrieval features not required by scenarios A–D.
+
+## Light Up UX audit — 2026-11-20
+
+These are current implementation gaps found by code review and screenshot inspection. They are not new product scope; see `plans/LIGHT_UP_UX_ARTISTRY.md` for the optimization brief and local-agent prompt.
+
+| Issue | Impact | Required direction |
+|---|---|---|
+| `isFastPath` is tested but not wired into Composer/Light Up | the stated two-line Enter fast path is not actually implemented | one shared pure rule used by UI and tests |
+| Agent suggestions overwrite `row.title`; classification and rationale are discarded | machine interpretation is not visibly separated from user confirmation and does not enter the proposal trail | show suggestions as proposals/decision layers before final persistence |
+| Segment persistence is sequential and non-atomic | a failure can leave a partial batch and retry can duplicate items | all-or-none batch persistence with retry-safe behavior |
+| Multiple files/segments can share one `sourceLabel` | source provenance is lost or incorrectly merged | carry source metadata per segment |
+| Review content is truncated to 400 characters | the original cannot be fully inspected at every step | full-content expandable source/chunk view |
+| Proposal queue rows overlap and expose raw UUIDs | review queue is hard to scan and trust | stable layout, target titles, secondary IDs |
+| Text-file import creates one row per file without segmentation | conflicts with the long-document chunking promise | segment normalized text per file; state PDF/OCR limits honestly |
+| URL extraction ignores the fetched title | strongest naming/provenance cue is discarded | retain title, canonical URL, text and label in the source snapshot |
+| `generate()` clears the original input | source context disappears between intake and review | keep an immutable Source Snapshot |
+| Draft row keys can collide when batches are appended | edits can target the wrong row | use stable unique draft ids |
+
+Current verification note: `npm run check` passes. `npm test` could not start in the managed sandbox because Vitest/esbuild attempted `spawn EPERM`; this is an environment/tooling limitation, not a recorded test failure. Re-run tests in the approved execution environment before claiming verification.

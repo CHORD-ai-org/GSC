@@ -469,3 +469,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** hard rename to /api/v1 only (rejected — breaks client and checks in one step); OpenAPI codegen (rejected — heavy for this stage).
 - **Consequences:** router normalizes the prefix; contract tests remain the enforcement; docs updated.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行06".
+
+## D-061 — Local minimal identity (PLAN-7 Q1)
+
+- **Decision:** self-built minimal identity: `users` table (id/name/created), seeded default user `usr_local`. API tokens bind to a user (`tokens.ts` gains `userId`); in open mode every request runs as `usr_local`. `items.owner_id` and `clusters.owner_id` columns land now (PLAN-7 four-separation). No passwords, no login UI — identity is token ownership inside the machine trust boundary.
+- **Reasoning:** PLAN-7 Q1 asked self-built vs external IdP; external identity needs network/OAuth and is overkill for the local MVP, and the token layer from D-058 already maps naturally to users.
+- **Alternatives:** OAuth/external IdP (rejected — offline, later via C7-1/PLAN-8); session login UI (rejected — no web auth scope).
+- **Consequences:** `DESIGN_BOUNDARIES.md` amendment #2 (below) enters sharing/roles scope; ownership is stamped on create; existing rows default to `usr_local`.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行07".
+
+## D-062 — User-targeted cluster sharing, view/add roles first (PLAN-7 Q2)
+
+- **Decision:** `cluster_shares(cluster_id, user_id, role: view|add)` — owner invites a user by name/id with a role. Read-only share links are deferred to C7-1. Revocation deletes the share and takes effect immediately (rules evaluated per request). Every grant/revoke writes a `cluster_share_events` audit row.
+- **Reasoning:** the plan's verification scenario is role-based (A shares to B with roles; revoke is instant); links can layer on later without redesign.
+- **Alternatives:** read-only share links first (rejected — cannot express the add role or the four separation); edit/admin roles now (deferred to B7-2 per plan).
+- **Consequences:** visibility rule: a shared user can read the cluster and its member chunks (and add members with role=add); everything else of the owner stays invisible. Owner keeps all control.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行07".
+
+## D-063 — Enforcement scope for B7-1
+
+- **Decision:** visibility/ownership enforcement covers **items and clusters** in this stage. Contexts, proposals and sources stay single-user surfaces (any valid token in auth mode; full owner split with PLAN-8 visibility governance). Item mutations remain owner-only.
+- **Reasoning:** PLAN-7 B7-1 is the shared-cluster MVP; extending owner columns to every table now would churn PLAN-8's governance design (Meta Tag scopes) for no verification gain.
+- **Alternatives:** enforce everything now (rejected — scope); no enforcement (rejected — verification requires privacy).
+- **Consequences:** documented gap in KNOWN_ISSUES; PLAN-8 must extend the same rules to contexts/tags.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行07".

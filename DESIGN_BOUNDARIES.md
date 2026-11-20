@@ -42,6 +42,10 @@ Do not implement unless explicitly requested later:
 ### Amendment (2026-11-20, D-058)
 
 Minimal **token authorization** is now in scope: PAT-style tokens with `read` / `rw` scopes, on-machine only (`.data/api-tokens.json`), enforced when `GSC_AUTH_REQUIRED=1`. This is not a permission system — no users, roles, or per-resource ACLs. Full permission management stays out (PLAN-7 must return here before expanding).
+
+### Amendment 2 (2026-11-20, D-061…D-063, PLAN-7)
+
+**Ownership and cluster sharing** enter scope: local minimal users (token-bound identity, no login UI), `owner_id` on items/clusters, and `cluster_shares` with `view` / `add` roles plus a grant/revoke audit trail. Shared access never widens implicitly; owner-only mutations. Enterprise permission management (teams, orgs, approval flows, per-resource ACLs) remains out — PLAN-8/PLAN-7-B7-2 must return here before expanding further.
 - Advanced knowledge evolution workflows
 - Complete Thylas Overview integration
 - Full User / Workspace / Coworker / Artifact domains
