@@ -390,10 +390,53 @@ export function DocsView() {
       <p className={styles.pageSub}>{t('docs.sub')}</p>
 
       <nav className={styles.docsToc}>
+        <a href="#doc-what">{t('docs.whatIs')}</a>
+        <a href="#doc-why">{t('docs.why')}</a>
+        <a href="#doc-quick">{t('docs.quick')}</a>
         <a href="#doc-views">{t('docs.views')}</a>
         <a href="#doc-hotkeys">{t('docs.hotkeys')}</a>
-        <a href="#doc-anim">{t('docs.anim')}</a>
       </nav>
+
+      <div className={styles.section} id="doc-what">
+        <h2 className={styles.sectionTitle}>{t('docs.whatIs')}</h2>
+        <p className={styles.docsPara}>{t('docs.whatIsP1')}</p>
+        <p className={styles.docsPara}>{t('docs.whatIsP2')}</p>
+      </div>
+
+      <div className={styles.section} id="doc-why">
+        <h2 className={styles.sectionTitle}>{t('docs.why')}</h2>
+        <table className={styles.docsTable}>
+          <thead>
+            <tr>
+              <th>{t('docs.cmpDim')}</th>
+              <th>{t('docs.cmpNotes')}</th>
+              <th>{t('docs.cmpGsc')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {([1, 2, 3, 4, 5] as const).map((i) => (
+              <tr key={i}>
+                <td>{t(`docs.cmp${i}a`)}</td>
+                <td className={styles.docsTableMuted}>{t(`docs.cmp${i}b`)}</td>
+                <td>{t(`docs.cmp${i}c`)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.section} id="doc-quick">
+        <h2 className={styles.sectionTitle}>{t('docs.quick')}</h2>
+        {([1, 2, 3] as const).map((i) => (
+          <div key={i} className={styles.quickStep}>
+            <span className={styles.quickStepNum}>{i}</span>
+            <div>
+              <div className={styles.quickStepTitle}>{t(`docs.quick${i}`)}</div>
+              <div className={styles.quickStepBody}>{t(`docs.quick${i}Body`)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className={styles.section} id="doc-views">
         <h2 className={styles.sectionTitle}>{t('docs.views')}</h2>
@@ -415,14 +458,6 @@ export function DocsView() {
           <li><kbd className={styles.kbd}>Ctrl</kbd> + <kbd className={styles.kbd}>O</kbd> — {t('docs.hOpenFile')}</li>
           <li><kbd className={styles.kbd}>Ctrl</kbd> + <kbd className={styles.kbd}>K</kbd> — {t('docs.hPalette')}</li>
           <li><kbd className={styles.kbd}>Enter</kbd> — {t('docs.hSubmit')}<kbd className={styles.kbd}>Shift</kbd> + <kbd className={styles.kbd}>Enter</kbd>{t('docs.hSubmitTail')}</li>
-        </ul>
-      </div>
-
-      <div className={styles.section} id="doc-anim">
-        <h2 className={styles.sectionTitle}>{t('docs.anim')}</h2>
-        <ul className={styles.docsList}>
-          <li>{t('docs.animPage')}</li>
-          <li>{t('docs.animBg')}</li>
         </ul>
       </div>
     </div>

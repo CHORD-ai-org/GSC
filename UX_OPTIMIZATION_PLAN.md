@@ -1,5 +1,6 @@
 # GSC 质感对标与优化计划 — 逐页 vs 大厂（2026-11-20 二轮）
 
+状态：`EXECUTED`（2026-11-20，P0–P2 全部执行完毕，验收截图 au-01…14 复拍归档）
 对标：ChatGPT / Grok / Linear / Notion / Stripe。基准截图 `ui-prototype/shots/au-01…14`。
 一轮差距（INTERACTION_UX_PLAN）已清掉表单感；本轮差距集中在**数据质感、双语混排、微反馈**。
 

@@ -37,37 +37,70 @@ export function StartView({
   onOpenFile,
   onLightUp,
   llmConfig,
+  empty,
+  onLoadSample,
 }: {
   onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
   onCanvas: () => void;
   onOpenFile: () => void;
   onLightUp: () => void;
   llmConfig?: LlmPublicConfig | null;
+  empty?: boolean;
+  onLoadSample?: () => Promise<void>;
 }) {
   const t = useT();
+  const [sampleBusy, setSampleBusy] = useState(false);
   return (
     <div className={styles.overview}>
       <NewsPanel />
       <GscLogo height={64} className={styles.overviewLogo} />
-      <p className={styles.overviewQuestion}>{t('start.question')}</p>
+      {empty ? (
+        <>
+          <h1 className={styles.valueTitle}>{t('start.valueTitle')}</h1>
+          <p className={styles.valueSub}>{t('start.valueSub')}</p>
+        </>
+      ) : (
+        <p className={styles.overviewQuestion}>{t('start.question')}</p>
+      )}
       <div className={styles.overviewComposer}>
         <Composer onSubmit={onSubmit} llmConfig={llmConfig} />
       </div>
-      <div className={styles.quickActions}>
-        <button type="button" className={styles.quickButton} onClick={onLightUp}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 2.5v7M5 6l3-3.5L11 6" /><path d="M3 10.5v2h10v-2" /></svg>
-          Light Up
-        </button>
-        <button type="button" className={styles.quickButton} onClick={onCanvas}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
-          {t('start.canvasPreview')}
-        </button>
-        <button type="button" className={styles.quickButton} onClick={onOpenFile}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2.5h6l3.5 3.5v7.5H3z" /><path d="M9 2.5V6h3.5" /></svg>
-          {t('start.openFile')}
-          <span className={styles.quickKey}>Ctrl O</span>
-        </button>
-      </div>
+      {empty && onLoadSample ? (
+        <div className={styles.quickActions}>
+          <button
+            type="button"
+            className={styles.quickButton}
+            disabled={sampleBusy}
+            onClick={async () => {
+              setSampleBusy(true);
+              try { await onLoadSample(); } finally { setSampleBusy(false); }
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="8" cy="8" r="5.5" /><path d="M8 5v3l2 1.5" /></svg>
+            {sampleBusy ? t('start.loadingSample') : t('start.seeExample')}
+          </button>
+          <button type="button" className={styles.quickButton} onClick={() => document.querySelector('textarea')?.focus()}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 13L13 3M6 3h7v7" /></svg>
+            {t('start.startNow')}
+          </button>
+        </div>
+      ) : (
+        <div className={styles.quickActions}>
+          <button type="button" className={styles.quickButton} onClick={onLightUp}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 2.5v7M5 6l3-3.5L11 6" /><path d="M3 10.5v2h10v-2" /></svg>
+            Light Up
+          </button>
+          <button type="button" className={styles.quickButton} onClick={onCanvas}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
+            {t('start.canvasPreview')}
+          </button>
+          <button type="button" className={styles.quickButton} onClick={onOpenFile}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2.5h6l3.5 3.5v7.5H3z" /><path d="M9 2.5V6h3.5" /></svg>
+            {t('start.openFile')}
+            <span className={styles.quickKey}>Ctrl O</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -451,6 +484,8 @@ export function SettingsPage({
   onExportMarkdown,
   onExportAgent,
   onManageData,
+  onReplayOnboarding,
+  onClearAll,
   tagDefinitions,
   onCreateTagDefinition,
   profileBlock,
@@ -466,6 +501,8 @@ export function SettingsPage({
   onExportMarkdown: () => void;
   onExportAgent: () => void;
   onManageData: () => void;
+  onReplayOnboarding?: () => void;
+  onClearAll?: () => Promise<void>;
   tagDefinitions: TagDefinitionDTO[];
   onCreateTagDefinition: (name: string, description: string) => Promise<void>;
   profileBlock?: ReactNode;
@@ -572,6 +609,21 @@ export function SettingsPage({
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>{t('settings.data2')}</div>
               <button type="button" className={styles.secondaryButton} onClick={onManageData}>{t('settings.manageData')}</button>
+              {onReplayOnboarding ? (
+                <button type="button" className={styles.secondaryButton} style={{ marginLeft: 8 }} onClick={onReplayOnboarding}>{t('ob.replay')}</button>
+              ) : null}
+              {onClearAll ? (
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  style={{ marginLeft: 8 }}
+                  onClick={() => {
+                    if (window.confirm(t('ob.clearConfirm'))) void onClearAll();
+                  }}
+                >
+                  {t('ob.clearAll')}
+                </button>
+              ) : null}
             </div>
           </>
         ) : section === 'account' ? (

@@ -36,6 +36,8 @@ import type { RelationKind } from '../lib/relations.ts';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
 import { loadPrefs, savePrefs } from '../lib/prefs.ts';
 import { recordVisit, visitMap } from '../lib/visits.ts';
+import { loadSampleWorkspace, clearSampleWorkspace } from '../lib/sample.ts';
+import { Onboarding, isOnboardingDone } from '../components/Onboarding.tsx';
 import {
   buildAgentContext,
   buildJsonExport,
@@ -272,6 +274,10 @@ export default function App() {
 
   /* P4: Ctrl+K command palette */
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  /* T102: first-launch onboarding */
+  const [onboarding, setOnboarding] = useState(() => !isOnboardingDone());
+  const [onboardingReplay, setOnboardingReplay] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -915,6 +921,13 @@ export default function App() {
             onOpenFile={() => fileInputRef.current?.click()}
             onLightUp={() => go('lightup')}
             llmConfig={llmConfig}
+            empty={items.length === 0}
+            onLoadSample={async () => {
+              await loadSampleWorkspace();
+              await refresh();
+              await loadClusterIndex();
+              await loadContextIndex();
+            }}
           />
         );
       case 'overview':
@@ -1076,6 +1089,13 @@ export default function App() {
             onExportMarkdown={() => void runExport(buildMarkdownBundle)}
             onExportAgent={() => void runExport(buildAgentContext)}
             onManageData={() => go('sync')}
+            onReplayOnboarding={() => { setOnboardingReplay(true); go('start'); }}
+            onClearAll={async () => {
+              await clearSampleWorkspace();
+              await refresh();
+              await loadClusterIndex();
+              await loadContextIndex();
+            }}
             tagDefinitions={tagDefinitions}
             onCreateTagDefinition={createTagDef}
             llmConfig={llmConfig}
@@ -1121,6 +1141,29 @@ export default function App() {
     <>
       {view === 'start' ? <DotGridBackground quality={prefs.quality} theme={prefs.theme} /> : null}
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
+      {onboarding || onboardingReplay ? (
+        <Onboarding
+          onSkip={() => { setOnboarding(false); setOnboardingReplay(false); }}
+          onLoadSample={async () => {
+            await loadSampleWorkspace();
+            await refresh();
+            await loadClusterIndex();
+            await loadContextIndex();
+          }}
+          onFinish={async (answers) => {
+            setOnboarding(false);
+            setOnboardingReplay(false);
+            /* T102: profile answers → User Profile tag values (confirmed on add by human intent) */
+            for (const value of answers) {
+              try {
+                await api.createTagValue({ definition_id: 'tag_user_profile', value, scope: 'global', confirmed: true });
+              } catch { /* profile enrichment is best-effort */ }
+            }
+            await loadTags();
+            go('start');
+          }}
+        />
+      ) : null}
       <CommandPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} />
       <div className={styles.app}>
         <Sidebar view={view} onNavigate={go} workspaceName={prefs.workspaceName} />
