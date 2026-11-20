@@ -55,6 +55,9 @@ export type ApiResponse =
   | SourceSyncResponse
   | AgentSuggestResponse
   | AgentDetectResponse
+  | UserListResponse
+  | ShareListResponse
+  | { ok: true; deleted: true }
   | ApiError;
 
 async function request<T extends ApiResponse>(path: string, init?: RequestInit): Promise<T> {
@@ -223,4 +226,30 @@ export function proposeSuggestions(chunks: { title: string; content: string }[])
 
 export function runDetect(): Promise<AgentDetectResponse> {
   return request<AgentDetectResponse>('/api/agent/detect', { method: 'POST' });
+}
+
+export type UserDTO = { id: string; name: string; created_at: string };
+export type ShareDTO = { cluster_id: string; user_id: string; name: string; role: 'view' | 'add'; created_at: string };
+export type UserListResponse = { ok: true; users: UserDTO[] };
+export type ShareListResponse = { ok: true; shares: ShareDTO[] };
+
+export function listUsers(): Promise<UserListResponse> {
+  return request<UserListResponse>('/api/users');
+}
+
+export function listClusterShares(clusterId: string): Promise<ShareListResponse> {
+  return request<ShareListResponse>(`/api/clusters/${encodeURIComponent(clusterId)}/shares`);
+}
+
+export function shareCluster(clusterId: string, body: { user_id?: string; name?: string; role: 'view' | 'add' }): Promise<ShareListResponse> {
+  return request<ShareListResponse>(`/api/clusters/${encodeURIComponent(clusterId)}/shares`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function revokeClusterShare(clusterId: string, userId: string): Promise<{ ok: true; deleted: true }> {
+  return request<{ ok: true; deleted: true }>(`/api/clusters/${encodeURIComponent(clusterId)}/shares/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
 }

@@ -59,7 +59,19 @@ import { runGithubSync } from './sync/github.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
-import { verifyApiToken } from './storage/tokens.ts';
+import { DEFAULT_USER_ID, verifyApiToken } from './storage/tokens.ts';
+import {
+  createUser,
+  getUser,
+  listShares,
+  listUsers,
+  revokeShare,
+  shareCluster,
+  shareFor,
+} from './repo/users.ts';
+import { clusterOwner, itemOwner } from './repo/clusters.ts';
+import { clusterMembers } from './persistence/schema.ts';
+import { eq } from 'drizzle-orm';
 import { dirname } from 'node:path';
 import { fetchUrlText } from './ingest/html.ts';
 import { storeTextFile } from './storage/local.ts';
@@ -79,25 +91,68 @@ export function createApiRouter(config: Config, db: Database) {
       return;
     }
 
+    let viewerId = DEFAULT_USER_ID;
+
     if (config.authRequired) {
       const header = req.headers.authorization ?? '';
       const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
-      const scope = presented ? verifyApiToken(dirname(config.pgliteDir), presented) : null;
+      const token = presented ? verifyApiToken(dirname(config.pgliteDir), presented) : null;
       const needsWrite = req.method !== 'GET' && req.method !== 'HEAD';
-      if (!scope || (needsWrite && scope !== 'rw')) {
-        sendApiError(res, apiError('contract', scope ? 'read-only token cannot write' : 'Missing or invalid token'));
+      if (!token || (needsWrite && token.scope !== 'rw')) {
+        sendApiError(res, apiError('contract', token ? 'read-only token cannot write' : 'Missing or invalid token'));
         return;
       }
+      viewerId = token.userId;
     }
 
     try {
+      // PLAN-7 (D-062/D-063): shared-cluster visibility over items and clusters.
+      const unrestricted = !config.authRequired && viewerId === DEFAULT_USER_ID;
+
+      async function canViewItem(itemId: string): Promise<boolean> {
+        if (unrestricted) return true;
+        const owner = await itemOwner(db, itemId);
+        if (owner === viewerId) return true;
+        const memberships = await db
+          .select({ cluster_id: clusterMembers.cluster_id })
+          .from(clusterMembers)
+          .where(eq(clusterMembers.item_id, itemId));
+        for (const m of memberships) {
+          if (await shareFor(db, m.cluster_id, viewerId)) return true;
+        }
+        return false;
+      }
+
+      async function visibleItemIds(): Promise<Set<string> | null> {
+        if (unrestricted) return null; // null = no filtering
+        const visible = new Set<string>();
+        const all = await listItems(db);
+        for (const item of all) {
+          if ((await itemOwner(db, item.id)) === viewerId) visible.add(item.id);
+        }
+        const allClusters = await listClusters(db);
+        for (const cluster of allClusters) {
+          if (!(await shareFor(db, cluster.id, viewerId))) continue;
+          const detail = await getCluster(db, cluster.id);
+          for (const id of detail?.member_ids ?? []) visible.add(id);
+        }
+        return visible;
+      }
+
+      async function clusterRole(clusterId: string): Promise<'owner' | 'view' | 'add' | null> {
+        if (unrestricted) return 'owner';
+        if ((await clusterOwner(db, clusterId)) === viewerId) return 'owner';
+        return await shareFor(db, clusterId, viewerId);
+      }
+
       if (path === '/api/items' && req.method === 'GET') {
         const items = await listItems(db, {
           type: url.searchParams.get('type') ?? undefined,
           domain: url.searchParams.get('domain') ?? undefined,
           q: url.searchParams.get('q') ?? undefined,
         });
-        sendJson(res, 200, { ok: true, items });
+        const allowed = await visibleItemIds();
+        sendJson(res, 200, { ok: true, items: allowed ? items.filter((i) => allowed.has(i.id)) : items });
         return;
       }
 
@@ -116,7 +171,7 @@ export function createApiRouter(config: Config, db: Database) {
             fields.content_text ?? '',
           );
           return { ...fields, ...stored };
-        });
+        }, viewerId);
         sendJson(res, 201, { ok: true, item });
         return;
       }
@@ -124,7 +179,7 @@ export function createApiRouter(config: Config, db: Database) {
       const detailMatch = path.match(/^\/api\/items\/([^/]+)$/);
       if (detailMatch && req.method === 'GET') {
         const item = await getItem(db, detailMatch[1]);
-        if (!item) {
+        if (!item || !(await canViewItem(item.id))) {
           sendApiError(res, apiError('not_found', 'Item not found'));
           return;
         }
@@ -142,6 +197,10 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid update item body'));
           return;
         }
+        if (!unrestricted && (await itemOwner(db, detailMatch[1])) !== viewerId) {
+          sendApiError(res, apiError('contract', 'Only the owner can edit this item'));
+          return;
+        }
         const item = await updateItem(db, detailMatch[1], body);
         if (!item) {
           sendApiError(res, apiError('not_found', 'Item not found'));
@@ -152,6 +211,10 @@ export function createApiRouter(config: Config, db: Database) {
       }
 
       if (detailMatch && req.method === 'DELETE') {
+        if (!unrestricted && (await itemOwner(db, detailMatch[1])) !== viewerId) {
+          sendApiError(res, apiError('contract', 'Only the owner can delete this item'));
+          return;
+        }
         const removed = await deleteItem(db, detailMatch[1]);
         if (!removed) {
           sendApiError(res, apiError('not_found', 'Item not found'));
@@ -259,12 +322,17 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create cluster body'));
           return;
         }
-        sendJson(res, 201, { ok: true, cluster: await createCluster(db, body) });
+        sendJson(res, 201, { ok: true, cluster: await createCluster(db, body, viewerId) });
         return;
       }
 
       const clusterMatch = path.match(/^\/api\/clusters\/([^/]+)$/);
       if (clusterMatch && req.method === 'GET') {
+        const role = await clusterRole(clusterMatch[1]);
+        if (!role) {
+          sendApiError(res, apiError('not_found', 'Cluster not found'));
+          return;
+        }
         const cluster = await getCluster(db, clusterMatch[1]);
         if (!cluster) {
           sendApiError(res, apiError('not_found', 'Cluster not found'));
@@ -280,6 +348,11 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid update cluster body'));
           return;
         }
+        const role = await clusterRole(clusterMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can edit a cluster'));
+          return;
+        }
         const cluster = await updateCluster(db, clusterMatch[1], body);
         if (!cluster) {
           sendApiError(res, apiError('not_found', 'Cluster not found'));
@@ -290,6 +363,11 @@ export function createApiRouter(config: Config, db: Database) {
       }
 
       if (clusterMatch && req.method === 'DELETE') {
+        const role = await clusterRole(clusterMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can delete a cluster'));
+          return;
+        }
         const removed = await deleteCluster(db, clusterMatch[1]);
         if (!removed) {
           sendApiError(res, apiError('not_found', 'Cluster not found'));
@@ -299,11 +377,73 @@ export function createApiRouter(config: Config, db: Database) {
         return;
       }
 
+      const clusterShareUserMatch = path.match(/^\/api\/clusters\/([^/]+)\/shares\/([^/]+)$/);
+      if (clusterShareUserMatch && req.method === 'DELETE') {
+        const role = await clusterRole(clusterShareUserMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can manage shares'));
+          return;
+        }
+        const revoked = await revokeShare(db, clusterShareUserMatch[1], clusterShareUserMatch[2]);
+        if (!revoked) {
+          sendApiError(res, apiError('not_found', 'Share not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      const clusterShareMatch = path.match(/^\/api\/clusters\/([^/]+)\/shares$/);
+      if (clusterShareMatch && req.method === 'GET') {
+        const role = await clusterRole(clusterShareMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can view shares'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, shares: await listShares(db, clusterShareMatch[1]) });
+        return;
+      }
+
+      if (clusterShareMatch && req.method === 'POST') {
+        const role = await clusterRole(clusterShareMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can manage shares'));
+          return;
+        }
+        const body = await readJson(req) as Record<string, unknown>;
+        const shareRole = body?.role === 'add' ? 'add' : 'view';
+        let userId = typeof body?.user_id === 'string' ? body.user_id : '';
+        if (!userId && typeof body?.name === 'string') {
+          const found = (await listUsers(db)).find((u) => u.name === body.name);
+          if (!found) {
+            sendApiError(res, apiError('not_found', 'User not found'));
+            return;
+          }
+          userId = found.id;
+        }
+        if (!userId || !(await getUser(db, userId))) {
+          sendApiError(res, apiError('contract', 'Invalid user'));
+          return;
+        }
+        const result = await shareCluster(db, clusterShareMatch[1], userId, shareRole);
+        if (!result.ok) {
+          sendApiError(res, apiError(result.reason, result.message));
+          return;
+        }
+        sendJson(res, 201, { ok: true, shares: await listShares(db, clusterShareMatch[1]) });
+        return;
+      }
+
       const clusterMemberMatch = path.match(/^\/api\/clusters\/([^/]+)\/members$/);
       if (clusterMemberMatch && req.method === 'POST') {
         const body = await readJson(req);
         if (!validateAddClusterMemberBody(body)) {
           sendApiError(res, apiError('contract', 'Invalid member body'));
+          return;
+        }
+        const role = await clusterRole(clusterMemberMatch[1]);
+        if (role !== 'owner' && role !== 'add') {
+          sendApiError(res, apiError('contract', 'View-only share cannot add members'));
           return;
         }
         const result = await addClusterMember(db, clusterMemberMatch[1], body.item_id);
@@ -321,6 +461,11 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid member body'));
           return;
         }
+        const role = await clusterRole(clusterMemberMatch[1]);
+        if (role !== 'owner') {
+          sendApiError(res, apiError('contract', 'Only the owner can remove members'));
+          return;
+        }
         const result = await removeClusterMember(db, clusterMemberMatch[1], body.item_id);
         if (!result.ok) {
           sendApiError(res, apiError(result.reason, result.message));
@@ -336,6 +481,22 @@ export function createApiRouter(config: Config, db: Database) {
       }
 
       const secretsDir = dirname(config.pgliteDir);
+
+      if (path === '/api/users' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, users: await listUsers(db) });
+        return;
+      }
+
+      if (path === '/api/users' && req.method === 'POST') {
+        const body = await readJson(req);
+        const name = (body as Record<string, unknown>)?.name;
+        if (typeof name !== 'string' || !name.trim()) {
+          sendApiError(res, apiError('contract', 'Invalid user name'));
+          return;
+        }
+        sendJson(res, 201, { ok: true, user: await createUser(db, name.trim()) });
+        return;
+      }
 
       if (path === '/api/sources' && req.method === 'POST') {
         const body = await readJson(req);
