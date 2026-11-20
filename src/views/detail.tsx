@@ -173,17 +173,11 @@ export function RawDetailView({
 
       <Block title={t('detail.rawContent')} tag={<SemTag kind="original" />}>
         <div className={styles.rawContent}>{item.fields.content_text ?? t('detail.noText')}</div>
-        <div className={styles.hint}>{t('detail.rawHint')}</div>
       </Block>
 
       {tags ? <Block title={t('overview.metaTags')}>{tags}</Block> : null}
 
-      {/* P2: empty relation blocks collapse into one-line summary */}
-      {referencedBy.length === 0 && inContexts.length === 0 ? (
-        <div className={styles.relationSummary}>
-          {t('detail.relationsNote')} · {t('detail.noRefs')} · {t('detail.noContexts')}
-        </div>
-      ) : (
+      {referencedBy.length === 0 && inContexts.length === 0 ? null : (
         <>
           <Block title={t('detail.referencedBy')}>
             {referencedBy.length === 0 ? (
@@ -195,7 +189,6 @@ export function RawDetailView({
                 {r.note ? <span className={styles.refNote}>{r.note}</span> : null}
               </div>
             ))}
-            {referencedBy.length > 0 ? <div className={styles.hint}>{t('detail.stanceHint')}</div> : null}
           </Block>
 
           <Block title={t('detail.inContexts')}>
@@ -405,7 +398,6 @@ export function ClusterDetailView({
             <span className={styles.kvValue}>{detail.description || '—'}</span>
           </div>
         </div>
-        <div className={styles.hint}>{t('detail.clusterNote')}</div>
       </Block>
 
       <Block title={t('detail.members')}>
@@ -436,7 +428,6 @@ export function ClusterDetailView({
             if (picker?.value) { onAdd(picker.value); picker.value = ''; }
           }}>Add</Button>
         </div>
-        <div className={styles.hint}>{t('detail.multiHomeHint')}</div>
       </Block>
 
       <Block title={t('detail.sharing')}>
@@ -460,7 +451,6 @@ export function ClusterDetailView({
             <button type="button" className={styles.removeButton} onClick={() => void onRevoke(s.user_id)}>{t('detail.revoke')}</button>
           </div>
         ))}
-        <div className={styles.hint}>{t('detail.auditHint')}</div>
       </Block>
     </DetailShell>
   );
@@ -532,7 +522,6 @@ export function ContextDetailView({
             if (picker?.value) { onAdd(picker.value); picker.value = ''; }
           }}>Add</Button>
         </div>
-        <div className={styles.hint}>{t('detail.explicitOnly')}</div>
       </Block>
     </DetailShell>
   );

@@ -1,4 +1,4 @@
-export const SOURCE_KINDS = ['github', 'notion', 'drive', 'x'] as const;
+export const SOURCE_KINDS = ['web', 'rss', 'file', 'github', 'notion', 'drive', 'x'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 export const SOURCE_STATUSES = ['connected', 'paused', 'error'] as const;

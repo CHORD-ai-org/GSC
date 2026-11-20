@@ -3,11 +3,11 @@
 .brandName{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.14em}
 
 .group{margin-bottom:18px}
-.groupLabel{font-size:10px;line-height:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:0 10px;margin-bottom:6px}
+.groupLabel{font-size:9.5px;line-height:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);padding:3px 10px;margin:0 0 8px;display:inline-block;border-radius:999px;background:color-mix(in srgb, var(--hue-2) 16%, transparent);align-self:flex-start}
 
-.navItem{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink-2);border-radius:var(--radius-sm);padding:7px 10px;font:inherit;font-size:13px;text-align:left;cursor:pointer}
-.navItem:hover{background:var(--tint-hover);color:var(--ink)}
-.navItem.active{background:var(--tint-sel);color:var(--ink);font-weight:600}
+.navItem{width:100%;display:flex;align-items:center;gap:10px;border:0;background:var(--fill-1);color:var(--ink);border-radius:var(--radius-lg);padding:8px 12px;font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:transform .12s,filter .12s}
+.navItem:hover{transform:translateX(2px);filter:brightness(1.03);color:var(--ink)}
+.navItem.active{background:var(--accent);color:var(--on-accent);font-weight:650}
 .navItem svg{flex:none;opacity:.75}
 .navItem.active svg{opacity:1}
 
@@ -15,7 +15,7 @@
 
 /* Composer (spec: Ask anything / Ask·Agent·Edit / Local ▾ / Deepseek·Rym ▾ / mic / submit) */
 .composerWrap{width:min(720px,92%);margin:0 auto;position:relative}
-.composer{background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:14px 16px 12px}
+.composer{background:var(--fill-3);border:1px solid transparent;border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:16px 18px 14px}
 .composerInput{width:100%;border:0;outline:none;resize:none;background:transparent;font:inherit;font-size:14px;line-height:22px;color:var(--ink);min-height:56px}
 .composerInput::placeholder{color:var(--ink-3)}
 .composerRow{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -26,9 +26,9 @@
 .pill.on{background:var(--pill-on);color:var(--ink);font-weight:600;box-shadow:var(--shadow-pill)}
 
 .chip{position:relative}
-.chipButton{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--ink-2);border-radius:var(--radius-sm);padding:5px 8px;font:inherit;font-size:12px;cursor:pointer}
+.chipButton{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--ink-2);border-radius:999px;padding:5px 8px;font:inherit;font-size:12px;cursor:pointer}
 .chipButton:hover{background:var(--tint-hover);color:var(--ink)}
-.chipMenu{position:absolute;bottom:calc(100% + 6px);left:0;min-width:132px;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow-card);padding:4px;z-index:20}
+.chipMenu{position:absolute;bottom:calc(100% + 6px);left:0;min-width:132px;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:4px;z-index:20}
 .chipOption{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:transparent;color:var(--ink);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;text-align:left;cursor:pointer}
 .chipOption:hover{background:var(--tint-hover)}
 .chipOption .tickMark{color:var(--ink-3);font-family:var(--mono);font-size:10px}
@@ -41,25 +41,33 @@
 
 /* Command bar (canvas window: 搜索或输入操作 / + / panel) */
 .commandBar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
-.commandInput{flex:1;display:flex;align-items:center;gap:8px;background:var(--pill-track);border-radius:var(--radius-sm);padding:8px 12px;color:var(--ink-3)}
+.commandInput{flex:1;display:flex;align-items:center;gap:8px;background:var(--pill-track);border-radius:999px;padding:8px 12px;color:var(--ink-3)}
 .commandInput input{flex:1;border:0;outline:none;background:transparent;font:inherit;font-size:13px;color:var(--ink)}
 .commandInput input::placeholder{color:var(--ink-3)}
-.commandButton{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);background:var(--bg-card);border-radius:var(--radius-sm);color:var(--ink-2);cursor:pointer}
+.commandButton{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);background:var(--bg-card);border-radius:12px;color:var(--ink-2);cursor:pointer}
 .commandButton:hover{color:var(--ink);border-color:var(--line-strong)}
 .commandButton.on{background:var(--tint-sel);color:var(--ink)}
 .chipOption{justify-content:flex-start}
 .chipOption .tickMark{margin-left:auto}
 .chipOptionText{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
 .chipOptionDesc{font-size:10.5px;color:var(--ink-3);line-height:14px}
-.slashMenu{position:absolute;bottom:calc(100% + 6px);left:0;right:0;z-index:40;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow-card);padding:4px;display:flex;flex-direction:column}
+.slashMenu{position:absolute;bottom:calc(100% + 6px);left:0;right:0;z-index:40;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:4px;display:flex;flex-direction:column}
 .slashItem{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;text-align:left;padding:8px 10px;border-radius:6px;cursor:pointer}
 .slashItem:hover{background:var(--tint-hover)}
 .slashLabel{font-family:var(--mono);font-size:11px;min-width:72px}
 .slashDesc{color:var(--ink-2);font-size:11.5px}
-.userChip{display:flex;align-items:center;gap:10px;width:100%;border:1px solid transparent;background:transparent;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;font:inherit;text-align:left;color:var(--ink)}
+.userChip{display:flex;align-items:center;gap:10px;width:100%;border:1px solid transparent;background:var(--fill-4);border-radius:var(--radius-lg);padding:9px 12px;cursor:pointer;font:inherit;text-align:left;color:var(--ink)}
 .userChip:hover{background:var(--tint-hover);border-color:var(--line)}
 .userChip.active{background:var(--tint-sel)}
 .userAvatar{width:28px;height:28px;flex:none;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-size:12px;font-weight:650}
 .userChipText{display:flex;flex-direction:column;min-width:0}
 .userChipName{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .userChipSub{font-size:10px;color:var(--ink-3)}
+
+/* Color-block rotation for nav items */
+.navItem:nth-of-type(6n+1){background:var(--fill-1)}
+.navItem:nth-of-type(6n+2){background:var(--fill-2)}
+.navItem:nth-of-type(6n+3){background:var(--fill-3)}
+.navItem:nth-of-type(6n+4){background:var(--fill-4)}
+.navItem:nth-of-type(6n+5){background:var(--fill-5)}
+.navItem:nth-of-type(6n+6){background:var(--fill-6)}

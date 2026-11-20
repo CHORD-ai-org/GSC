@@ -84,7 +84,6 @@ export function NewsAdmin() {
     <div>
       <div className={styles.settingBlock}>
         <div className={styles.settingCaption}>{t('newsAdmin.list')}</div>
-        <p className={styles.hint} style={{ margin: '0 0 10px' }}>{t('newsAdmin.desc')}</p>
         {items.length === 0 ? (
           <div className={styles.hint}>{t('newsAdmin.empty')}</div>
         ) : (

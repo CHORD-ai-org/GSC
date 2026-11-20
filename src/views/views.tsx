@@ -14,10 +14,13 @@ const SOURCE_BRANDS: { kind: SourceKind; brand: BrandKind; descKey: string }[] =
   { kind: 'notion', brand: 'notion', descKey: 'sync.cardNotion' },
   { kind: 'drive', brand: 'googledrive', descKey: 'sync.cardDrive' },
   { kind: 'x', brand: 'x', descKey: 'sync.cardX' },
+  { kind: 'web', brand: 'web', descKey: 'sync.cardWeb' },
+  { kind: 'rss', brand: 'rss', descKey: 'sync.cardRss' },
+  { kind: 'file', brand: 'file', descKey: 'sync.cardFile' },
 ];
 
-const BRAND_OF: Record<SourceKind, BrandKind> = { github: 'github', notion: 'notion', drive: 'googledrive', x: 'x' };
-const BRAND_LABEL_OF: Record<SourceKind, string> = { github: 'GitHub', notion: 'Notion', drive: 'Google Drive', x: 'X' };
+const BRAND_OF: Record<SourceKind, BrandKind> = { github: 'github', notion: 'notion', drive: 'googledrive', x: 'x', web: 'web', rss: 'rss', file: 'file' };
+const BRAND_LABEL_OF: Record<SourceKind, string> = { github: 'GitHub', notion: 'Notion', drive: 'Google Drive', x: 'X', web: 'Web', rss: 'RSS', file: 'File' };
 
 export function SyncView({
   sources,
@@ -54,21 +57,17 @@ export function SyncView({
   return (
     <div className={styles.page}>
       <h1 className={styles.pageTitle}>{t('sync.title')}</h1>
-      <p className={styles.pageSub}>{t('sync.sub')}</p>
 
       <div className={styles.section}>
         <h2 className={styles.blockTitle}>{t('sync.wallTitle')}</h2>
-        <p className={styles.hint} style={{ margin: '0 0 12px' }}>{t('sync.wallSub')}</p>
         <div className={styles.brandWall}>
           {SOURCE_BRANDS.map((b) => (
             <button key={b.kind} type="button" className={styles.brandCard} onClick={() => setConnectKind(b.kind)}>
               <BrandLogo kind={b.brand} size={28} />
               <span className={styles.brandName}>{BRAND_LABEL_OF[b.kind]}</span>
-              <span className={styles.brandDesc}>{t(b.descKey)}</span>
             </button>
           ))}
         </div>
-        <div className={styles.hint} style={{ marginTop: 10 }}>{t('sync.v1Only')}</div>
       </div>
 
       {error ? <div className={styles.hint} style={{ color: 'var(--error)' }}>{error}</div> : null}
@@ -109,25 +108,21 @@ export function SyncView({
       {/* Export section — same page as sync (合并「导出」与「同步」) */}
       <div className={styles.section}>
         <h2 className={styles.blockTitle}>{t('export.title')}</h2>
-        <p className={styles.hint} style={{ margin: '0 0 12px' }}>{t('export.sub')}</p>
         <div className={styles.countLine}>items: {itemCount} · contexts: {contextCount}</div>
         <div className={styles.exportGrid}>
           <div className={styles.exportCard}>
             <strong>{t('settings.exportFull')}</strong>
             <span className={styles.exportName}>gsc-export.json</span>
-            <span className={styles.exportDesc}>{t('export.fullDesc')}</span>
             <button type="button" className={styles.downloadButton} onClick={onExportJson} disabled={busy}>{t('common.download')}</button>
           </div>
           <div className={styles.exportCard}>
             <strong>{t('settings.exportMd')}</strong>
             <span className={styles.exportName}>gsc-bundle.md</span>
-            <span className={styles.exportDesc}>{t('export.mdDesc')}</span>
             <button type="button" className={styles.downloadButton} onClick={onExportMarkdown} disabled={busy}>{t('common.download')}</button>
           </div>
           <div className={styles.exportCard}>
             <strong>{t('settings.exportAgent')}</strong>
             <span className={styles.exportName}>GSC-CONTEXT.md</span>
-            <span className={styles.exportDesc}>{t('export.agentDesc')}</span>
             <button type="button" className={styles.downloadButton} onClick={onExportAgent} disabled={busy}>{t('common.download')}</button>
           </div>
         </div>
@@ -269,7 +264,6 @@ function ConnectPanel({
           <button type="button" className={styles.iconButton} aria-label="close" onClick={onClose}>✕</button>
         </div>
         <div className={styles.panelBody}>
-          <div className={styles.stepLabel}>{t('sync.step1')}</div>
           <input
             className={styles.settingInput}
             placeholder={kind === 'github' ? t('sync.repoPlaceholder') : t('sync.labelPlaceholder')}
@@ -277,14 +271,12 @@ function ConnectPanel({
             onChange={(e) => setLabel(e.target.value)}
             autoFocus
           />
-          <div className={styles.stepLabel}>{t('sync.step2')}</div>
           <input
             className={styles.settingInput}
             placeholder={t('sync.scopePlaceholder')}
             value={scope}
             onChange={(e) => setScope(e.target.value)}
           />
-          <div className={styles.stepLabel}>{t('sync.step3')}</div>
           <input
             className={styles.settingInput}
             type="password"
@@ -293,7 +285,6 @@ function ConnectPanel({
             onChange={(e) => setToken(e.target.value)}
             autoComplete="off"
           />
-          <div className={styles.hint} style={{ marginTop: 12 }}>{t('sync.v1Only')}</div>
         </div>
         <div className={styles.panelFoot}>
           <button type="button" className={styles.secondaryButton} onClick={onClose}>{t('common.cancel')}</button>
@@ -387,7 +378,6 @@ export function DocsView() {
   return (
     <div className={styles.page}>
       <h1 className={styles.pageTitle}>{t('docs.title')}</h1>
-      <p className={styles.pageSub}>{t('docs.sub')}</p>
 
       <nav className={styles.docsToc}>
         <a href="#doc-what">{t('docs.whatIs')}</a>

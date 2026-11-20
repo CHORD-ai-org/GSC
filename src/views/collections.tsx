@@ -5,7 +5,7 @@ import type { ItemDTO } from '../lib/items.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import type { ClusterIndexEntry } from './detail.tsx';
 import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
-import { EmptyState, KeyHintBar } from '../components/ui.tsx';
+import { EmptyState } from '../components/ui.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
 import { useWindowed } from '../lib/useWindowed.ts';
@@ -142,7 +142,6 @@ export function RawCollection({
         count={rows.length}
         action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>}
       />
-      <p className={styles.pageSub}>{t('raw.sub')}</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('raw.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <select className={styles.select} value={type} onChange={(e) => setType(e.target.value)}>
@@ -199,7 +198,6 @@ export function RawCollection({
         </>
       )}
       <div ref={sentinelRef} style={{ height: 1 }} />
-      <KeyHintBar />
     </div>
   );
 }
@@ -244,7 +242,6 @@ export function ObjectCollection({
         count={rows.length}
         action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.create')}</button>}
       />
-      <p className={styles.pageSub}>{t('obj.sub')}</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('obj.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         {tagDimOptions && tagDimOptions.length > 0 ? (
@@ -304,7 +301,6 @@ export function ObjectCollection({
         </>
       )}
       <div ref={sentinelRef} style={{ height: 1 }} />
-      <KeyHintBar />
     </div>
   );
 }
@@ -333,7 +329,6 @@ export function ClusterCollection({
         count={rows.length}
         action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>}
       />
-      <p className={styles.pageSub}>{t('clu.subFixed')}</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('clu.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <ViewToggle mode={view} onChange={setView} />
@@ -372,7 +367,6 @@ export function ClusterCollection({
           </div>
         </>
       )}
-      <KeyHintBar />
     </div>
   );
 }
@@ -401,7 +395,6 @@ export function ContextCollection({
         count={rows.length}
         action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('ctx.new')}</button>}
       />
-      <p className={styles.pageSub}>{t('ctx.sub')}</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('ctx.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <ViewToggle mode={view} onChange={setView} />
@@ -440,7 +433,6 @@ export function ContextCollection({
           </div>
         </>
       )}
-      <KeyHintBar />
     </div>
   );
 }

@@ -57,13 +57,8 @@ export function StartView({
       <NewsPanel />
       <GscLogo height={64} className={styles.overviewLogo} />
       {empty ? (
-        <>
-          <h1 className={styles.valueTitle}>{t('start.valueTitle')}</h1>
-          <p className={styles.valueSub}>{t('start.valueSub')}</p>
-        </>
-      ) : (
-        <p className={styles.overviewQuestion}>{t('start.question')}</p>
-      )}
+        <h1 className={styles.valueTitle}>{t('start.valueTitle')}</h1>
+      ) : null}
       <div className={styles.overviewComposer}>
         <Composer onSubmit={onSubmit} llmConfig={llmConfig} />
       </div>
@@ -165,7 +160,6 @@ export function OverviewPage({
       <div className={styles.headRow}>
         <div>
           <h1 className={styles.pageTitle}>{t('nav.overview')}</h1>
-          <p className={styles.pageSub}>{t('overview.sub')}</p>
         </div>
         <button type="button" className={styles.primaryButton} onClick={onNew}>+ {t('common.new')}</button>
       </div>
@@ -397,7 +391,6 @@ export function RecentlyPage({
   return (
     <div className={styles.page}>
       <h1 className={styles.pageTitle}>{t('nav.recently')}</h1>
-      <p className={styles.pageSub}>{t('recently.sub')}</p>
 
       {dayFilter ? (
         <div className={styles.tabRow}>
@@ -491,7 +484,6 @@ function TrashPanel() {
   return (
     <div className={styles.settingBlock}>
       <div className={styles.settingCaption}>{t('trash.title')}</div>
-      <p className={styles.hint} style={{ margin: '0 0 8px' }}>{t('trash.desc')}</p>
       {items.length === 0 ? (
         <div className={styles.hint}>{t('trash.empty')}</div>
       ) : items.map((item) => (
@@ -579,7 +571,6 @@ export function SettingsPage({
         {section === 'general' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.general')}</h1>
-            <p className={styles.pageSub}>{t('settings.generalSub')}</p>
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>{t('settings.workspaceName')}</div>
               <input
@@ -666,7 +657,6 @@ export function SettingsPage({
         ) : section === 'account' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.account')}</h1>
-            <p className={styles.pageSub}>{t('settings.accountSub')}</p>
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>{t('settings.workspace')}</div>
               <div className={styles.settingValue}>{prefs.workspaceName}</div>
@@ -675,12 +665,10 @@ export function SettingsPage({
               <div className={styles.settingCaption}>{t('settings.provider')}</div>
               <div className={styles.settingValue}>{t('settings.providerLine', { provider: prefs.provider, model: prefs.defaultModel })}</div>
             </div>
-            <div className={styles.hint}>{t('settings.accountHint')}</div>
           </>
         ) : section === 'data' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.data')}</h1>
-            <p className={styles.pageSub}>{t('settings.dataSub')}</p>
             <div className={styles.countLine}>items: {itemCount} · contexts: {contextCount}</div>
             <div className={styles.exportGrid}>
               <div className={styles.exportCard}>
@@ -704,19 +692,16 @@ export function SettingsPage({
         ) : section === 'connections' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
-            <p className={styles.pageSub}>{t('settings.connectionsSub')}</p>
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
               <div className={styles.settingValue}>{t('settings.connClaude')}</div>
             </div>
-            <div className={styles.hint}>{t('settings.connHint')}</div>
           </>
         ) : section === 'model' ? (
           <ModelSection llmConfig={llmConfig} onSave={onSaveLlm} onCheck={onCheckLlm} />
         ) : section === 'tags' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.tags')}</h1>
-            <p className={styles.pageSub}>{t('settings.tagsSub')}</p>
             {tagDefinitions.map((d) => (
               <div className={styles.settingBlock} key={d.id}>
                 <div className={styles.settingCaption}>{d.name.toUpperCase()}</div>
@@ -765,18 +750,15 @@ export function SettingsPage({
         ) : section === 'news' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.news')}</h1>
-            <p className={styles.pageSub}>{t('settings.newsSub')}</p>
             <NewsAdmin />
           </>
         ) : (
           <>
             <h1 className={styles.pageTitle}>{t('settings.privacy')}</h1>
-            <p className={styles.pageSub}>{t('settings.privacySub')}</p>
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>{t('settings.storage')}</div>
               <div className={styles.settingValue}>{t('settings.storageValue')}</div>
             </div>
-            <div className={styles.hint}>{t('settings.visitHint')}</div>
           </>
         )}
       </div>
@@ -887,7 +869,6 @@ function ModelSection({
   return (
     <>
       <h1 className={styles.pageTitle}>{t('settings.model')}</h1>
-      <p className={styles.pageSub}>{t('model.sub')}</p>
 
       <div className={styles.settingBlock}>
         <div className={styles.settingCaption}>{t('model.providerPick')}</div>
@@ -901,7 +882,6 @@ function ModelSection({
             >
               {p.brand ? <BrandLogo kind={p.brand} size={22} /> : <span className={styles.providerGlyph}>⚙</span>}
               <span className={styles.providerName}>{t(p.labelKey)}</span>
-              <span className={styles.providerDesc}>{t(p.descKey)}</span>
             </button>
           ))}
         </div>
@@ -957,7 +937,6 @@ function ModelSection({
             autoComplete="off"
           />
         )}
-        <div className={styles.hint} style={{ marginTop: 6 }}>{t('model.keyHint')}</div>
       </div>
 
       <div className={styles.settingRow}>
@@ -969,9 +948,6 @@ function ModelSection({
       {checkLine ? (
         <div className={`${styles.checkLine} ${checkLine.startsWith('✓') ? styles.checkOk : styles.checkFail}`}>{checkLine}</div>
       ) : null}
-      <div className={styles.hint} style={{ marginTop: 14 }}>
-        {t('model.current', { base: llmConfig?.base_url ?? '—', model: llmConfig?.model ?? '—', key: llmConfig?.key_set ? t('model.keyConfigured') : t('model.keyMissing') })}
-      </div>
     </>
   );
 }
@@ -1012,7 +988,6 @@ export function UserView({
         <span className={styles.userHeroAvatar} aria-hidden="true">{initial}</span>
         <div>
           <h1 className={styles.pageTitle}>{prefs.workspaceName}</h1>
-          <p className={styles.pageSub}>{t('user.sub')}</p>
         </div>
       </div>
 
@@ -1105,7 +1080,6 @@ export function UserView({
       {profileBlock ? (
         <div className={styles.section}>
           <SectionLabel title={t('user.profile')} />
-          <p className={styles.hint} style={{ margin: '0 0 10px' }}>{t('user.profileHint')}</p>
           {profileBlock}
         </div>
       ) : null}

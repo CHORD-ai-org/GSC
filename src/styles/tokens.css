@@ -28,10 +28,27 @@
   --sem-confirmed:#16A34A;
   --sem-machine:#9333EA;
   --sem-alert:#DC2626;
-  --radius-sm:8px;
-  --radius-lg:16px;
+  --radius-sm:13px;
+  --radius-lg:22px;
+  --radius-xl:30px;
+  --radius-pill:999px;
   --ui:'Inter Variable',system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+  /* Color-block palette (UI_COLORBLOCK_REFACTOR): big rounded colour blocks.
+     --hue-N = saturated accent; --fill-N = soft tinted block surface that
+     adapts to theme via color-mix on --bg-surface. */
+  --hue-1:#4F7DFF;
+  --hue-2:#7C63FF;
+  --hue-3:#17C3C3;
+  --hue-4:#EC4899;
+  --hue-5:#F5A623;
+  --hue-6:#2FBF71;
+  --fill-1:color-mix(in srgb, #4F7DFF 22%, var(--bg-surface));
+  --fill-2:color-mix(in srgb, #7C63FF 22%, var(--bg-surface));
+  --fill-3:color-mix(in srgb, #17C3C3 22%, var(--bg-surface));
+  --fill-4:color-mix(in srgb, #EC4899 20%, var(--bg-surface));
+  --fill-5:color-mix(in srgb, #F5A623 24%, var(--bg-surface));
+  --fill-6:color-mix(in srgb, #2FBF71 22%, var(--bg-surface));
   /* Brand colors (P0 INTERACTION_UX_PLAN): monochrome-tintable, theme-aware */
   --brand-github:#181717;
   --brand-notion:#191919;

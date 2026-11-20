@@ -88,7 +88,6 @@ export function Composer({
           {slashMatches.map((cmd) => (
             <button key={cmd.id} type="button" className={styles.slashItem} onClick={() => applySlash(cmd)}>
               <span className={styles.slashLabel}>{cmd.label}</span>
-              <span className={styles.slashDesc}>{cmd.desc}</span>
             </button>
           ))}
         </div>
@@ -152,7 +151,6 @@ export function Composer({
                   {realBrand ? <BrandLogo kind={realBrand} size={14} /> : <span style={{ width: 14 }} />}
                   <span className={styles.chipOptionText}>
                     {realModel}
-                    <span className={styles.chipOptionDesc}>{llmConfig?.base_url ?? '—'}</span>
                   </span>
                   <span className={styles.tickMark}>生效中</span>
                 </div>
@@ -161,7 +159,6 @@ export function Composer({
                     <span style={{ width: 14 }} />
                     <span className={styles.chipOptionText}>
                       {m.id}
-                      <span className={styles.chipOptionDesc}>{t(m.descKey)} · 在设置中切换</span>
                     </span>
                   </button>
                 ))}

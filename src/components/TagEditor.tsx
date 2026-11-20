@@ -94,7 +94,6 @@ export function TagEditor({
           </button>
         </div>
       ) : null}
-      <div className={styles.hint}>{t('tags.scopeHint')}</div>
     </div>
   );
 }

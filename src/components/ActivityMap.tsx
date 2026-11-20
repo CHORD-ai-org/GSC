@@ -41,7 +41,6 @@ export function ActivityMap({ cells, onPickDay }: { cells: DayCell[]; onPickDay:
         <SemTag kind="original" label={t('activity.added')} />
         <SemTag kind="confirmed" label={t('activity.modified')} />
         <SemTag kind="machine" label={t('activity.pending')} />
-        <span className={styles.hint}>{t('activity.hint')}</span>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import styles from './brand.module.css';
 
 /* P0 INTERACTION_UX_PLAN: real third-party logos (public/brands/*.svg).
    Monochrome SVGs tinted by per-brand CSS variables — theme-aware. */
-export type BrandKind = 'github' | 'notion' | 'googledrive' | 'x' | 'mimo' | 'deepseek'
+export type BrandKind = 'github' | 'notion' | 'googledrive' | 'x' | 'web' | 'rss' | 'file' | 'mimo' | 'deepseek'
   | 'openai' | 'claude' | 'gemini' | 'kimi' | 'qwen' | 'zhipu' | 'grok';
 
 export const BRAND_LABELS: Record<BrandKind, string> = {
@@ -10,6 +10,9 @@ export const BRAND_LABELS: Record<BrandKind, string> = {
   notion: 'Notion',
   googledrive: 'Google Drive',
   x: 'X',
+  web: 'Web',
+  rss: 'RSS',
+  file: 'File',
   mimo: 'Xiaomi MiMo',
   deepseek: 'DeepSeek',
   openai: 'OpenAI',
