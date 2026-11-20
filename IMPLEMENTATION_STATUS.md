@@ -403,6 +403,52 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 
 Dot-grid background is now **empty at rest**: nothing renders until the pointer moves inside the window, only the cells around the cursor fade in (smoothstep falloff within a quality-dependent radius), and the effect fades out after ~2.2s idle or when the pointer leaves. Verified via CDP with `Input.dispatchMouseEvent`: `anim-1-rest.png` (clean background) and `anim-2-hover.png` (localized dash cluster around the cursor only).
 
+### Light Up UX redesign (2026-11-20, D-071/D-072)
+
+| File | Change |
+|---|---|
+| `src/views/lightup.tsx` | rewritten as `LightUpStudio`: Capture→Understand→Shape→Curate→Illuminate with stage kicker |
+| `src/components/SemanticObjectSheet.tsx` | new — Semantic Object Sheet (prominent semantic name, provenance, original excerpt, pending tags, curation actions) |
+| `src/views/lightup.module.css` | new — editorial typography system (Quiet Intelligence × Editorial Craft) |
+| `src/lib/lightup.ts` | `Segment` gains offset spans + `nameOrigin`; `mergeSegments`/`splitSegment` |
+| `src/app/App.tsx` | `persistSegments` returns `{created, failed}` with per-item isolation; pending tags → `/api/tags/values` on persist |
+| `server/router.ts`, `vite.config.ts` | CORS same-origin fix (D-072): Origin===Host allowed; vite proxy `changeOrigin:false` |
+| docs | `LIGHT_UP_CURRENT_STATE.md`, `LIGHT_UP_UX_VISION.md`, `LIGHT_UP_INTERACTION_SPEC.md`, `LIGHT_UP_IMPLEMENTATION_PLAN.md` |
+
+### Light Up checks (2026-11-20)
+
+| Check | Method | Result |
+|---|---|---|
+| Tests / build | `npm test` / `npm run build` | 71 pass (+1 CORS regression), build ok |
+| Full flow | CDP capture `lu-1…lu-9` | Capture(drag/URL banner) → Understand stages → Shape(3 sheets) → Source highlight → Overview → bulk accept → Illuminate(3 created) |
+| Persistence | API query after flow | 3 chunks persisted with titles/types/source_label |
+| Narrow viewport | 720×900 capture `lu-9` | layout stacks cleanly, no clipping |
+| CORS bug | D-072 regression test + live browser fetch | same-origin POST now 201 (was 403) |
+
+### GLOBAL_OPTIMIZATION M1 — backend hardening (2026-11-20)
+
+| File | Change |
+|---|---|
+| `src/lib/api.ts` | error kinds +401/403/405/413/429 mappings; `INPUT_LIMITS` |
+| `server/http.ts` | `ApiFailure` typed throws; malformed JSON → 400, oversized body → 413; security headers on every response |
+| `server/router.ts` | auth 401/403; 405 + `Allow` route table; CORS allowlist + preflight; rate-limit gate |
+| `server/ratelimit.ts` (+test) | token-bucket: write 60/min, ingest 10/min, agent 5/min |
+| `server/ingest/ssrf.ts` (+test), `html.ts` | SSRF guard: address classification, DNS check, per-hop redirect re-validation |
+| `server/repo/{items,proposals}.ts` | multi-write operations wrapped in drizzle transactions (O1-4) |
+| `server/storage/secrets.ts` (+test) | AES-256-GCM at rest, keyfile/`GSC_SECRETS_KEY`, legacy plaintext migration |
+| `server/agent/detector.ts` | `planComparisons` inverted-index candidate gate (O5-2) |
+| `API_CONTRACT.md` | error table + cross-cutting semantics documented |
+
+### M1 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Tests | `npm test` | 67 pass (+18 hardening) |
+| Eval probes | `eval-probe.mjs` live | 15/15 (malformed JSON now 400) |
+| Rate limit | 13 rapid ingest posts | 10 pass-through → 429 + `Retry-After: 5` |
+| Security headers | curl -D | nosniff / DENY / no-referrer present |
+| Secrets at rest | secrets.test.ts | ciphertext only on disk; wrong key fails closed |
+
 ### PLAN-8 checks (2026-11-20)
 
 | Check | Command / method | Result |

@@ -1,6 +1,6 @@
 # GLOBAL_OPTIMIZATION_PLAN.md — 全局优化计划（目标：后端可直接商用）
 
-> Status: `PROPOSED` — 2026-11-20 · 输入：`EVAL_PLAN_EXECUTION.md`（4.0/5，P1×3 + P2×6）+ 代码现状实测
+> Status: `M1 EXECUTED` — 2026-11-20（O1-1…O1-7 + O5-2，D-068…D-070 裁决）· 输入：`EVAL_PLAN_EXECUTION.md`（4.0/5，P1×3 + P2×6）+ 代码现状实测
 > 原则：**先证据后动手** —— 每个任务卡带「现状证据 / 改什么 / 验收」三段；不空想需求。
 
 ---
@@ -73,6 +73,21 @@
 | **O5-5 压测** | 无 | k6/autocannon 基线脚本（读写混合） | 报告：吞吐/延迟分位入库 |
 
 ---
+
+## 5.1 执行记录（2026-11-20，M1）
+
+| 任务 | 状态 | 证据 |
+|---|---|---|
+| O1-1 错误语义 | ✅ | 401/403/405+Allow/400/413 入契约；eval-probe 15/15；router.test 5 新用例 |
+| O1-2 输入限额 | ✅ | INPUT_LIMITS 常量 + 全部校验器；600 字标题 → 400 |
+| O1-3 SSRF 防护 | ✅ | `server/ingest/ssrf.ts`：地址分类/DNS 校验/重定向逐跳复检；5 单测 + 路由严格模式测试 |
+| O1-4 事务 | ✅ | createItem / resolveProposalApplying 包 drizzle transaction（67 tests 过） |
+| O1-5 限流 | ✅ | token-bucket（写 60/ingest 10/agent 5 per min）；活体 429 + Retry-After 实测 |
+| O1-6 密钥加密 | ✅ | AES-256-GCM + keyfile/`GSC_SECRETS_KEY`；旧明文兼容迁移；密文落盘实证 |
+| O1-7 CORS/安全头 | ✅ | 白名单 + preflight + nosniff/DENY/no-referrer；活体验证 |
+| O5-2 Detector 预筛 | ✅ | planComparisons 倒排索引 + 高频 token 剪枝；2 单测 |
+
+未做（M2+）：O2-*、O3-*、O4-*、O5-1/3/4/5。
 
 ## 6. 里程碑与顺序
 

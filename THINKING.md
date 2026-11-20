@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-20
 > Standing instruction: read this file before every answer in this workspace.
-> Status: `GLOBAL_OPTIMIZATION_PLAN.md` 已制定（PROPOSED，O1–O5 / M1–M4，后端商用化优先）。等用户答 3 个待决策后开工 M1。
+> Status: Light Up UX 重设计已交付（Studio 五阶段 + Semantic Object Sheet，D-071/D-072，71 tests）。GLOBAL_OPTIMIZATION M2（可观测+CI）待开工。
 
 ## User approvals received 2026-11-16
 

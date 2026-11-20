@@ -525,3 +525,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Alternatives:** feature-first continuation (rejected — commercial bar is the ask); big-bang rewrite (rejected — evidence-based incremental tasks).
 - **Consequences:** plan is `PROPOSED`; three open choices (Postgres deployment form, secrets encryption method, CI carrier) gate O2-5/O1-6/O3-3.
 - **Status:** `DECIDED` — 2026-11-20, user instruction "制定全局优化计划" (documentation only; contents stay PROPOSED).
+
+## D-068 — PostgreSQL deployment form for O2-5
+
+- **Decision:** Implement the `DB_ADAPTER=postgres` adapter first and verify against **self-hosted docker** (compose file provided). Managed-hosting selection (Supabase etc.) is deferred until there is a deployment target.
+- **Reasoning:** commercial backend must be Linux-deployable; the adapter is the gating artifact, hosting is an ops choice made later.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行这个计划" (M1 scope; O2-5 lands in M3).
+
+## D-069 — Secrets encryption method
+
+- **Decision:** AES-256-GCM with a master key from `GSC_SECRETS_KEY` env or auto-generated keyfile `.data/secrets.key`; stored format `v1:iv:tag:ciphertext`. Legacy plaintext values keep working (re-encrypted on next write). DPAPI becomes a later Windows-only enhancement.
+- **Reasoning:** the commercial backend targets Linux servers — DPAPI would be Windows-only. AES-GCM + keyfile is portable, testable, and honestly documented as keyfile protection (not HSM).
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行这个计划".
+
+## D-070 — CI carrier
+
+- **Decision:** GitHub Actions workflow (`.github/workflows/ci.yml`: lint + check + test:cover + build + api:check) **plus** a local pre-commit hook doing the same fast checks. Agent environment has no GitHub credentials — the user pushes the workflow.
+- **Reasoning:** matches the repo's git workflow; local hook gives immediate feedback without network.
+- **Status:** `DECIDED` — 2026-11-20, user instruction "开始执行这个计划" (workflow lands in M2 with lint).
+
+## D-071 — Light Up redesign: one Studio, honest provenance, zero backend change
+
+- **Decision:** `LIGHT_UP_UX_VISION.md`/`_INTERACTION_SPEC.md`/`_IMPLEMENTATION_PLAN.md` define the redesign. Capture→Understand→Shape→Curate→Illuminate live in one Studio view (stage kicker). Semantic Object Sheet is the review unit; three states (original/machine/user) are visually distinct via `SemTag`. Segment offsets map chunks back to source text with an honest "no precise source ref" fallback — never faked. Curation (accept/edit/reject/defer/merge/split/bulk) operates on un-persisted rows only; persistence stays the existing per-item `POST /api/items` + `POST /api/tags/values` contracts (D-047 gate preserved). Fast path and manual form unchanged.
+- **Reasoning:** spec requires preserving the governance boundary and backend contracts; merge/split/defer need no new APIs because they act inside the human-review gate. Completion experience (Illuminate) consumes real create responses only.
+- **Alternatives:** wizard with persisted drafts (rejected — invents state); fake source highlight (rejected — spec forbids); LLM segmentation now (rejected — deferred to PLAN-4 C4-1).
+- **Consequences:** `lightup.tsx` rewritten as `LightUpStudio`; `SegmentRow` replaced by `Sheet`; split operates at mid-content paragraph boundary (cursor-accurate split deferred); offsets are session-scoped (not persisted).
+- **Status:** `DECIDED` — 2026-11-20, user Light Up UX Redesign spec.
+
+## D-072 — Same-origin requests carry Origin; CORS gate compares hosts
+
+- **Decision:** The O1-7 CORS gate allows requests whose `Origin` host equals the `Host` header without consulting the allowlist (and without emitting CORS headers). Cross-origin requests still require `GSC_CORS_ORIGINS`. Vite dev proxy keeps `changeOrigin: false` so the browser Host survives.
+- **Reasoning:** browsers send `Origin` on same-origin POSTs; the initial M1-A gate rejected them (surfaced as Light Up persist failing with 403 in the browser while curl probes passed). Regression test added.
+- **Status:** `DECIDED` — 2026-11-20, bug found in Phase 4 verification of the Light Up redesign.

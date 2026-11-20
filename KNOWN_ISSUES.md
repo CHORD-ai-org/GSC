@@ -65,6 +65,20 @@ Rule: `THYLAS_REFERENCE.md` records verified values. Re-check code before reusin
 | Context Space vs View boundary | `CONTEXT_VIEWS.md` |
 | Context persistence | `contexts` and `context_members` tables |
 
+## Light Up redesign — known UX limitations
+
+1. **拆分按内容中部段落边界**（非光标处）——「Split at cursor」为 deferred；语义上仍产生两个诚实的块。
+2. **offset 不持久化**：Source 高亮只在本次审阅会话内有效；入库后详情页无原文定位（模型扩展归 PLAN-5 后续）。
+3. 机器语义名仅 rule/agent 来源提示，非概率化置信度（按 spec 不编造质量分）。
+4. 修复的回归：同源 POST 曾被 CORS 误拒（D-072）—— 已修 + 单测覆盖。
+
+## M1 hardening — documented limitations
+
+1. **限流为单进程内存桶**：多实例部署需共享存储（Redis 等）；X-Forwarded-For 不被信任（需 trust-proxy 配置）。
+2. **SSRF 有 DNS-rebinding TOCTOU 窗口**：resolve-then-fetch；彻底关闭需按解析 IP 定制 fetch agent。
+3. **GSC_INGEST_ALLOW_PRIVATE=1** 是开发/测试逃生舱，生产必须关闭（strict 模式拦环回/私网/元数据地址）。
+4. **密钥是 keyfile 保护而非 HSM**：`.data/secrets.key` 与密文同机；跨机迁移需安全分发密钥。
+
 ## PLAN-8 (Meta Tags + User Profile) — open items
 
 1. **C8-1 未做**：Agent 建议标签值（提案制）与 Detector 缺失/矛盾标签检查。标签赋值目前全人工。
