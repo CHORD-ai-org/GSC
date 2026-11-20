@@ -4,6 +4,8 @@ import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewId } from './Sidebar.tsx';
+import { useLocation, navigate, replace } from '../lib/router.ts';
+import { parsePath, buildPath } from './routes.ts';
 import { CommandPalette } from '../components/CommandPalette.tsx';
 import type { PaletteItem } from '../components/CommandPalette.tsx';
 import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
@@ -77,18 +79,20 @@ function metaFrom(item?: ItemDTO) {
 export default function App() {
   const t = useT();
   const toast = useToast();
-  const [view, setView] = useState<ViewId>('start');
+  const location = useLocation();
+  const route = parsePath(location.pathname, location.search);
+  const [view, setView] = useState<ViewId>(route.view);
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
   const [clusters, setClusters] = useState<ClusterIndexEntry[]>([]);
-  const [clusterId, setClusterId] = useState('');
+  const [clusterId, setClusterId] = useState(route.clusterId ?? '');
   const [relationIndex, setRelationIndex] = useState<Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }>>({});
   const [visits, setVisits] = useState<Record<string, string | undefined>>(() => visitMap());
-  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedId, setSelectedId] = useState<string>(route.itemId ?? '');
   const [detail, setDetail] = useState<ItemDetailResponse | undefined>();
-  const [contextId, setContextId] = useState('');
+  const [contextId, setContextId] = useState(route.contextId ?? '');
   const [panel, setPanel] = useState<Panel>('none');
   const [newType, setNewType] = useState<ItemType>('raw.document');
   const [form, setForm] = useState<Record<string, string>>({});
@@ -100,13 +104,44 @@ export default function App() {
   const [sources, setSources] = useState<SourceDTO[]>([]);
   const [sourceBusy, setSourceBusy] = useState(false);
   const [proposals, setProposals] = useState<ProposalDTO[]>([]);
-  const [recentDay, setRecentDay] = useState('');
+  const [recentDay, setRecentDay] = useState(route.day ?? '');
   const [clusterShares, setClusterShares] = useState<{ user_id: string; name: string; role: 'view' | 'add' }[]>([]);
   const [tagDefinitions, setTagDefinitions] = useState<TagDefinitionDTO[]>([]);
   const [tagValues, setTagValues] = useState<TagValueDTO[]>([]);
   const [llmConfig, setLlmConfig] = useState<LlmPublicConfig | null>(null);
   const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* D-078: URL routing — bidirectional sync. State is seeded from the URL on load
+     (deep links). Back/forward (popstate) re-derives state via `location`. State
+     changes mirror to the URL (history push) so every view is shareable/bookmarkable. */
+  const didInitRef = useRef(false);
+  useEffect(() => {
+    const r = parsePath(location.pathname, location.search);
+    if (r.notFound) return;
+    setView(r.view);
+    setSelectedId(r.itemId ?? '');
+    setContextId(r.contextId ?? '');
+    setClusterId(r.clusterId ?? '');
+    setRecentDay(r.day ?? '');
+  }, [location]);
+
+  useEffect(() => {
+    const now = parsePath(window.location.pathname, window.location.search);
+    if (now.notFound) return;
+    const to = buildPath({ view, itemId: selectedId, contextId, clusterId, day: recentDay });
+    const here = window.location.pathname + window.location.search;
+    if (to === here) {
+      didInitRef.current = true;
+      return;
+    }
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      replace(to);
+    } else {
+      navigate(to);
+    }
+  }, [view, selectedId, contextId, clusterId, recentDay]);
 
   const refresh = useCallback(async () => {
     const result = await api.listItems({});
@@ -933,6 +968,17 @@ export default function App() {
   }
 
   function renderMain() {
+    if (route.notFound) {
+      return (
+        <div className={styles.page}>
+          <h1 className={styles.pageTitle}>404</h1>
+          <p className={styles.pageSub}>{t('notFound.message')}</p>
+          <button type="button" className={styles.primaryButton} onClick={() => navigate('/')}>
+            {t('notFound.home')}
+          </button>
+        </div>
+      );
+    }
     switch (view) {
       case 'start':
         return (

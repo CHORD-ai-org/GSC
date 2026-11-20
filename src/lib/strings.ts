@@ -554,6 +554,8 @@ export const STRINGS: Record<string, StringPair> = {
   'sync.cardWeb': { zh: '任意网页，抓取正文并生成提案', en: 'Any web page — fetch text and generate proposals' },
   'sync.cardRss': { zh: 'RSS/Atom 订阅源，增量拉取条目', en: 'RSS/Atom feed — incremental entries' },
   'sync.cardFile': { zh: '本地 Markdown/文本，导入并分块', en: 'Local Markdown/text — import and segment' },
+  'notFound.message': { zh: '页面不存在或已被移动。', en: 'This page does not exist or has moved.' },
+  'notFound.home': { zh: '返回首页', en: 'Go home' },
   'sync.connectTitle': { zh: '连接 {brand}', en: 'Connect {brand}' },
   'sync.step1': { zh: '第 1 步 · 标识', en: 'Step 1 · Identity' },
   'sync.step2': { zh: '第 2 步 · 范围', en: 'Step 2 · Scope' },
