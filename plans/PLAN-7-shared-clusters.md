@@ -1,6 +1,6 @@
 # PLAN-7 — Shared Clusters 与协作信息空间
 
-Status: `PROPOSED` · 源：`PRODUCT_VISION.md` §9 · 依赖：PLAN-6（授权面）、PLAN-8（可见性治理）· 前置：改 `DESIGN_BOUNDARIES.md` 权限边界并获批
+Status: `A7-1/B7-1 已执行` — 2026-11-20（用户「开始执行07」）。裁决：D-061 本地最小身份（token 绑用户 + owner_id 列）、D-062 用户定向共享 view/add + 即时回收 + 审计、D-063 执行面限 items+clusters。B7-2（edit/admin 档、跨用户 provenance 展示）与 C7-1（分享链接/社区形态）未做。 · 源：`PRODUCT_VISION.md` §9
 
 ## 目标场景
 

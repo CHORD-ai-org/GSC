@@ -367,6 +367,25 @@ The Phase 02 statement above is historical; Phase 03 verification follows.
 | MCP live smoke | `printf jsonrpc \| node server/mcp/index.ts` against live API | init `gsc-mcp`, 6 tools listed, `gsc_list_chunks` returned 9 items via `/api/v1/` |
 | Auth | unit (tokens.test.ts) | read/rw scopes verified; wrong token → null; revoke effective |
 
+### PLAN-7 execution (2026-11-20, A7-1/B7-1)
+
+| File | Change |
+|---|---|
+| `server/persistence/migrations/0005_users_shares.sql`, `schema.ts` | `users` (seeded `usr_local`), `owner_id` on items/clusters, `cluster_shares`, `cluster_share_events` |
+| `server/repo/users.ts` | users CRUD, share grant/revoke + audit rows, `shareFor` |
+| `server/repo/{items,clusters}.ts`, `server/storage/tokens.ts` | owner stamping on create; tokens bind `userId` |
+| `server/router.ts` | viewer resolution; item visibility (owner + shared-cluster members); owner-only mutations; cluster share rules (view/add/owner); `/api/users`, `/api/clusters/:id/shares*` |
+| `src/services/api.ts`, `src/views/detail.tsx`, `src/app/App.tsx` | share panel in ClusterDetailView (invite by user, view/add roles, revoke) |
+| `DESIGN_BOUNDARIES.md` | amendment 2: ownership + cluster sharing in scope (D-061…D-063) |
+
+### PLAN-7 checks (2026-11-20)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Types / build | `npm run check` / `npm run build` | pass |
+| Tests | `npm test` | 47 tests pass (1 new scenario: A shares→B reads member chunk only, private invisible, view cannot mutate/add, revoke instant, audit granted+revoked) |
+| UI | `ui-prototype/shots/15-cluster-detail.png` | Sharing block with user picker, role select, Bob·view row + 回收 verified |
+
 ## 5. Assumptions still unverified
 
 - Docker PostgreSQL container startup (D-026 switched active adapter to PGlite).
