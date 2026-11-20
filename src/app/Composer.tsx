@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ComposerMode, ModelName } from '../lib/prefs.ts';
 import { BrandLogo } from '../components/BrandLogo.tsx';
 import type { BrandKind } from '../components/BrandLogo.tsx';
+import type { LlmPublicConfig } from '../services/api.ts';
 import styles from './shell.module.css';
 import { useT } from '../lib/i18n.tsx';
 
@@ -11,25 +12,43 @@ const MODES: { id: ComposerMode; label: string }[] = [
   { id: 'edit', label: 'Edit' },
 ];
 
-const MODELS: { id: ModelName; brand: BrandKind | null; descKey: string }[] = [
-  { id: 'MiMo', brand: 'mimo', descKey: 'composer.descMimo' },
-  { id: 'Deepseek', brand: 'deepseek', descKey: 'composer.descDeepseek' },
-  { id: 'Rym', brand: null, descKey: 'composer.descRym' },
+/* real-config model chip (P0 UX_OPTIMIZATION_PLAN): read llmConfig instead of fake list */
+function brandOfBase(base: string): BrandKind | null {
+  if (base.includes('xiaomimimo') || base.includes('mimo')) return 'mimo';
+  if (base.includes('deepseek')) return 'deepseek';
+  if (base.includes('openai')) return 'openai';
+  if (base.includes('anthropic')) return 'claude';
+  if (base.includes('googleapis')) return 'gemini';
+  if (base.includes('moonshot')) return 'kimi';
+  if (base.includes('dashscope') || base.includes('qwen')) return 'qwen';
+  if (base.includes('bigmodel') || base.includes('zhipu')) return 'zhipu';
+  if (base.includes('x.ai')) return 'grok';
+  return null;
+}
+
+const SUGGESTIONS: { id: string; descKey: string }[] = [
+  { id: 'mimo-v2.6-pro', descKey: 'composer.descMimo' },
+  { id: 'deepseek-chat', descKey: 'composer.descDeepseek' },
 ];
 
 export function Composer({
   onSubmit,
+  llmConfig,
 }: {
   onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
+  llmConfig?: LlmPublicConfig | null;
 }) {
   const t = useT();
   const [text, setText] = useState('');
   const [mode, setMode] = useState<ComposerMode>('agent');
-  const [model, setModel] = useState<ModelName>('Deepseek');
   const [provider] = useState('Local');
   const [menu, setMenu] = useState<'model' | 'provider' | null>(null);
   const [slashOpen, setSlashOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  /* real configured model (P0): chip shows llmConfig, not a fake list */
+  const realModel = llmConfig?.model ?? '未配置';
+  const realBrand = brandOfBase(llmConfig?.base_url ?? '');
 
   useEffect(() => {
     if (!menu) return;
@@ -44,7 +63,7 @@ export function Composer({
     const trimmed = text.trim();
     if (!trimmed) return;
     setText('');
-    await onSubmit({ text: trimmed, mode, model, provider });
+    await onSubmit({ text: trimmed, mode, model: realModel as ModelName, provider });
   }
 
   /* P4: "/" command menu — quick actions typed from the composer */
@@ -123,22 +142,27 @@ export function Composer({
 
           <div className={styles.chip}>
             <button type="button" className={styles.chipButton} onClick={() => setMenu(menu === 'model' ? null : 'model')}>
-              {MODELS.find((m) => m.id === model)?.brand ? (
-                <BrandLogo kind={MODELS.find((m) => m.id === model)!.brand!} size={14} />
-              ) : null}
-              {model}
+              {realBrand ? <BrandLogo kind={realBrand} size={14} /> : null}
+              {realModel}
               <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6.5L8 10.5l4-4" /></svg>
             </button>
             {menu === 'model' ? (
               <div className={styles.chipMenu}>
-                {MODELS.map((m) => (
-                  <button key={m.id} type="button" className={styles.chipOption} onClick={() => { setModel(m.id); setMenu(null); }}>
-                    {m.brand ? <BrandLogo kind={m.brand} size={14} /> : <span style={{ width: 14 }} />}
+                <div className={styles.chipOption} style={{ cursor: 'default', opacity: .8 }}>
+                  {realBrand ? <BrandLogo kind={realBrand} size={14} /> : <span style={{ width: 14 }} />}
+                  <span className={styles.chipOptionText}>
+                    {realModel}
+                    <span className={styles.chipOptionDesc}>{llmConfig?.base_url ?? '—'}</span>
+                  </span>
+                  <span className={styles.tickMark}>生效中</span>
+                </div>
+                {SUGGESTIONS.map((m) => (
+                  <button key={m.id} type="button" className={styles.chipOption} onClick={() => setMenu(null)}>
+                    <span style={{ width: 14 }} />
                     <span className={styles.chipOptionText}>
                       {m.id}
-                      <span className={styles.chipOptionDesc}>{t(m.descKey)}</span>
+                      <span className={styles.chipOptionDesc}>{t(m.descKey)} · 在设置中切换</span>
                     </span>
-                    <span className={styles.tickMark}>{m.id === model ? 'default' : ''}</span>
                   </button>
                 ))}
               </div>

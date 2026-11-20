@@ -21,6 +21,8 @@ import type { ReactNode } from 'react';
 import { useI18n, useRelativeTime, useT } from '../lib/i18n.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
 import { GridCard } from './collections.tsx';
+import { Glyph } from '../components/Glyph.tsx';
+import type { GlyphKind } from '../components/Glyph.tsx';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
 import type { LlmPublicConfig } from '../services/api.ts';
 import styles from './views.module.css';
@@ -34,11 +36,13 @@ export function StartView({
   onCanvas,
   onOpenFile,
   onLightUp,
+  llmConfig,
 }: {
   onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
   onCanvas: () => void;
   onOpenFile: () => void;
   onLightUp: () => void;
+  llmConfig?: LlmPublicConfig | null;
 }) {
   const t = useT();
   return (
@@ -47,7 +51,7 @@ export function StartView({
       <GscLogo height={64} className={styles.overviewLogo} />
       <p className={styles.overviewQuestion}>{t('start.question')}</p>
       <div className={styles.overviewComposer}>
-        <Composer onSubmit={onSubmit} />
+        <Composer onSubmit={onSubmit} llmConfig={llmConfig} />
       </div>
       <div className={styles.quickActions}>
         <button type="button" className={styles.quickButton} onClick={onLightUp}>
@@ -182,7 +186,7 @@ export function OverviewPage({
             {recent.map((item) => (
               <GridCard
                 key={item.id}
-                glyph={ITEM_GLYPHS[item.type]}
+                glyph={<Glyph kind={item.type} />}
                 typeLabel={ITEM_LABELS[item.type]}
                 title={item.title}
                 time={rt(item.updated_at)}
@@ -194,7 +198,7 @@ export function OverviewPage({
           <div className={styles.list}>
             {recent.map((item) => (
               <button key={item.id} type="button" className={styles.listRow} onClick={() => onOpenItem(item.id)}>
-                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
+                <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
                 <span className={styles.rowTitle}>{item.title}</span>
                 <span className={styles.rowType}>{ITEM_LABELS[item.type]}</span>
                 <span className={styles.rowTime}>{rt(item.updated_at)}</span>
@@ -269,7 +273,7 @@ type RecentRow = {
   key: string;
   title: string;
   tag: string;
-  glyph: string;
+  glyph: GlyphKind;
   at: string;
   visited: boolean;
   open: () => void;
@@ -311,7 +315,7 @@ export function RecentlyPage({
         key: item.id,
         title: item.title,
         tag: ITEM_LABELS[item.type],
-        glyph: ITEM_GLYPHS[item.type],
+        glyph: item.type,
         at,
         visited: useVisit,
         open: () => onOpenItem(item.id),
@@ -327,7 +331,7 @@ export function RecentlyPage({
           key: c.id,
           title: c.title,
           tag: t('common.context'),
-          glyph: 'CTX',
+          glyph: 'context' as GlyphKind,
           at,
           visited: useVisit,
           open: () => onOpenContext(c.id),
@@ -392,7 +396,7 @@ export function RecentlyPage({
               {grouped.get(g)!.map((row) => (
                 <GridCard
                   key={row.key}
-                  glyph={row.glyph}
+                  glyph={<Glyph kind={row.glyph} />}
                   typeLabel={row.tag}
                   title={row.title}
                   time={`${row.visited ? t('recently.visited') : t('recently.modified')} · ${rt(row.at)}`}
@@ -406,14 +410,17 @@ export function RecentlyPage({
         <div className={styles.section} key={g}>
           <SectionLabel title={t(TIME_GROUP_KEYS[g])} count={`${grouped.get(g)!.length}`} />
           <div className={styles.list}>
-            {grouped.get(g)!.map((row) => (
-              <button key={row.key} type="button" className={styles.listRow} onClick={row.open}>
-                <span className={styles.rowGlyph}>{row.glyph}</span>
-                <span className={styles.rowTitle}>{row.title}</span>
-                <span className={styles.rowType}>{row.tag}</span>
-                <span className={styles.rowTime}>{row.visited ? t('recently.visited') : t('recently.modified')} · {rt(row.at)}</span>
-              </button>
-            ))}
+            {grouped.get(g)!.map((row, ri, arr) => {
+              const sameTime = ri > 0 && rt(arr[ri - 1].at) === rt(row.at);
+              return (
+                <button key={row.key} type="button" className={styles.listRow} onClick={row.open}>
+                  <span className={styles.rowGlyph}><Glyph kind={row.glyph} /></span>
+                  <span className={styles.rowTitle}>{row.title}</span>
+                  <span className={styles.rowType}>{row.tag}</span>
+                  <span className={styles.rowTime}>{row.visited ? t('recently.visited') : t('recently.modified')}{sameTime ? '' : ` · ${rt(row.at)}`}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -870,6 +877,114 @@ function ModelSection({
         {t('model.current', { base: llmConfig?.base_url ?? '—', model: llmConfig?.model ?? '—', key: llmConfig?.key_set ? t('model.keyConfigured') : t('model.keyMissing') })}
       </div>
     </>
+  );
+}
+
+/* ── User page: account card + preferences + User Profile (左下角 user 入口) ── */
+
+export function UserView({
+  prefs,
+  onChange,
+  llmConfig,
+  profileBlock,
+  itemCount,
+  contextCount,
+  onOpenSettings,
+}: {
+  prefs: UiPrefs;
+  onChange: (next: UiPrefs) => void;
+  llmConfig?: LlmPublicConfig | null;
+  profileBlock?: ReactNode;
+  itemCount: number;
+  contextCount: number;
+  onOpenSettings: () => void;
+}) {
+  const t = useT();
+  const { lang, setLang } = useI18n();
+  const initial = (prefs.workspaceName.trim()[0] ?? 'G').toUpperCase();
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.userHero}>
+        <span className={styles.userHeroAvatar} aria-hidden="true">{initial}</span>
+        <div>
+          <h1 className={styles.pageTitle}>{prefs.workspaceName}</h1>
+          <p className={styles.pageSub}>{t('user.sub')}</p>
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title={t('user.account')} />
+        <div className={styles.userCardGrid}>
+          <div className={styles.settingBlock}>
+            <div className={styles.settingCaption}>{t('user.workspace')}</div>
+            <input
+              className={styles.settingInput}
+              value={prefs.workspaceName}
+              onChange={(e) => onChange({ ...prefs, workspaceName: e.target.value })}
+            />
+          </div>
+          <div className={styles.settingBlock}>
+            <div className={styles.settingCaption}>{t('settings.provider')}</div>
+            <div className={styles.settingValue}>
+              {llmConfig?.model
+                ? t('user.modelLine', { model: llmConfig.model, base: llmConfig.base_url })
+                : t('model.keyMissing')}
+            </div>
+          </div>
+          <div className={styles.settingBlock}>
+            <div className={styles.settingCaption}>{t('user.storage')}</div>
+            <div className={styles.settingValue}>{t('user.storageValue')}</div>
+            <div className={styles.hint} style={{ marginTop: 6 }}>items: {itemCount} · contexts: {contextCount}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title={t('user.preferences')} />
+        <div className={styles.settingRow}>
+          <div className={styles.settingLabel}>{t('settings.theme')}</div>
+          <div className={styles.qualityRow}>
+            {THEMES.map((m: ThemeMode) => (
+              <button
+                key={m}
+                type="button"
+                className={`${styles.qualityPill} ${prefs.theme === m ? styles.on : ''}`}
+                onClick={() => onChange({ ...prefs, theme: m })}
+              >
+                {m === 'dark' ? 'Dark' : 'Light'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.settingRow}>
+          <div className={styles.settingLabel}>{t('settings.language')}</div>
+          <div className={styles.qualityRow}>
+            {(['zh', 'en'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`${styles.qualityPill} ${lang === l ? styles.on : ''}`}
+                onClick={() => setLang(l)}
+              >
+                {l === 'zh' ? '中文' : 'English'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.settingRow}>
+          <button type="button" className={styles.secondaryButton} onClick={onOpenSettings}>{t('user.openSettings')}</button>
+        </div>
+      </div>
+
+      {profileBlock ? (
+        <div className={styles.section}>
+          <SectionLabel title={t('user.profile')} />
+          <p className={styles.hint} style={{ margin: '0 0 10px' }}>{t('user.profileHint')}</p>
+          {profileBlock}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

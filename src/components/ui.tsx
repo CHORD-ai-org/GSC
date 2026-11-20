@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../lib/i18n.tsx';
 import styles from './ui.module.css';
 
 export function Button({
@@ -60,6 +61,19 @@ export function CardShell({
     <button type="button" className={cls} onClick={onClick}>{children}</button>
   ) : (
     <div className={cls}>{children}</div>
+  );
+}
+
+/* P2 INTERACTION polish: keyboard hint bar for list pages. */
+export function KeyHintBar() {
+  const t = useT();
+  return (
+    <div className={styles.keyHintBar}>
+      <span><kbd className={styles.kbd}>↑↓</kbd> {t('keys.nav')}</span>
+      <span><kbd className={styles.kbd}>↵</kbd> {t('keys.open')}</span>
+      <span><kbd className={styles.kbd}>esc</kbd> {t('keys.back')}</span>
+      <span><kbd className={styles.kbd}>Ctrl K</kbd> {t('docs.hotkeys')}</span>
+    </div>
   );
 }
 

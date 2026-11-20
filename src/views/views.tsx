@@ -6,6 +6,7 @@ import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import { BrandLogo } from '../components/BrandLogo.tsx';
 import type { BrandKind } from '../components/BrandLogo.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
+import { Glyph } from '../components/Glyph.tsx';
 import styles from './views.module.css';
 
 const SOURCE_BRANDS: { kind: SourceKind; brand: BrandKind; descKey: string }[] = [
@@ -196,7 +197,14 @@ function SourceCard({
           <span className={`${styles.statusDot} ${dotClass}`} />
           {statusText} · {t('sync.scopeLabel', { scope: source.scope || '—' })} · {source.last_sync_at ? rt(source.last_sync_at) : t('sync.never')}
         </div>
-        {source.last_error ? <div className={styles.sourceError}>{source.last_error}</div> : null}
+        {source.last_error ? (
+          <div className={styles.sourceErrorCard}>
+            <span className={styles.sourceErrorText}>{source.last_error}</span>
+            <button type="button" className={styles.rowActionButton} title={t('sync.now')} aria-label={t('sync.now')} onClick={() => void onSync(source)}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M13 6.5A5.2 5.2 0 0 0 3.6 5.2" /><path d="M3 2.8v2.6h2.6" /><path d="M3 9.5a5.2 5.2 0 0 0 9.4 1.3" /><path d="M13 13.2v-2.6h-2.6" /></svg>
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className={styles.menuWrap} ref={wrapRef}>
         <button
@@ -363,7 +371,7 @@ export function CanvasView({
               className={`${styles.canvasCard} ${selectedId === item.id ? styles.selected : ''}`}
               onClick={() => onOpenItem(item.id)}
             >
-              <span className={styles.cardGlyph}>{ITEM_GLYPHS[item.type]}</span>
+              <span className={styles.cardGlyph}><Glyph kind={item.type} size={16} /></span>
               <span className={styles.cardTitle}>{item.title}</span>
               <span className={styles.cardMeta}>{ITEM_LABELS[item.type]} · {item.status}</span>
             </button>
@@ -381,7 +389,13 @@ export function DocsView() {
       <h1 className={styles.pageTitle}>{t('docs.title')}</h1>
       <p className={styles.pageSub}>{t('docs.sub')}</p>
 
-      <div className={styles.section}>
+      <nav className={styles.docsToc}>
+        <a href="#doc-views">{t('docs.views')}</a>
+        <a href="#doc-hotkeys">{t('docs.hotkeys')}</a>
+        <a href="#doc-anim">{t('docs.anim')}</a>
+      </nav>
+
+      <div className={styles.section} id="doc-views">
         <h2 className={styles.sectionTitle}>{t('docs.views')}</h2>
         <ul className={styles.docsList}>
           <li><strong>Start</strong> — {t('docs.vStart')}</li>
@@ -395,15 +409,16 @@ export function DocsView() {
         </ul>
       </div>
 
-      <div className={styles.section}>
+      <div className={styles.section} id="doc-hotkeys">
         <h2 className={styles.sectionTitle}>{t('docs.hotkeys')}</h2>
         <ul className={styles.docsList}>
-          <li><code>Ctrl O</code> — {t('docs.hOpenFile')}</li>
-          <li><code>Enter</code> — {t('docs.hSubmit')}<code>Shift+Enter</code>{t('docs.hSubmitTail')}</li>
+          <li><kbd className={styles.kbd}>Ctrl</kbd> + <kbd className={styles.kbd}>O</kbd> — {t('docs.hOpenFile')}</li>
+          <li><kbd className={styles.kbd}>Ctrl</kbd> + <kbd className={styles.kbd}>K</kbd> — {t('docs.hPalette')}</li>
+          <li><kbd className={styles.kbd}>Enter</kbd> — {t('docs.hSubmit')}<kbd className={styles.kbd}>Shift</kbd> + <kbd className={styles.kbd}>Enter</kbd>{t('docs.hSubmitTail')}</li>
         </ul>
       </div>
 
-      <div className={styles.section}>
+      <div className={styles.section} id="doc-anim">
         <h2 className={styles.sectionTitle}>{t('docs.anim')}</h2>
         <ul className={styles.docsList}>
           <li>{t('docs.animPage')}</li>

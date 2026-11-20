@@ -4,9 +4,9 @@ import styles from './shell.module.css';
 
 export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
-  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas';
+  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user';
 
-type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book';
+type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -33,6 +33,8 @@ function Icon({ name }: { name: IconName }) {
       return <svg {...common}><circle cx="8" cy="8" r="2.4" /><path d="M8 2.2v1.6M8 12.2v1.6M2.2 8h1.6M12.2 8h1.6M3.9 3.9l1.1 1.1M11 11l1.1 1.1M12.1 3.9L11 5M5 11l-1.1 1.1" /></svg>;
     case 'book':
       return <svg {...common}><path d="M2.5 3.2c1.8-.8 3.6-.8 5.5.4v9.2c-1.9-1.2-3.7-1.2-5.5-.4z" /><path d="M13.5 3.2c-1.8-.8-3.6-.8-5.5.4v9.2c1.9-1.2 3.7-1.2 5.5-.4z" /></svg>;
+    case 'user':
+      return <svg {...common}><circle cx="8" cy="5.5" r="2.5" /><path d="M3 13.5c0-2.2 2.2-3.5 5-3.5s5 1.3 5 3.5" /></svg>;
   }
 }
 
@@ -60,6 +62,26 @@ const FOOTER: NavEntry[] = [
   { id: 'docs', labelKey: 'nav.docs', icon: 'book' },
 ];
 
+/* 左下角 user 入口（avatar chip）→ 用户页 */
+function UserChip({ active, workspaceName, onNavigate }: { active: boolean; workspaceName: string; onNavigate: (id: ViewId) => void }) {
+  const t = useT();
+  const initial = (workspaceName.trim()[0] ?? 'G').toUpperCase();
+  return (
+    <button
+      type="button"
+      className={`${styles.userChip} ${active ? styles.active : ''}`}
+      onClick={() => onNavigate('user')}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className={styles.userAvatar} aria-hidden="true">{initial}</span>
+      <span className={styles.userChipText}>
+        <span className={styles.userChipName}>{workspaceName}</span>
+        <span className={styles.userChipSub}>{t('user.localAccount')}</span>
+      </span>
+    </button>
+  );
+}
+
 function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boolean; onNavigate: (id: ViewId) => void }) {
   const t = useT();
   return (
@@ -75,7 +97,7 @@ function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boo
   );
 }
 
-export function Sidebar({ view, onNavigate }: { view: ViewId; onNavigate: (id: ViewId) => void }) {
+export function Sidebar({ view, onNavigate, workspaceName }: { view: ViewId; onNavigate: (id: ViewId) => void; workspaceName: string }) {
   const t = useT();
   return (
     <nav className={styles.sidebar}>
@@ -91,6 +113,7 @@ export function Sidebar({ view, onNavigate }: { view: ViewId; onNavigate: (id: V
         </div>
       ))}
       <div className={styles.footer}>
+        <UserChip active={view === 'user'} workspaceName={workspaceName} onNavigate={onNavigate} />
         {FOOTER.map((entry) => (
           <NavButton key={entry.id} entry={entry} active={view === entry.id} onNavigate={onNavigate} />
         ))}

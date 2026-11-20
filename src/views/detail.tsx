@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui.tsx';
 import { BadgeRow, MemberBadge, SemTag } from '../components/SemTag.tsx';
+import { Glyph } from '../components/Glyph.tsx';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
 import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
 import type { ClusterDTO } from '../lib/clusters.ts';
@@ -44,11 +45,12 @@ function DetailShell({
   rail?: ReactNode;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <div className={styles.detailPage}>
       <button type="button" className={styles.backButton} onClick={onBack}>
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9.5 3.5L5 8l4.5 4.5" /></svg>
-        Back
+        {t('detail.back')}
       </button>
       <div className={styles.detailKicker}>{kicker}</div>
       <div className={styles.detailTitleRow}>
@@ -137,7 +139,7 @@ export function RawDetailView({
 
   return (
     <DetailShell
-      kicker={`${ITEM_LABELS[item.type]} · ${item.status} · ${item.id}`}
+      kicker={`${t('nav.raw')} › ${ITEM_LABELS[item.type]}`}
       title={item.title}
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
@@ -154,6 +156,7 @@ export function RawDetailView({
           <More label={t('detail.more')}>
             <RailKvs rows={[
               [t('detail.createdUpdated'), `${item.created_at.slice(0, 16).replace('T', ' ')} · ${item.updated_at.slice(0, 16).replace('T', ' ')}`],
+              [t('detail.id'), item.id],
               ...extraFields.map(([key, value]) => [fieldLabels[key] ?? key, value as string] as [string, ReactNode]),
             ]} />
           </More>
@@ -175,29 +178,38 @@ export function RawDetailView({
 
       {tags ? <Block title={t('overview.metaTags')}>{tags}</Block> : null}
 
-      <Block title={t('detail.referencedBy')}>
-        {referencedBy.length === 0 ? (
-          <div className={styles.hint}>{t('detail.noRefs')}</div>
-        ) : referencedBy.map((r) => (
-          <div className={styles.refRow} key={r.id}>
-            <span className={styles.refKind}>{r.kind}</span>
-            <button type="button" className={styles.linkButton} onClick={() => onOpenItem(r.from_id)}>{titleOf(r.from_id)}</button>
-            {r.note ? <span className={styles.refNote}>{r.note}</span> : null}
-          </div>
-        ))}
-        <div className={styles.hint}>{t('detail.stanceHint')}</div>
-      </Block>
+      {/* P2: empty relation blocks collapse into one-line summary */}
+      {referencedBy.length === 0 && inContexts.length === 0 ? (
+        <div className={styles.relationSummary}>
+          {t('detail.relationsNote')} · {t('detail.noRefs')} · {t('detail.noContexts')}
+        </div>
+      ) : (
+        <>
+          <Block title={t('detail.referencedBy')}>
+            {referencedBy.length === 0 ? (
+              <div className={styles.hint}>{t('detail.noRefs')}</div>
+            ) : referencedBy.map((r) => (
+              <div className={styles.refRow} key={r.id}>
+                <span className={styles.refKind}>{r.kind}</span>
+                <button type="button" className={styles.linkButton} onClick={() => onOpenItem(r.from_id)}>{titleOf(r.from_id)}</button>
+                {r.note ? <span className={styles.refNote}>{r.note}</span> : null}
+              </div>
+            ))}
+            {referencedBy.length > 0 ? <div className={styles.hint}>{t('detail.stanceHint')}</div> : null}
+          </Block>
 
-      <Block title={t('detail.inContexts')}>
-        {inContexts.length === 0 ? (
-          <div className={styles.hint}>{t('detail.noContexts')}</div>
-        ) : inContexts.map((c) => (
-          <div className={styles.refRow} key={c.id}>
-            <span className={styles.refKind}>member</span>
-            <button type="button" className={styles.linkButton} onClick={() => onOpenContext(c.id)}>{c.title}</button>
-          </div>
-        ))}
-      </Block>
+          <Block title={t('detail.inContexts')}>
+            {inContexts.length === 0 ? (
+              <div className={styles.hint}>{t('detail.noContexts')}</div>
+            ) : inContexts.map((c) => (
+              <div className={styles.refRow} key={c.id}>
+                <span className={styles.refKind}>member</span>
+                <button type="button" className={styles.linkButton} onClick={() => onOpenContext(c.id)}>{c.title}</button>
+              </div>
+            ))}
+          </Block>
+        </>
+      )}
 
       <More label={`${t('detail.history')} · ${events.length}`}>
         {events.map((event) => (
@@ -243,7 +255,7 @@ export function ObjectDetailView({
 
   return (
     <DetailShell
-      kicker={`${ITEM_LABELS[item.type]} · ${item.status} · ${item.id}`}
+      kicker={`${t('nav.objects')} › ${ITEM_LABELS[item.type]}`}
       title={item.title}
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
@@ -257,6 +269,7 @@ export function ObjectDetailView({
           <More label={t('detail.more')}>
             <RailKvs rows={[
               [t('detail.createdUpdated'), `${item.created_at.slice(0, 16).replace('T', ' ')} · ${item.updated_at.slice(0, 16).replace('T', ' ')}`],
+              [t('detail.id'), item.id],
               ...propFields.map(([key, value]) => [fieldLabels[key] ?? key, value as string] as [string, ReactNode]),
             ]} />
           </More>
@@ -303,7 +316,7 @@ export function ObjectDetailView({
                 {r.note ? <span className={styles.refNote}>{r.note}</span> : null}
               </div>
             ))}
-            <div className={styles.hint}>Relations are listed, not verified.</div>
+            <div className={styles.hint}>{t('detail.relationsNote')}</div>
           </>
         )}
       </Block>
@@ -376,7 +389,7 @@ export function ClusterDetailView({
   const candidates = items.filter((item) => !detail.member_ids.includes(item.id));
   return (
     <DetailShell
-      kicker={`Cluster · ${detail.id}`}
+      kicker={t('nav.clusters')}
       title={detail.title}
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
@@ -392,7 +405,7 @@ export function ClusterDetailView({
             <span className={styles.kvValue}>{detail.description || '—'}</span>
           </div>
         </div>
-        <div className={styles.hint}>A Cluster is an association structure. It owns no content; members keep their own identity and provenance.</div>
+        <div className={styles.hint}>{t('detail.clusterNote')}</div>
       </Block>
 
       <Block title={t('detail.members')}>
@@ -403,7 +416,7 @@ export function ClusterDetailView({
             const item = items.find((x) => x.id === id);
             return (
               <div className={styles.listRow} key={id}>
-                <span className={styles.rowGlyph}>{item ? ITEM_GLYPHS[item.type] : '??'}</span>
+                <span className={styles.rowGlyph}>{item ? <Glyph kind={item.type} /> : <Glyph kind="raw.document" />}</span>
                 <button type="button" className={styles.linkButton} onClick={() => onOpenItem(id)}>
                   {item?.title ?? id}
                 </button>
@@ -469,7 +482,7 @@ export function ContextDetailView({
   const candidates = items.filter((item) => !detail.member_ids.includes(item.id));
   return (
     <DetailShell
-      kicker={`Context View · ${detail.id}`}
+      kicker={t('nav.contexts')}
       title={detail.title}
       onBack={onBack}
       actions={<Button small onClick={onEdit}>{t('common.edit')}</Button>}
@@ -499,7 +512,7 @@ export function ContextDetailView({
             const item = items.find((x) => x.id === id);
             return (
               <div className={styles.listRow} key={id}>
-                <span className={styles.rowGlyph}>{item ? ITEM_GLYPHS[item.type] : '??'}</span>
+                <span className={styles.rowGlyph}>{item ? <Glyph kind={item.type} /> : <Glyph kind="raw.document" />}</span>
                 <button type="button" className={styles.linkButton} onClick={() => onOpenItem(id)}>
                   {item?.title ?? id}
                 </button>

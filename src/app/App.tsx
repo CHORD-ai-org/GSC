@@ -9,7 +9,7 @@ import type { PaletteItem } from '../components/CommandPalette.tsx';
 import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
 import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
-import { OverviewPage, RecentlyPage, SettingsPage, StartView } from '../views/pages.tsx';
+import { OverviewPage, RecentlyPage, SettingsPage, StartView, UserView } from '../views/pages.tsx';
 import type { ContextIndexEntry } from '../views/pages.tsx';
 import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
 import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
@@ -914,6 +914,7 @@ export default function App() {
             onCanvas={() => go('canvas')}
             onOpenFile={() => fileInputRef.current?.click()}
             onLightUp={() => go('lightup')}
+            llmConfig={llmConfig}
           />
         );
       case 'overview':
@@ -1091,6 +1092,26 @@ export default function App() {
             }
           />
         );
+      case 'user':
+        return (
+          <UserView
+            prefs={prefs}
+            onChange={updatePrefs}
+            llmConfig={llmConfig}
+            itemCount={items.length}
+            contextCount={contexts.length}
+            onOpenSettings={() => go('settings')}
+            profileBlock={
+              <TagEditor
+                definitions={tagDefinitions.filter((d) => d.id === 'tag_user_profile')}
+                values={tagValues.filter((v) => v.definition_id === 'tag_user_profile' && !v.item_id)}
+                onAdd={(body) => addTagValue(body, false)}
+                onConfirm={confirmTagValue}
+                onDelete={removeTagValue}
+              />
+            }
+          />
+        );
       case 'docs':
         return <DocsView />;
     }
@@ -1102,7 +1123,7 @@ export default function App() {
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
       <CommandPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} />
       <div className={styles.app}>
-        <Sidebar view={view} onNavigate={go} />
+        <Sidebar view={view} onNavigate={go} workspaceName={prefs.workspaceName} />
         <main className={styles.main}>
           {error && panel === 'none' ? <div className={styles.errorBar}>{error}</div> : null}
           {renderMain()}

@@ -5,8 +5,11 @@ import type { ItemDTO } from '../lib/items.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import type { ClusterIndexEntry } from './detail.tsx';
 import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
-import { EmptyState } from '../components/ui.tsx';
+import { EmptyState, KeyHintBar } from '../components/ui.tsx';
+import { useToast } from '../components/Toast.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
+import { Glyph } from '../components/Glyph.tsx';
+import type { GlyphKind } from '../components/Glyph.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
 import styles from './views.module.css';
 
@@ -16,7 +19,7 @@ export type ItemBadges = Record<string, { kind: 'cluster' | 'context'; title: st
 export function GridCard({
   glyph, typeLabel, title, badges, time, onClick,
 }: {
-  glyph: string;
+  glyph: ReactNode;
   typeLabel: string;
   title: string;
   badges?: { kind: 'cluster' | 'context'; title: string }[];
@@ -37,6 +40,37 @@ export function GridCard({
         {time ? <span>{time}</span> : null}
       </div>
     </button>
+  );
+}
+
+/* P2: hover quick actions (open / copy title) — sibling of the row button */
+function RowActions({ title, onOpen }: { title: string; onOpen: () => void }) {
+  const t = useT();
+  const toast = useToast();
+  return (
+    <div className={styles.rowActions}>
+      <button
+        type="button"
+        className={styles.rowActionButton}
+        title={t('keys.openDetail')}
+        aria-label={t('keys.openDetail')}
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 3h7v7M13 3L6.5 9.5" /><path d="M11 9.5V13H3V5h3.5" /></svg>
+      </button>
+      <button
+        type="button"
+        className={styles.rowActionButton}
+        title={t('keys.copyTitle')}
+        aria-label={t('keys.copyTitle')}
+        onClick={(e) => {
+          e.stopPropagation();
+          void navigator.clipboard?.writeText(title).then(() => toast(t('keys.copied')));
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" /></svg>
+      </button>
+    </div>
   );
 }
 
@@ -68,10 +102,10 @@ function ListHeader({ cols }: { cols: [string, string, string] }) {
 }
 
 function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: string }[] }) {
-  if (!badges?.length) return null;
+  /* always render the cell so listRow grid columns stay aligned */
   return (
     <div className={styles.rowBadges}>
-      {badges.slice(0, 2).map((b) => <MemberBadge key={`${b.kind}-${b.title}`} kind={b.kind} title={b.title} />)}
+      {(badges ?? []).slice(0, 2).map((b) => <MemberBadge key={`${b.kind}-${b.title}`} kind={b.kind} title={b.title} />)}
     </div>
   );
 }
@@ -129,7 +163,7 @@ export function RawCollection({
             {rows.map((item) => (
               <GridCard
                 key={item.id}
-                glyph={ITEM_GLYPHS[item.type]}
+                glyph={<Glyph kind={item.type} />}
                 typeLabel={`${ITEM_LABELS[item.type]}${item.source_label ? ` · ${item.source_label}` : ''}`}
                 title={item.title}
                 badges={badges?.[item.id]}
@@ -146,17 +180,23 @@ export function RawCollection({
             {rows.length === 0 ? (
               <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
             ) : rows.map((item) => (
-              <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
-                <span className={styles.rowTitle}>{item.title}</span>
-                <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
-                <RowBadges badges={badges?.[item.id]} />
-                <span className={styles.rowTime}>{rt(item.updated_at)}</span>
-              </button>
+              <div key={item.id} className={styles.rowWrap}>
+                <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
+                  <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
+                  <span className={styles.rowTitle}>{item.title}</span>
+                  <span className={styles.rowTypeWrap}>
+                    <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
+                    <RowBadges badges={badges?.[item.id]} />
+                  </span>
+                  <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+                </button>
+                <RowActions title={item.title} onOpen={() => onSelect(item.id)} />
+              </div>
             ))}
           </div>
         </>
       )}
+      <KeyHintBar />
     </div>
   );
 }
@@ -226,7 +266,7 @@ export function ObjectCollection({
             {rows.map((item) => (
               <GridCard
                 key={item.id}
-                glyph={ITEM_GLYPHS[item.type]}
+                glyph={<Glyph kind={item.type} />}
                 typeLabel={`${ITEM_LABELS[item.type]} · ${t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}`}
                 title={item.title}
                 badges={badges?.[item.id]}
@@ -243,17 +283,23 @@ export function ObjectCollection({
             {rows.length === 0 ? (
               <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
             ) : rows.map((item) => (
-              <button key={item.id} type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-                <span className={styles.rowGlyph}>{ITEM_GLYPHS[item.type]}</span>
-                <span className={styles.rowTitle}>{item.title}</span>
-                <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}</span>
-                <RowBadges badges={badges?.[item.id]} />
-                <span className={styles.rowTime}>{rt(item.updated_at)}</span>
-              </button>
+              <div key={item.id} className={styles.rowWrap}>
+                <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
+                  <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
+                  <span className={styles.rowTitle}>{item.title}</span>
+                  <span className={styles.rowTypeWrap}>
+                    <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}</span>
+                    <RowBadges badges={badges?.[item.id]} />
+                  </span>
+                  <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+                </button>
+                <RowActions title={item.title} onOpen={() => onSelect(item.id)} />
+              </div>
             ))}
           </div>
         </>
       )}
+      <KeyHintBar />
     </div>
   );
 }
@@ -282,7 +328,7 @@ export function ClusterCollection({
         count={rows.length}
         action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>}
       />
-      <p className={styles.pageSub}>Groups of related information — association, not a view.</p>
+      <p className={styles.pageSub}>{t('clu.subFixed')}</p>
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('clu.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <ViewToggle mode={view} onChange={setView} />
@@ -295,7 +341,7 @@ export function ClusterCollection({
             {rows.map((c) => (
               <GridCard
                 key={c.id}
-                glyph="CLU"
+                glyph={<Glyph kind="cluster" />}
                 typeLabel={t('common.members', { n: c.member_ids.length })}
                 title={c.title}
                 time={rt(c.updated_at)}
@@ -312,7 +358,7 @@ export function ClusterCollection({
               <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
             ) : rows.map((c) => (
               <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
-                <span className={styles.rowGlyph}>CLU</span>
+                <span className={styles.rowGlyph}><Glyph kind="cluster" /></span>
                 <span className={styles.rowTitle}>{c.title}</span>
                 <span className={styles.rowType}>{c.description || '—'}</span>
                 <span className={styles.rowTime}>{t('common.members', { n: c.member_ids.length })} · {rt(c.updated_at)}</span>
@@ -321,6 +367,7 @@ export function ClusterCollection({
           </div>
         </>
       )}
+      <KeyHintBar />
     </div>
   );
 }
@@ -362,7 +409,7 @@ export function ContextCollection({
             {rows.map((c) => (
               <GridCard
                 key={c.id}
-                glyph="CTX"
+                glyph={<Glyph kind="context" />}
                 typeLabel={`${c.subject} · ${c.scope}`}
                 title={c.title}
                 time={t('common.members', { n: c.member_ids.length })}
@@ -379,7 +426,7 @@ export function ContextCollection({
               <EmptyState title={t('ctx.empty')} hint={t('ctx.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('ctx.new')}</button>} />
             ) : rows.map((c) => (
               <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
-                <span className={styles.rowGlyph}>CTX</span>
+                <span className={styles.rowGlyph}><Glyph kind="context" /></span>
                 <span className={styles.rowTitle}>{c.title}</span>
                 <span className={styles.rowType}>{c.subject} · {c.scope}</span>
                 <span className={styles.rowTime}>{t('common.members', { n: c.member_ids.length })} · {rt(c.updated_at)}</span>
@@ -388,6 +435,7 @@ export function ContextCollection({
           </div>
         </>
       )}
+      <KeyHintBar />
     </div>
   );
 }
