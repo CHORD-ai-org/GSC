@@ -24,7 +24,7 @@ export type Domain = (typeof DOMAINS)[number];
 export const ORIGINS = ['user', 'import', 'agent'] as const;
 export type Origin = (typeof ORIGINS)[number];
 export const RAW_STATUSES = ['active', 'archived'] as const;
-export const OBJECT_STATUSES = ['draft', 'active', 'superseded'] as const;
+export const OBJECT_STATUSES = ['draft', 'active', 'superseded', 'outdated'] as const;
 export type Status = (typeof RAW_STATUSES)[number] | (typeof OBJECT_STATUSES)[number];
 
 export const ITEM_LABELS: Record<ItemType, string> = {

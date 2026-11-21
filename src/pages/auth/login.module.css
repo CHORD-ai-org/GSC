@@ -1,0 +1,166 @@
+/* GSC sign-in — a CHORD-family login, styled after Thylas (Quiet Computationalism).
+   Warm paper sheet on a desk, next to a printed wire. Palette is scoped to this
+   page so the CHORD login look is independent of GSC's in-app theme. */
+
+.page {
+  /* Thylas warm-paper palette (design/tokens.css) — the CHORD login surface. */
+  --bg-app: #F1EBDD;
+  --bg-paper: #F7F2E9;
+  --login-paper: #FBF9F4;
+  --bg-rail: #EBE4D4;
+  --ink: #493626;
+  --ink-2: #927B65;
+  --ink-3: #B3A08C;
+  --line: #E6DED1;
+  --line-strong: #D8CCB9;
+  --accent: #B56F50;
+  --error: #8C3A2B;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--bg-app);
+  color: var(--ink);
+}
+
+.srOnly {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---- left: the desk + paper sheet ---- */
+.stage {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink) 4%, var(--bg-app));
+}
+
+.sheet {
+  position: absolute;
+  width: 424px;
+  transform: rotate(-1.1deg);
+}
+.sheet:focus-within { transform: rotate(0deg); }
+
+.logo {
+  position: absolute;
+  top: 22px;
+  left: 26px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  color: var(--ink);
+}
+.logoMark { font-family: var(--ui); font-size: 19px; line-height: 1; }
+.logoName { margin-left: 6px; font: 500 13px/1 var(--ui); letter-spacing: -0.01em; }
+
+.grip {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 46px;
+  padding: 0 30px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  user-select: none;
+}
+.gripMarks { display: inline-flex; flex-direction: column; gap: 3px; width: 16px; flex: 0 0 auto; }
+.gripMarks span { height: 1px; background: var(--ink-3); }
+.gripMarks span:nth-child(3) { width: 10px; }
+.gripTitle { font: 500 18px/24px var(--ui); letter-spacing: -0.01em; }
+
+/* ---- form ---- */
+.form {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 30px 36px;
+}
+.error, .notice { margin: 0 0 14px; font: 450 11px/16px var(--ui); }
+.error { color: var(--error); }
+.notice { padding-left: 9px; border-left: 2px solid var(--ink-3); color: var(--ink-2); }
+
+.field { margin-top: 18px; position: relative; }
+.fieldLabel { font: 450 11px/16px var(--ui); color: var(--ink-3); letter-spacing: .02em; }
+.input {
+  width: 100%; height: 30px; padding: 2px 0;
+  border: 0; background: transparent;
+  font: 400 14px/20px var(--ui); color: var(--ink);
+}
+.input:focus { outline: none; }
+.field:focus-within .underline { color: var(--ink); }
+
+.oauth { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.oauthBtn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 36px; border: 0; background: transparent; color: var(--ink);
+  font: 400 13px/18px var(--ui); cursor: pointer;
+}
+.oauthBtn:hover .frame { color: var(--ink-2); }
+.oauthLabel { position: relative; }
+
+.divider { height: 1px; margin: 20px 0 2px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+
+.submit {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 38px; margin-top: 26px; border: 0; background: transparent; color: var(--ink);
+  font: 550 13px/18px var(--ui); cursor: pointer;
+}
+.submit:hover .frame { color: var(--ink-2); }
+.submitLabel { position: relative; }
+
+.actions { margin-top: 12px; }
+.switchMode {
+  border: 0; padding: 0; background: transparent;
+  font: 400 13px/18px var(--ui); color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  text-underline-offset: 3px; cursor: pointer;
+}
+
+.devBlock { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); }
+.devNote { font: 400 10.5px/16px var(--mono); color: var(--ink-3); }
+.devLink {
+  margin-top: 7px; border: 0; padding: 0; background: transparent;
+  font: 450 11px/16px var(--ui); color: var(--ink-2);
+  text-decoration: underline; text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px; cursor: pointer;
+}
+.devLink:hover { color: var(--ink); }
+
+/* ---- right: the printed wire (fixed ink) ---- */
+.panel {
+  background: #0a0a0a;
+  color: #f2f2f2;
+  overflow: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+.panelInner { display: flex; flex-direction: column; height: 100%; padding: 40px 44px 48px; }
+.panelHead { font: 400 12px/18px var(--mono); letter-spacing: 0.01em; color: rgba(242, 242, 242, 0.85); }
+.rule { display: block; width: 100%; height: 4px; margin: 10px 0 24px; color: rgba(242, 242, 242, 0.35); }
+.quoteStage { margin: auto 0; }
+.quoteText { margin: 0; max-width: 36ch; font: 400 13.5px/1.85 var(--mono); letter-spacing: 0.01em; color: #f2f2f2; }
+.quoteBy { margin: 8px 0 0; font: 400 10.5px/1.6 var(--mono); color: rgba(242, 242, 242, 0.55); }
+.quoteSource { opacity: 0.75; }
+
+/* ---- narrow: the panel becomes a band on top ---- */
+@media (max-width: 959px) {
+  .page { grid-template-columns: minmax(0, 1fr); grid-template-rows: 152px minmax(0, 1fr); }
+  .panel { order: -1; }
+  .panelInner { padding: 18px 20px; }
+  .quoteText { max-width: none; font-size: 12px; line-height: 1.7; }
+  .stage { overflow: auto; padding: 24px 16px 32px; }
+  .sheet { position: relative; left: auto !important; top: auto !important; width: 100%; max-width: 420px; margin: 0 auto; opacity: 1 !important; transform: none; }
+}

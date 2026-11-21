@@ -63,3 +63,19 @@
 .userChipText{display:flex;flex-direction:column;min-width:0}
 .userChipName{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .userChipSub{font-size:10px;color:var(--ink-3)}
+
+/* Mobile shell (≤720px): flatten the vertical sidebar into a horizontal,
+   scrollable top strip. Groups/footer use display:contents so every nav item
+   flows inline; labels and user text collapse to keep the strip compact. */
+@media(max-width:720px){
+  .sidebar{width:100%;height:auto;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;gap:2px}
+  .group{display:contents}
+  .groupLabel{display:none}
+  .footer{display:contents}
+  .brand{flex:none;padding:0 8px 0 0}
+  .brandName{display:none}
+  .navItem{width:auto;flex:none;white-space:nowrap;padding:7px 10px;gap:6px}
+  .navItem:hover{transform:none}
+  .userChip{width:auto;flex:none;padding:6px}
+  .userChipText{display:none}
+}

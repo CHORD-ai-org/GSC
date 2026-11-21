@@ -34,6 +34,22 @@
   --radius-pill:999px;
   --ui:'Inter Variable',system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+  /* Editorial type scale (Part 3.1): reading comfort is a core capability.
+     Roles — page / title / section / object / body / meta / caption. */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+  --text-page:27px;   --lh-page:35px;
+  --text-title:20px;  --lh-title:28px;
+  --text-section:16px; --lh-section:24px;
+  --text-object:15px; --lh-object:23px;
+  --text-body:14.5px; --lh-body:23px;
+  --text-meta:12.5px; --lh-meta:18px;
+  --text-caption:11.5px; --lh-caption:16px;
+  --read-width:70ch;   /* comfortable reading measure for long content */
+  /* Density (Part 3.3): comfortable default; compact tightens rows + preview */
+  --row-py:11px;
+  --row-gap:2px;
+  --preview-lines:2;
+  --density:1;
   /* Color-block palette (UI_COLORBLOCK_REFACTOR): big rounded colour blocks.
      --hue-N = saturated accent; --fill-N = soft tinted block surface that
      adapts to theme via color-mix on --bg-surface. */
@@ -63,6 +79,14 @@
   --brand-qwen:#615CED;
   --brand-zhipu:#3859FF;
   --brand-grok:#000000;
+}
+
+/* Compact density (Part 3.3): tighter rows, shorter preview */
+[data-density='compact']{
+  --row-py:6px;
+  --row-gap:0px;
+  --preview-lines:1;
+  --density:.72;
 }
 
 [data-theme='dark']{

@@ -19,11 +19,15 @@ export type ModelName = (typeof MODELS)[number];
 export const THEMES = ['light', 'dark'] as const;
 export type ThemeMode = (typeof THEMES)[number];
 
+export const DENSITIES = ['comfortable', 'compact'] as const;
+export type DensityMode = (typeof DENSITIES)[number];
+
 export type UiPrefs = {
   language: 'zh' | 'en';
   theme: ThemeMode;
   quality: AnimationQuality;
   pageTransition: boolean;
+  density: DensityMode;
   provider: string;
   defaultModel: ModelName;
   workspaceName: string;
@@ -34,6 +38,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   theme: 'light',
   quality: 'medium',
   pageTransition: true,
+  density: 'comfortable',
   provider: 'Local',
   defaultModel: 'MiMo',
   workspaceName: 'GSC Workspace',
@@ -58,6 +63,7 @@ export function loadPrefs(): UiPrefs {
         ? (parsed.quality as AnimationQuality)
         : DEFAULT_PREFS.quality,
       pageTransition: typeof parsed.pageTransition === 'boolean' ? parsed.pageTransition : DEFAULT_PREFS.pageTransition,
+      density: parsed.density === 'compact' ? 'compact' : 'comfortable',
       provider: typeof parsed.provider === 'string' && parsed.provider ? parsed.provider : DEFAULT_PREFS.provider,
       defaultModel: (MODELS as readonly string[]).includes(parsed.defaultModel as string)
         ? (parsed.defaultModel as ModelName)

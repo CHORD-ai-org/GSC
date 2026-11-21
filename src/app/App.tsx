@@ -43,6 +43,7 @@ import { recordVisit, visitMap } from '../lib/visits.ts';
 import { loadSampleWorkspace, clearSampleWorkspace } from '../lib/sample.ts';
 import { Onboarding, isOnboardingDone } from '../components/Onboarding.tsx';
 import { AccountSetup } from '../components/AccountSetup.tsx';
+import { LoginPage } from '../pages/auth/LoginPage.tsx';
 import {
   buildAgentContext,
   buildJsonExport,
@@ -220,7 +221,8 @@ export default function App() {
   useEffect(() => { setError(''); }, [panel]);
   useEffect(() => {
     document.documentElement.dataset.theme = prefs.theme;
-  }, [prefs.theme]);
+    document.documentElement.dataset.density = prefs.density;
+  }, [prefs.theme, prefs.density]);
 
   useEffect(() => {
     let alive = true;
@@ -322,6 +324,10 @@ export default function App() {
   /* T103: local account — created on first launch, gates onboarding */
   const [account, setAccount] = useState<{ id: string; name: string; created_at: string } | null>(null);
   const [accountChecked, setAccountChecked] = useState(false);
+  /* CHORD-family login session (mirrors Thylas' session cookie): gates the app. */
+  const [signedIn, setSignedIn] = useState<boolean>(() => {
+    try { return localStorage.getItem('gsc.session') !== null; } catch { return false; }
+  });
   useEffect(() => {
     void api.listUsers().then((r) => {
       setAccount(r.users?.[0] ?? null);
@@ -880,7 +886,7 @@ export default function App() {
     }
   }
 
-  async function saveLlmConfig(patch: { base_url?: string; model?: string; api_key?: string }) {
+  async function saveLlmConfig(patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) {
     const result = await api.updateLlmConfig(patch);
     setLlmConfig(result.config);
   }
@@ -1234,11 +1240,12 @@ export default function App() {
     <>
       {view === 'start' ? <DotGridBackground quality={prefs.quality} theme={prefs.theme} /> : null}
       <MosaicTransition playToken={mosaicToken} onDone={() => {}} />
-      {accountChecked && !account ? (
-        <AccountSetup
-          onCreate={async (name) => {
-            const r = await api.createUser(name);
-            setAccount(r.user);
+      {!signedIn ? (
+        <LoginPage
+          onAuthed={async (userId, name) => {
+            setSignedIn(true);
+            try { localStorage.setItem('gsc.session', userId); } catch { /* session stays in-memory */ }
+            setAccount({ id: userId, name, created_at: new Date().toISOString() });
             await loadTags();
           }}
         />

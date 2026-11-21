@@ -5,10 +5,11 @@ import { GscLogo } from '../components/GscLogo.tsx';
 import { SectionLabel } from '../components/ui.tsx';
 import { BrandLogo } from '../components/BrandLogo.tsx';
 import type { BrandKind } from '../components/BrandLogo.tsx';
+import { PROVIDERS, detectProvider, isProviderId, providerProfile, type ProviderId, type ProviderProfile } from '../lib/providers.ts';
 import { useToast } from '../components/Toast.tsx';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
-import { ANIMATION_QUALITIES, QUALITY_LABELS, THEMES } from '../lib/prefs.ts';
-import type { AnimationQuality, ThemeMode } from '../lib/prefs.ts';
+import { ANIMATION_QUALITIES, DENSITIES, QUALITY_LABELS, THEMES } from '../lib/prefs.ts';
+import type { AnimationQuality, ThemeMode, DensityMode } from '../lib/prefs.ts';
 import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import type { ContextDTO } from '../lib/contexts.ts';
@@ -458,6 +459,48 @@ export function RecentlyPage({
 
 /* ── Settings: secondary navigation ───────────────────────────────────── */
 
+/* T301 — Token / Agent access management (GAP-04): see, create, revoke PATs. */
+function TokenSection() {
+  const t = useT();
+  const [tokens, setTokens] = useState<api.TokenSummary[]>([]);
+  const [name, setName] = useState('');
+  const [scope, setScope] = useState<'read' | 'rw'>('rw');
+  const [fresh, setFresh] = useState('');
+  const load = useCallback(() => {
+    void api.listTokens().then((r) => setTokens(r.tokens)).catch(() => setTokens([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <div className={styles.settingBlock}>
+      <div className={styles.settingCaption}>{t('settings.tokens')}</div>
+      <div className={styles.addRow}>
+        <input className={styles.settingInput} placeholder={t('settings.tokenName')} value={name} onChange={(e) => setName(e.target.value)} />
+        <select className={styles.select} value={scope} onChange={(e) => setScope(e.target.value as 'read' | 'rw')}>
+          <option value="rw">rw</option>
+          <option value="read">read</option>
+        </select>
+        <button type="button" className={styles.primaryButton} onClick={() => {
+          if (!name.trim()) return;
+          void api.createToken(name.trim(), scope).then((r) => { setFresh(r.token); setName(''); load(); });
+        }}>{t('settings.tokenCreate')}</button>
+      </div>
+      {fresh ? <div className={styles.settingValue}>{t('settings.tokenCreated')} <code>{fresh}</code></div> : null}
+      {tokens.length === 0 ? <div className={styles.hint}>{t('settings.tokenEmpty')}</div> : (
+        <div className={styles.list}>
+          {tokens.map((tok) => (
+            <div className={styles.listRow} key={tok.id}>
+              <span className={styles.rowTitle}>{tok.name}</span>
+              <span className={styles.rowType}>{tok.scope} · {tok.userId}</span>
+              <span className={styles.rowTime}>{tok.created_at ? tok.created_at.slice(0, 10) : '—'}</span>
+              <button type="button" className={styles.removeButton} onClick={() => { void api.revokeToken(tok.id).then(load); }}>{t('settings.tokenRevoke')}</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'news' | 'privacy';
 
 const SETTINGS_NAV: { id: SettingsSection; labelKey: string }[] = [
@@ -536,7 +579,7 @@ export function SettingsPage({
   onCreateTagDefinition: (name: string, description: string) => Promise<void>;
   profileBlock?: ReactNode;
   llmConfig?: LlmPublicConfig | null;
-  onSaveLlm: (patch: { base_url?: string; model?: string; api_key?: string }) => Promise<void>;
+  onSaveLlm: (patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) => Promise<void>;
   onCheckLlm: () => Promise<{ model: string; ms: number; reply: string }>;
 }) {
   const { lang, setLang, t } = useI18n();
@@ -599,6 +642,21 @@ export function SettingsPage({
                       onClick={() => changePrefs({ ...prefs, theme: t })}
                     >
                       {t === 'dark' ? 'Dark' : 'Light'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.settingRow}>
+                <div className={styles.settingLabel}>{t('settings.density')}</div>
+                <div className={styles.qualityRow}>
+                  {DENSITIES.map((d: DensityMode) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`${styles.qualityPill} ${prefs.density === d ? styles.on : ''}`}
+                      onClick={() => changePrefs({ ...prefs, density: d })}
+                    >
+                      {t(d === 'compact' ? 'settings.densityCompact' : 'settings.densityComfortable')}
                     </button>
                   ))}
                 </div>
@@ -692,6 +750,7 @@ export function SettingsPage({
         ) : section === 'connections' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
+            <TokenSection />
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
               <div className={styles.settingValue}>{t('settings.connClaude')}</div>
@@ -766,70 +825,47 @@ export function SettingsPage({
   );
 }
 
-const MODEL_SUGGESTIONS: Record<string, string[]> = {
-  mimo: ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed'],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o'],
-  claude: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5'],
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  kimi: ['kimi-k2-0711-preview', 'moonshot-v1-128k'],
-  qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo'],
-  zhipu: ['glm-4.6', 'glm-4.5-air'],
-  grok: ['grok-4', 'grok-3-mini'],
-  custom: [],
-};
-
-type ProviderId = 'mimo' | 'deepseek' | 'openai' | 'claude' | 'gemini' | 'kimi' | 'qwen' | 'zhipu' | 'grok' | 'custom';
-
-const PROVIDERS: { id: ProviderId; brand: BrandKind | null; labelKey: string; descKey: string; base: string }[] = [
-  { id: 'mimo', brand: 'mimo', labelKey: 'model.providerMimo', descKey: 'model.providerMimoDesc', base: 'https://token-plan-cn.xiaomimimo.com/v1' },
-  { id: 'deepseek', brand: 'deepseek', labelKey: 'model.providerDeepseek', descKey: 'model.providerDeepseekDesc', base: 'https://api.deepseek.com/v1' },
-  { id: 'openai', brand: 'openai', labelKey: 'model.providerOpenai', descKey: 'model.providerOpenaiDesc', base: 'https://api.openai.com/v1' },
-  { id: 'claude', brand: 'claude', labelKey: 'model.providerClaude', descKey: 'model.providerClaudeDesc', base: 'https://api.anthropic.com/v1' },
-  { id: 'gemini', brand: 'gemini', labelKey: 'model.providerGemini', descKey: 'model.providerGeminiDesc', base: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-  { id: 'kimi', brand: 'kimi', labelKey: 'model.providerKimi', descKey: 'model.providerKimiDesc', base: 'https://api.moonshot.cn/v1' },
-  { id: 'qwen', brand: 'qwen', labelKey: 'model.providerQwen', descKey: 'model.providerQwenDesc', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { id: 'zhipu', brand: 'zhipu', labelKey: 'model.providerZhipu', descKey: 'model.providerZhipuDesc', base: 'https://open.bigmodel.cn/api/paas/v4' },
-  { id: 'grok', brand: 'grok', labelKey: 'model.providerGrok', descKey: 'model.providerGrokDesc', base: 'https://api.x.ai/v1' },
-  { id: 'custom', brand: null, labelKey: 'model.providerCustom', descKey: 'model.providerCustomDesc', base: '' },
-];
-
-function detectProvider(base: string): ProviderId {
-  if (base.includes('xiaomimimo') || base.includes('mimo')) return 'mimo';
-  if (base.includes('deepseek')) return 'deepseek';
-  if (base.includes('openai.com')) return 'openai';
-  if (base.includes('anthropic')) return 'claude';
-  if (base.includes('googleapis')) return 'gemini';
-  if (base.includes('moonshot')) return 'kimi';
-  if (base.includes('dashscope') || base.includes('qwen')) return 'qwen';
-  if (base.includes('bigmodel') || base.includes('zhipu')) return 'zhipu';
-  if (base.includes('x.ai')) return 'grok';
-  return 'custom';
-}
-
+/**
+ * Settings → Model. "Different providers require different things": the picked
+ * provider drives its own endpoint, model presets, per-provider key slot, key
+ * format hint and auth note. Base URL is editable for every provider so regional
+ * or proxy endpoints work; each provider keeps its own API key.
+ */
 function ModelSection({
   llmConfig,
   onSave,
   onCheck,
 }: {
   llmConfig?: LlmPublicConfig | null;
-  onSave: (patch: { base_url?: string; model?: string; api_key?: string }) => Promise<void>;
+  onSave: (patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) => Promise<void>;
   onCheck: () => Promise<{ model: string; ms: number; reply: string }>;
 }) {
   const t = useT();
   const toast = useToast();
-  const [provider, setProvider] = useState<ProviderId>(() => detectProvider(llmConfig?.base_url ?? ''));
+  const [provider, setProvider] = useState<ProviderId>(() =>
+    isProviderId(llmConfig?.provider) ? (llmConfig!.provider as ProviderId) : detectProvider(llmConfig?.base_url ?? ''),
+  );
+  const profile = providerProfile(provider);
   const [baseUrl, setBaseUrl] = useState(llmConfig?.base_url ?? '');
   const [model, setModel] = useState(llmConfig?.model ?? '');
   const [apiKey, setApiKey] = useState('');
-  const [keyOpen, setKeyOpen] = useState(!llmConfig?.key_set);
+  const [keyOpen, setKeyOpen] = useState(false);
+  const [keySet, setKeySet] = useState(Boolean(llmConfig?.key_set));
+  const [keyHint, setKeyHint] = useState(llmConfig?.key_hint ?? '');
   const [checking, setChecking] = useState(false);
   const [checkLine, setCheckLine] = useState('');
   const [dirty, setDirty] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
 
+  /* llmConfig refreshes after every save — keep per-provider key status in sync */
+  useEffect(() => {
+    if (!llmConfig) return;
+    setKeySet(llmConfig.key_set);
+    setKeyHint(llmConfig.key_hint);
+  }, [llmConfig]);
+
   /* debounced auto-save — no Save button (P2 INTERACTION_UX_PLAN) */
-  function queueSave(patch: { base_url?: string; model?: string; api_key?: string }) {
+  function queueSave(patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) {
     setDirty(true);
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
@@ -844,13 +880,17 @@ function ModelSection({
     }, 700);
   }
 
-  function pickProvider(p: (typeof PROVIDERS)[number]) {
+  function pickProvider(p: ProviderProfile) {
     setProvider(p.id);
-    const nextBase = p.id === 'custom' ? '' : p.base;
+    setKeyOpen(false);
+    // The new provider has its own key slot; status refreshes from the save response.
+    setKeySet(false);
+    setKeyHint('');
+    const nextBase = p.id === 'custom' ? '' : p.defaultBase;
     setBaseUrl(nextBase);
-    const firstModel = MODEL_SUGGESTIONS[p.id][0] ?? '';
+    const firstModel = p.models[0] ?? '';
     setModel(firstModel);
-    queueSave({ base_url: nextBase || undefined, model: firstModel || undefined });
+    queueSave({ provider: p.id, base_url: nextBase || undefined, model: firstModel || undefined });
   }
 
   async function check() {
@@ -887,37 +927,56 @@ function ModelSection({
         </div>
       </div>
 
-      {provider === 'custom' ? (
-        <div className={styles.settingBlock}>
-          <div className={styles.settingCaption}>{t('model.baseUrl')}</div>
+      <div className={styles.settingBlock}>
+        <div className={styles.settingCaption}>{t('model.baseUrl')}</div>
+        <div className={styles.keyRow}>
           <input
             className={styles.settingInput}
             value={baseUrl}
-            placeholder={t('model.customBaseHint')}
+            placeholder={profile.defaultBase || t('model.customBaseHint')}
             onChange={(e) => { setBaseUrl(e.target.value); queueSave({ base_url: e.target.value }); }}
           />
+          {profile.defaultBase && baseUrl !== profile.defaultBase ? (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => { setBaseUrl(profile.defaultBase); queueSave({ base_url: profile.defaultBase }); }}
+            >
+              {t('model.resetBase')}
+            </button>
+          ) : null}
         </div>
-      ) : null}
+      </div>
 
       <div className={styles.settingBlock}>
         <div className={styles.settingCaption}>{t('model.model')}</div>
         <input
           className={styles.settingInput}
           value={model}
-          placeholder={MODEL_SUGGESTIONS[provider][0] ?? ''}
-          list="gsc-model-suggestions"
+          placeholder={profile.models[0] ?? ''}
           onChange={(e) => { setModel(e.target.value); queueSave({ model: e.target.value }); }}
         />
-        <datalist id="gsc-model-suggestions">
-          {MODEL_SUGGESTIONS[provider].map((m) => <option key={m} value={m} />)}
-        </datalist>
+        {profile.models.length > 0 ? (
+          <div className={styles.modelChipRow}>
+            {profile.models.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`${styles.modelChip} ${model === m ? styles.on : ''}`}
+                onClick={() => { setModel(m); queueSave({ model: m }); }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className={styles.settingBlock}>
         <div className={styles.settingCaption}>{t('model.apiKey')}</div>
-        {llmConfig?.key_set && !keyOpen ? (
+        {keySet && !keyOpen ? (
           <div className={styles.keyRow}>
-            <span className={styles.keyBadge}>🔑 {t('model.keySetShort', { hint: llmConfig.key_hint })}</span>
+            <span className={styles.keyBadge}>🔑 {t('model.keySetShort', { hint: keyHint })}</span>
             <button type="button" className={styles.secondaryButton} onClick={() => setKeyOpen(true)}>{t('model.changeKey')}</button>
           </div>
         ) : (
@@ -925,19 +984,30 @@ function ModelSection({
             className={styles.settingInput}
             type="password"
             value={apiKey}
-            placeholder={llmConfig?.key_set ? t('model.keySet', { hint: llmConfig.key_hint }) : t('model.keyPlaceholder')}
+            placeholder={keySet ? t('model.keySet', { hint: keyHint }) : t('model.keyPlaceholder')}
             onChange={(e) => setApiKey(e.target.value)}
             onBlur={() => {
               if (apiKey.trim()) {
                 queueSave({ api_key: apiKey.trim() });
                 setApiKey('');
-                setKeyOpen(!llmConfig?.key_set ? keyOpen : false);
+                setKeyOpen(false);
               }
             }}
             autoComplete="off"
           />
         )}
+        <div className={styles.settingValue}>
+          {profile.keyExample ? t('model.keyFormat', { fmt: profile.keyExample }) : null}
+          {profile.consoleUrl ? (
+            <>
+              {profile.keyExample ? ' · ' : ''}
+              <a className={styles.plainLink} href={profile.consoleUrl} target="_blank" rel="noreferrer">{t('model.getKey')}</a>
+            </>
+          ) : null}
+        </div>
       </div>
+
+      {profile.noteKey ? <div className={styles.settingValue}>{t(profile.noteKey)}</div> : null}
 
       <div className={styles.settingRow}>
         <button type="button" className={styles.secondaryButton} disabled={checking} onClick={() => void check()}>

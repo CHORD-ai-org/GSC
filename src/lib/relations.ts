@@ -4,6 +4,7 @@ export const RELATION_KINDS = [
   'related_to',
   'supports',
   'challenges',
+  'superseded_by',
 ] as const;
 
 export type RelationKind = (typeof RELATION_KINDS)[number];

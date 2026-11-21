@@ -49,3 +49,13 @@
 .stackRow select{background:var(--bg-surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 8px;color:var(--ink);font:inherit;flex:1}
 
 @media(max-width:900px){.split{grid-template-columns:1fr}.colMain{border-right:0;border-bottom:1px solid var(--line)}}
+
+/* Mobile shell (≤720px): collapse the fixed sidebar into a top strip so the
+   main content keeps full width instead of being squeezed into a sliver. */
+@media(max-width:720px){
+  .app{flex-direction:column;height:auto;min-height:100vh}
+  .main{flex:1;min-width:0;overflow:visible}
+  .formPage{padding:18px 16px}
+  .colMain{padding:16px}
+  .colDetail{padding:16px}
+}

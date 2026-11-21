@@ -242,6 +242,7 @@ export function ObjectDetailView({
   const related = relations.outgoing.filter((r) => isObject(typeOf(r.to_id) ?? 'raw.document'));
   const relatedIncoming = relations.incoming.filter((r) => isObject(typeOf(r.from_id) ?? 'raw.document'));
   const sources = relations.outgoing.filter((r) => !isObject(typeOf(r.to_id) ?? 'object.concept'));
+  const supersededBy = relations.outgoing.find((r) => r.kind === 'superseded_by');
   const sourceItemId = typeof item.fields.source_item_id === 'string' ? item.fields.source_item_id : '';
   const sourceRows = [...sources];
   const inContexts = contextsContaining(contextIndex, item.id);
@@ -274,6 +275,13 @@ export function ObjectDetailView({
           <span className={styles.pairChip} onClick={() => onOpenItem(sources[0]?.to_id ?? sourceItemId)}>
             {t('detail.pairSource', { name: titleOf(sources[0]?.to_id ?? sourceItemId) })}
           </span>
+        </div>
+      ) : null}
+
+      {(item.status === 'superseded' || item.status === 'outdated') ? (
+        <div className={styles.error}>
+          <strong>{item.status === 'superseded' ? t('detail.superseded') : t('detail.outdated')}</strong>
+          {supersededBy ? <> · {t('detail.supersededBy')} <button type="button" className={styles.linkButton} onClick={() => onOpenItem(supersededBy.to_id)}>{titleOf(supersededBy.to_id)}</button></> : null}
         </div>
       ) : null}
 

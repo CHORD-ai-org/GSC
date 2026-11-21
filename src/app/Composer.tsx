@@ -168,9 +168,6 @@ export function Composer({
 
           <div className={styles.composerSpacer} />
 
-          <button type="button" className={styles.iconButton} title="Voice input (visual only)" aria-label={t('composer.mic')}>
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="6" y="2" width="4" height="7" rx="2" /><path d="M3.5 8a4.5 4.5 0 0 0 9 0M8 12.5v1.5" /></svg>
-          </button>
           <button type="button" className={styles.submitButton} disabled={!text.trim()} onClick={() => void submit()} aria-label={t('composer.submit')}>
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 13V3M4 7l4-4 4 4" /></svg>
           </button>

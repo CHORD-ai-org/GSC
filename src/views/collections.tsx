@@ -83,6 +83,27 @@ function matches(item: ItemDTO, q: string): boolean {
     || Object.values(item.fields).some((v) => typeof v === 'string' && v.toLowerCase().includes(needle));
 }
 
+/* Source-library helpers (Part 4.2): content preview + clean source attribution.
+   Keep raw technical source_label (e.g. sync:web:https://…) out of primary display. */
+function previewOf(item: ItemDTO): string {
+  const fields = item.fields;
+  const text = fields.content_text ?? fields.definition ?? fields.claim ?? fields.statement
+    ?? fields.reasoning ?? fields.steps ?? fields.name ?? fields.notes ?? '';
+  return text.replace(/\s+/g, ' ').trim().slice(0, 170);
+}
+
+function sourceDisplay(item: ItemDTO): string {
+  const author = item.fields.author;
+  if (typeof author === 'string' && author.trim()) return author.trim();
+  const loc = typeof item.fields.locator === 'string' && item.fields.locator ? item.fields.locator : item.source_label;
+  const cleaned = loc.replace(/^sync:[a-z]+:/, '');
+  try {
+    return new URL(cleaned).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
 function PageHead({ title, count, action }: { title: string; count: number; action: ReactNode }) {
   return (
     <div className={styles.headRow}>
@@ -165,7 +186,7 @@ export function RawCollection({
               <GridCard
                 key={item.id}
                 glyph={<Glyph kind={item.type} />}
-                typeLabel={`${ITEM_LABELS[item.type]}${item.source_label ? ` · ${item.source_label}` : ''}`}
+                typeLabel={`${ITEM_LABELS[item.type]}${sourceDisplay(item) ? ` · ${sourceDisplay(item)}` : ''}`}
                 title={item.title}
                 badges={badges?.[item.id]}
                 time={rt(item.updated_at)}
@@ -184,9 +205,12 @@ export function RawCollection({
               <div key={item.id} className={styles.rowWrap}>
                 <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
                   <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
-                  <span className={styles.rowTitle}>{item.title}</span>
+                  <span className={styles.rowStack}>
+                    <span className={styles.rowTitle}>{item.title}</span>
+                    {previewOf(item) ? <span className={styles.rowPreview}>{previewOf(item)}</span> : null}
+                  </span>
                   <span className={styles.rowTypeWrap}>
-                    <span className={styles.rowType}>{ITEM_LABELS[item.type]}{item.source_label ? ` · ${item.source_label}` : ''}</span>
+                    <span className={styles.rowType}>{ITEM_LABELS[item.type]}{sourceDisplay(item) ? ` · ${sourceDisplay(item)}` : ''}</span>
                     <RowBadges badges={badges?.[item.id]} />
                   </span>
                   <span className={styles.rowTime}>{rt(item.updated_at)}</span>
@@ -287,7 +311,10 @@ export function ObjectCollection({
               <div key={item.id} className={styles.rowWrap}>
                 <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
                   <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
-                  <span className={styles.rowTitle}>{item.title}</span>
+                  <span className={styles.rowStack}>
+                    <span className={styles.rowTitle}>{item.title}</span>
+                    {previewOf(item) ? <span className={styles.rowPreview}>{previewOf(item)}</span> : null}
+                  </span>
                   <span className={styles.rowTypeWrap}>
                     <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}</span>
                     <RowBadges badges={badges?.[item.id]} />

@@ -10,6 +10,7 @@ import type { TagDefinitionDTO } from '../lib/tags.ts';
 import { SemanticObjectSheet } from '../components/SemanticObjectSheet.tsx';
 import type { Sheet } from '../components/SemanticObjectSheet.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
+import { captureUrl } from '../services/api.ts';
 import styles from './lightup.module.css';
 
 export type CreatedItem = { id: string; title: string; type: ItemType; source_label: string };
@@ -92,6 +93,18 @@ export function LightUpStudio({
       setText((current) => (current ? `${current}\n\n${result.text}` : result.text));
       setPreviewNote(t('lu.previewNote', { url: result.url }));
       setSourceLabel(result.url);
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : t('lu.urlFail'));
+    }
+  }
+
+  /* Web Intelligence MVP: fetch → extract → persist raw item + semantic proposals. */
+  async function captureWeb() {
+    setLocalError('');
+    try {
+      const result = await captureUrl(url.trim());
+      setPreviewNote(t('lu.captureNote', { n: result.imported, p: result.proposals }));
+      setSourceLabel(url.trim());
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : t('lu.urlFail'));
     }
@@ -310,6 +323,7 @@ export function LightUpStudio({
                     onChange={(e) => setUrl(e.target.value)}
                   />
                   <button type="button" className={styles.ghost} onClick={() => void fetchUrl()} disabled={busy}>{t('lu.preview')}</button>
+                  <button type="button" className={styles.ghost} onClick={() => void captureWeb()} disabled={busy}>{t('lu.captureStore')}</button>
                 </div>
               </div>
             ) : null}
@@ -393,6 +407,17 @@ export function LightUpStudio({
           <p className={styles.studioSub}>
             {t('lu.shapeSub', { n: sheets.length })}
           </p>
+
+          {/* Understanding Summary (Part 5.3): digest before detailed review */}
+          <div className={styles.previewBanner}>
+            <strong>{t('lu.understandSummary')}</strong>
+            {t('lu.understandSummaryBody', {
+              source: sourceLabel !== 'lightup:text' ? sourceLabel : t('lu.summaryTextInput'),
+              chars: text.length,
+              n: sheets.length,
+              m: persistable.length,
+            })}
+          </div>
 
           <div className={styles.bulkBar}>
             <button type="button" className={styles.ghost} onClick={() => setSheets((c) => c.map((s) => ({ ...s, status: 'accepted' as const })))}>
