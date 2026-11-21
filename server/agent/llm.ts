@@ -20,6 +20,7 @@
 import type { Config } from '../config.ts';
 import { log } from '../log.ts';
 import { metrics } from '../metrics.ts';
+import { authHeadersFor, bodyExtrasFor, detectProvider, providerProfile } from '../../src/lib/providers.ts';
 
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -87,7 +88,9 @@ async function callOnce(
   if (!config.llmApiKey && !isLocalEndpoint(config.llmBaseUrl)) {
     throw new LlmError('auth', 'GSC_LLM_API_KEY is not configured', false);
   }
-  const isMimo = config.llmBaseUrl.includes('xiaomimimo.com');
+  // Different providers require different auth headers and body extras —
+  // resolved through the shared provider profile registry.
+  const profile = providerProfile(detectProvider(config.llmBaseUrl));
   const controller = new AbortController();
   const startedAt = Date.now();
   let abortTimer: ReturnType<typeof setTimeout>;
@@ -98,16 +101,13 @@ async function callOnce(
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(config.llmApiKey
-        ? { authorization: `Bearer ${config.llmApiKey}`, 'api-key': config.llmApiKey }
-        : {}),
+      ...(config.llmApiKey ? authHeadersFor(profile.auth, config.llmApiKey) : {}),
     },
     body: JSON.stringify({
       model: config.llmModel,
       messages,
       temperature: 0,
-      // MiMo: skip deep thinking for fast, cheap structured suggestions.
-      ...(isMimo ? { thinking: { type: 'disabled' } } : {}),
+      ...bodyExtrasFor(profile.auth),
     }),
     signal: controller.signal,
   });

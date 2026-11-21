@@ -126,3 +126,40 @@ describe('LLM reliability (INTEGRATION_HARDENING P0-A)', () => {
     expect(err.status).toBe(429);
   });
 });
+
+describe('per-provider request shapes (different providers, different requirements)', () => {
+  const at = (base: string) => readConfig({ GSC_LLM_API_KEY: 'k', GSC_LLM_BASE_URL: base, GSC_LLM_MODEL: 'm' });
+
+  it('Claude gets x-api-key + anthropic-version headers and max_tokens in the body', async () => {
+    const { fetchImpl, calls } = stubFetch(() => ({ body: { choices: [{ message: { content: 'ok' } }] } }));
+    await chatComplete(at('https://api.anthropic.com/v1'), [{ role: 'user', content: 'x' }], fetchImpl);
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers['x-api-key']).toBe('k');
+    expect(headers['anthropic-version']).toBe('2023-06-01');
+    expect(headers.authorization).toBe('Bearer k');
+    const body = JSON.parse(String(calls[0].init?.body));
+    expect(body.max_tokens).toBe(2048);
+    expect(body.thinking).toBeUndefined();
+  });
+
+  it('Gemini gets the x-goog-api-key header alongside Bearer', async () => {
+    const { fetchImpl, calls } = stubFetch(() => ({ body: { choices: [{ message: { content: 'ok' } }] } }));
+    await chatComplete(at('https://generativelanguage.googleapis.com/v1beta/openai'), [{ role: 'user', content: 'x' }], fetchImpl);
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers['x-goog-api-key']).toBe('k');
+    expect(headers.authorization).toBe('Bearer k');
+    expect(headers['api-key']).toBeUndefined();
+  });
+
+  it('DeepSeek and other plain providers get Bearer auth only', async () => {
+    const { fetchImpl, calls } = stubFetch(() => ({ body: { choices: [{ message: { content: 'ok' } }] } }));
+    await chatComplete(at('https://api.deepseek.com/v1'), [{ role: 'user', content: 'x' }], fetchImpl);
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.authorization).toBe('Bearer k');
+    expect(headers['api-key']).toBeUndefined();
+    expect(headers['x-api-key']).toBeUndefined();
+    expect(headers['x-goog-api-key']).toBeUndefined();
+    const body = JSON.parse(String(calls[0].init?.body));
+    expect(body.max_tokens).toBeUndefined();
+  });
+});
