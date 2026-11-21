@@ -6,6 +6,7 @@ Independent prototype of a persistent context infrastructure for human–AI coll
 
 ## Read first
 
+0. `DOCS_MAP.md` — 文档地图：72 份文档的分类、权威归属、过期/矛盾标注（2026-11-21 整理）。
 1. `THINKING.md` — active task and standing pre-answer instruction.
 2. `AGENTS.md` — mandatory rules for agents and developers.
 3. `PROJECT_CONTEXT.md` — purpose and boundaries.

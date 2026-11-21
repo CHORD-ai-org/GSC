@@ -653,3 +653,55 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   now (deferred to B3-1 — token path is genuinely usable first); keep mic button as decoration (rejected —
   violates "every button real").
 - **Status:** `PROPOSED` — 2026-11-21, awaiting user approval to execute.
+
+## D-081 — Full Productization Sprint: sync real-ization + IDOR hardening + responsive (DECIDED)
+
+- **Decision:** Executed the productization sprint. (1) Wired `POST /api/sources/:id/sync` to the
+  Web Intelligence adapter pipeline (`runSourceSync`) for web/rss/file/notion/drive/x (was a fake
+  "not implemented" screen); made `processSnapshot` proposal generation best-effort so an LLM failure
+  never fails a raw import. (2) Security: fixed a destructive IDOR on `POST /api/items/:id/restore|purge`
+  (added owner checks) and added owner isolation for contexts + sources via migration
+  `0011_owner_scoping.sql` (ADD COLUMN `owner_id`, backward-compatible) + create-time owner assignment
+  + backend enforcement. (3) Removed the dead Composer mic button. (4) Added `≤720px` responsive shell
+  (sidebar collapses to a top strip, main full-width). Verified: tsc=0, vitest 119/119, build passes.
+- **Reasoning:** user directive "Full Productization Sprint — resolve what prevents commercial
+  usability." Key insight (D-080): data-source real-ization = wiring, not building. Security: contexts/
+  sources lacked `owner_id`, so they weren't isolated at all; sources hold tokens (security-critical).
+- **Alternatives:** keep sync synchronous-only (kept — worker is P1); force OAuth now (deferred to B3-1,
+  token path is real); full mobile redesign (deliberate minimal adaptation instead).
+- **Status:** `DECIDED` — 2026-11-21, executed. Report: `PRODUCTIZATION_REPORT.md`.
+
+## D-082 — Web Intelligence capture MVP: URL → extract → persist journey (DECIDED)
+
+- **Decision:** Completed the Web Intelligence extraction MVP journey. Added `POST /api/capture` (URL →
+  capture task → SSRF → fetch → extract → persist raw item + semantic proposals) + `GET /api/capture/:id`,
+  through the real capture-task lifecycle (create → processing → completed/failed) via
+  `createTask`/`updateTask`/`processCaptureTask`. Processing is inline (smallest reliable implementation);
+  a background worker draining `capture_tasks` via `claimNextTask` is the documented next step. Added the
+  Dashboard entry: Light Up URL section gets a "采集入库 (Capture & store)" button (`api.captureUrl`) that
+  captures the URL into GSC and routes its proposals to the existing review→confirm queue. New journey test.
+- **Reasoning:** user asked whether the extraction MVP was implemented. Verdict: the extraction **core**
+  (adapters/extract/processSnapshot/snapshots) was already built + tested, but the journey (capture API +
+  Dashboard entry) was missing. Completed it by reusing the existing pipeline — no new extraction logic.
+- **Alternatives:** separate async worker now (deferred — inline is reliable for single-URL capture);
+  duplicate a second confirmation flow (rejected — reuses existing proposal→confirm); a new capture UI page
+  (rejected — extended the existing Light Up URL section).
+- **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, vitest 120/120, capture UI screenshot.
+
+## D-083 — Information Experience Overhaul: editorial presentation system + Raw source library (DECIDED)
+
+- **Decision:** Began the Information Experience Overhaul (goal: information product, not DB admin). Built the
+  shared editorial presentation system — type scale (page/title/section/object/body/meta/caption) + spacing
+  scale + **comfortable/compact density** (new `density` pref → `<html data-density>`, toggled in Settings) in
+  `tokens.css`/`prefs.ts`/`App.tsx`/`pages.tsx`. Applied the scale to shared row/detail/reader classes
+  (`views.module.css`). Redesigned **Raw Information** as a source library (Part 4.2): content preview per row,
+  clean source attribution (api.github.com / author) with the raw technical `source_label` (sync:web:…) removed
+  from primary display, reading measure on content. Verified: tsc=0, vite build, vitest 120/120, screenshot.
+- **Reasoning:** user directive "Information Experience Overhaul." Part 3 (presentation system) is the reusable
+  foundation; Part 4.2 (Raw source library) is the flagship "reading over inspecting" demonstration. Typography +
+  density lift every page; hiding technical source metadata removes the "engineering DB" feel.
+- **Alternatives:** page-by-page bespoke redesign (rejected — shared system scales better); a big component
+  library (rejected — presentation system over abstraction, per directive §3); redesigning all pages this pass
+  (continuing — foundation + flagship verified first, then extend to Objects/Detail/Light Up/Canvas).
+- **Status:** `DECIDED` — 2026-11-21, in progress (Stage A/B + Stage C-Raw done; remaining pages continuing).
+  Working doc: `INFORMATION_EXPERIENCE_OVERHAUL.md`.
