@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: 路由系统（D-078）已交付——零依赖 URL 路由，深链接/前进后退/路由参数/404，110 tests。后端基础工程 Phase 00–06 已交付。GLOBAL_OPTIMIZATION M2（healthz/metrics/lint/CI）待开工。
+> Status: 按钮真实性全盘审查已做（~170 元素，D-080 `PROPOSED`，`BUTTON_OPTIMIZATION_PLAN.md`，待批准执行）。假按钮集中在同步/导出数据源（sync 路由未接线到已建成的 Web Intelligence 适配器）+ 1 个麦克风死按钮。Canvas 信息树（D-079）、路由系统（D-078）、后端基础工程 Phase 00–06 已交付。
 
 ## User approvals received 2026-11-16
 

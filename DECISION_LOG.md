@@ -614,3 +614,42 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Consequences:** `src/lib/router.ts`, `src/app/routes.ts`, App state↔URL sync + 404 gate,
   `notFound.*` i18n keys, `routes.test.ts` + `router.test.ts`. Deep links, back/forward, 404 verified.
 - **Status:** `DECIDED` — 2026-11-21, user instruction "用商业化的标准制定项目的路由系统并执行".
+
+## D-079 — Overview Canvas: Expandable Information Tree (PROPOSED)
+
+- **Decision (PROPOSED):** Add a **Canvas mode to Overview** (Overview | Canvas toggle) rendering a
+  progressively-expandable information tree: root `My Information Space` → domains (Raw / Structured
+  Objects / Clusters / Contexts) → categories (by actual item type) → individual objects. Selecting an
+  object navigates to its existing detail page. Deterministic zero-dependency frontend tree layout (no
+  react-flow/d3); **reference-node dedup** for multi-parent objects (a Chunk in several Clusters/
+  Contexts appears once as an object + as reference nodes on other paths); containment = membership
+  (cluster/context `member_ids`), `relations` deferred. Reuses existing APIs (`src/services/api.ts`
+  `listItems({type,domain,q})` / `listClusters` / `listContexts`) — **no backend change, no new
+  dependency, no canonical data model change**.
+- **Reasoning:** vision "Overview Canvas — Expandable Information Tree"; the Canvas is a navigational
+  projection of the Information Space, not the data model. Zero-dep + no graph DB honors AGENTS.md
+  boundaries; membership-based containment avoids implying single-parent ownership.
+- **Alternatives:** graph library (react-flow/d3) (rejected — large dep, not needed for MVP tree);
+  backend tree endpoint (rejected — existing list APIs suffice); canonical object duplication
+  (rejected — reference nodes instead).
+- **Status:** `DECIDED` — 2026-11-21, user approved "开始执行" (implement Phase C). Plan: `CANVAS_PLAN.md`.
+
+## D-080 — Button Reality Audit & Optimization Plan (PROPOSED)
+
+- **Decision (PROPOSED):** Full audit of every clickable element in GSC (~170 across 21 files) classified
+  REAL / FAKE / PARTIAL by tracing each handler body to its final call (`api.*` / `downloadArtifact` /
+  `go/navigate` / real toggle). Verdict: the overwhelming majority are REAL (CRUD, navigation, export,
+  tags, proposals, news, account, theme/lang/view, onboarding). Problems concentrate in the **Sync &
+  Export data-source domain** + one decorative dead button. Optimize via P0 (wire `POST /api/sources/:id/sync`
+  to the already-built Web Intelligence adapters `getAdapter(kind)+extract+pipeline`, replacing the
+  github-only branch; remove the dead mic button), P1 (URL capture persists via capture→Light Up→confirm;
+  persist the session-only "accept" review state), P2 (honest notion/drive/x token paths + full-domain
+  regression). Plan: `BUTTON_OPTIMIZATION_PLAN.md`.
+- **Reasoning:** user instruction "全盘审查…我希望每一个按钮都真实可用，否则制定优化计划". Key insight: the
+  multi-source adapters (`server/intel/adapters/`) are already real (web/rss/file/github + notion/drive/x
+  token, with `extract.ts`/`pipeline.ts`, 7 tests) but the sync route (`router.ts:808`) still returns
+  "not implemented" for non-github — so real-izing data sources is **wiring**, not building from scratch.
+- **Alternatives:** build 6 separate source integrations (rejected — adapters already exist); full OAuth
+  now (deferred to B3-1 — token path is genuinely usable first); keep mic button as decoration (rejected —
+  violates "every button real").
+- **Status:** `PROPOSED` — 2026-11-21, awaiting user approval to execute.
