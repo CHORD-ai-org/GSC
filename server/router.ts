@@ -20,6 +20,7 @@ import { idempotentWrite, newRequestId } from './idempotency.ts';
 import { logRequest } from './log.ts';
 import { chatComplete } from './agent/llm.ts';
 import { clearLocalUserId, hasLlmApiKey, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
+import { isProviderId } from '../src/lib/providers.ts';
 import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
 import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
@@ -27,6 +28,7 @@ import { createRelation, listRelations } from './repo/relations.ts';
 import { listEvents } from './repo/events.ts';
 import {
   addContextMember,
+  contextOwner,
   createContext,
   deleteContext,
   getContext,
@@ -72,6 +74,7 @@ import {
   getSource,
   listSources,
   markSync,
+  sourceOwner,
   updateSource,
 } from './repo/sources.ts';
 import {
@@ -79,10 +82,12 @@ import {
   validateUpdateSourceBody,
 } from '../src/lib/sources.ts';
 import { runGithubSync } from './sync/github.ts';
+import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
+import { createTask, getTask, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
-import { DEFAULT_USER_ID, verifyApiToken } from './storage/tokens.ts';
+import { DEFAULT_USER_ID, verifyApiToken, listTokens, createApiToken, revokeApiToken } from './storage/tokens.ts';
 import {
   createUser,
   deleteUser,
@@ -145,6 +150,10 @@ const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/llm\/check$/, methods: ['POST'] },
   { pattern: /^\/api\/news$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/news\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
+  { pattern: /^\/api\/capture$/, methods: ['POST'] },
+  { pattern: /^\/api\/capture\/[^/]+$/, methods: ['GET'] },
+  { pattern: /^\/api\/tokens$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/tokens\/[^/]+$/, methods: ['DELETE'] },
 ];
 
 function allowedMethodsFor(path: string): string[] | undefined {
@@ -329,6 +338,10 @@ export function createApiRouter(config: Config, db: Database) {
 
       const restoreMatch = path.match(/^\/api\/items\/([^/]+)\/restore$/);
       if (restoreMatch && req.method === 'POST') {
+        if (!unrestricted && (await itemOwner(db, restoreMatch[1])) !== viewerId) {
+          sendApiError(res, apiError('not_found', 'Item not found'));
+          return;
+        }
         const ok = await restoreItem(db, restoreMatch[1]);
         if (!ok) {
           sendApiError(res, apiError('not_found', 'Item not found'));
@@ -340,6 +353,10 @@ export function createApiRouter(config: Config, db: Database) {
 
       const purgeMatch = path.match(/^\/api\/items\/([^/]+)\/purge$/);
       if (purgeMatch && req.method === 'POST') {
+        if (!unrestricted && (await itemOwner(db, purgeMatch[1])) !== viewerId) {
+          sendApiError(res, apiError('not_found', 'Item not found'));
+          return;
+        }
         const ok = await purgeItem(db, purgeMatch[1]);
         if (!ok) {
           sendApiError(res, apiError('not_found', 'Item not found'));
@@ -476,7 +493,15 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create context body'));
           return;
         }
-        sendJson(res, 201, { ok: true, context: await createContext(db, body) });
+        sendJson(res, 201, { ok: true, context: await createContext(db, body, viewerId) });
+        return;
+      }
+
+      // Contexts are owner-scoped (no share mechanism): enforce ownership on
+      // /api/contexts/:id and /api/contexts/:id/members (IDOR guard).
+      const contextOwnerMatch = path.match(/^\/api\/contexts\/([^/]+)(?:\/members)?$/);
+      if (contextOwnerMatch && !unrestricted && (await contextOwner(db, contextOwnerMatch[1])) !== viewerId) {
+        sendApiError(res, apiError('not_found', 'Context not found'));
         return;
       }
 
@@ -759,9 +784,17 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create source body'));
           return;
         }
-        const source = await createSource(db, body);
+        const source = await createSource(db, body, viewerId);
         if (body.token) writeSecret(secretsDir, source.id, body.token);
         sendJson(res, 201, { ok: true, source });
+        return;
+      }
+
+      // Sources are owner-scoped: enforce ownership on /api/sources/:id and
+      // /api/sources/:id/sync (IDOR guard).
+      const sourceOwnerMatch = path.match(/^\/api\/sources\/([^/]+)(?:\/sync)?$/);
+      if (sourceOwnerMatch && !unrestricted && (await sourceOwner(db, sourceOwnerMatch[1])) !== viewerId) {
+        sendApiError(res, apiError('not_found', 'Source not found'));
         return;
       }
 
@@ -804,12 +837,11 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('conflict', 'Source is paused'));
           return;
         }
-        if (source.kind !== 'github') {
-          sendApiError(res, apiError('contract', `Sync for ${source.kind} is not implemented yet (PLAN-3 B3-1)`));
-          return;
-        }
         try {
-          const result = await runGithubSync(db, source, readSecret(secretsDir, source.id));
+          const token = readSecret(secretsDir, source.id);
+          const result = source.kind === 'github'
+            ? await runGithubSync(db, source, token)
+            : await runSourceSync(db, config, source, token);
           await markSync(db, source.id, { ok: true });
           sendJson(res, 200, { ok: true, result });
         } catch (e) {
@@ -837,6 +869,46 @@ export function createApiRouter(config: Config, db: Database) {
           }
           sendApiError(res, apiError('internal', e instanceof Error ? e.message : 'Fetch failed'));
         }
+        return;
+      }
+
+      // Web Intelligence MVP: explicit URL capture → task → extract → Light Up.
+      // Smallest reliable implementation: run the task inline through the real
+      // lifecycle (create → processing → completed/failed). A separate async worker
+      // can later drain the queue via claimNextTask; processCaptureTask is idempotent.
+      if (path === '/api/capture' && req.method === 'POST') {
+        const body = await readJson(req);
+        const rawUrl = (body as Record<string, unknown>)?.url;
+        if (typeof rawUrl !== 'string' || !/^https?:\/\//i.test(rawUrl)) {
+          sendApiError(res, apiError('contract', 'Invalid url'));
+          return;
+        }
+        const task = await createTask(db, { kind: 'web', url: rawUrl, sourceId: null });
+        try {
+          await updateTask(db, task.id, { status: 'processing', stage: 'fetching' });
+          const outcome = await processCaptureTask(db, config, task, undefined, viewerId);
+          await updateTask(db, task.id, { status: 'completed', stage: 'done', completed: true });
+          sendJson(res, 201, { ok: true, task_id: task.id, status: 'completed', ...outcome });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Capture failed';
+          await updateTask(db, task.id, { status: 'failed', stage: 'error', error: message });
+          if (e instanceof SsrfError) {
+            sendApiError(res, apiError('contract', e.message));
+            return;
+          }
+          sendApiError(res, apiError('internal', message));
+        }
+        return;
+      }
+
+      const captureStatusMatch = path.match(/^\/api\/capture\/([^/]+)$/);
+      if (captureStatusMatch && req.method === 'GET') {
+        const task = await getTask(db, captureStatusMatch[1]);
+        if (!task) {
+          sendApiError(res, apiError('not_found', 'Capture task not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, task });
         return;
       }
 
@@ -914,7 +986,14 @@ export function createApiRouter(config: Config, db: Database) {
       if (path === '/api/llm/config' && req.method === 'PATCH') {
         const body = await readJson(req);
         const b = (body ?? {}) as Record<string, unknown>;
-        const patch: { base_url?: string; model?: string } = {};
+        const patch: { provider?: string; base_url?: string; model?: string } = {};
+        if (b.provider !== undefined) {
+          if (!isProviderId(b.provider)) {
+            sendApiError(res, apiError('contract', 'provider must be a known provider id'));
+            return;
+          }
+          patch.provider = b.provider;
+        }
         if (b.base_url !== undefined) {
           if (typeof b.base_url !== 'string' || !/^https?:\/\//.test(b.base_url) || b.base_url.length > 512) {
             sendApiError(res, apiError('contract', 'base_url must be an http(s) URL'));
@@ -934,7 +1013,8 @@ export function createApiRouter(config: Config, db: Database) {
             sendApiError(res, apiError('contract', 'api_key must be a string of at most 512 chars'));
             return;
           }
-          if (b.api_key) writeLlmApiKey(secretsDir, b.api_key);
+          // Keys are stored per provider so switching providers keeps each credential.
+          if (b.api_key) writeLlmApiKey(secretsDir, b.api_key, patch.provider);
         }
         if (Object.keys(patch).length > 0) writeLlmSettings(secretsDir, patch);
         sendJson(res, 200, { ok: true, config: llmPublicConfig(config, secretsDir) });
@@ -1101,6 +1181,35 @@ export function createApiRouter(config: Config, db: Database) {
             .filter((v) => v.confirmed)
             .map((v) => ({ value: v.value, scope: v.scope })),
         });
+        return;
+      }
+
+      // Token / Agent access management (T301, GAP-04): see and manage PAT access.
+      if (path === '/api/tokens' && req.method === 'GET') {
+        sendJson(res, 200, { ok: true, tokens: listTokens(dirname(config.pgliteDir)) });
+        return;
+      }
+      if (path === '/api/tokens' && req.method === 'POST') {
+        const body = await readJson(req);
+        const raw = (body ?? {}) as Record<string, unknown>;
+        const name = raw.name;
+        const scope: 'read' | 'rw' = raw.scope === 'read' ? 'read' : 'rw';
+        if (typeof name !== 'string' || !name.trim()) {
+          sendApiError(res, apiError('contract', 'name is required'));
+          return;
+        }
+        const created = createApiToken(dirname(config.pgliteDir), name.trim(), scope, viewerId);
+        sendJson(res, 201, { ok: true, id: created.id, token: created.token, name: name.trim(), scope });
+        return;
+      }
+      const tokenMatch = path.match(/^\/api\/tokens\/([^/]+)$/);
+      if (tokenMatch && req.method === 'DELETE') {
+        const ok = revokeApiToken(dirname(config.pgliteDir), tokenMatch[1]);
+        if (!ok) {
+          sendApiError(res, apiError('not_found', 'Token not found'));
+          return;
+        }
+        sendJson(res, 200, { ok: true, deleted: true });
         return;
       }
 

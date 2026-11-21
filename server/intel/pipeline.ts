@@ -13,6 +13,7 @@ import { runDetection } from '../agent/detector.ts';
 import { createProposal } from '../repo/proposals.ts';
 import { createItem } from '../repo/items.ts';
 import { upsertSnapshot } from '../repo/snapshots.ts';
+import { claimNextTask, reclaimStale, updateTask } from '../repo/tasks.ts';
 import { getAdapter } from './adapters/index.ts';
 import type { FetchedDoc } from './adapters/types.ts';
 
@@ -45,35 +46,45 @@ export async function processSnapshot(
   let proposals = 0;
   const segments = segmentText(doc.contentText).slice(0, MAX_SEGMENTS);
   if (segments.length) {
-    const suggestions = await suggestForChunks(
-      config,
-      segments.map((s) => ({ title: s.title, content: s.content })),
-    );
-    for (const s of suggestions) {
-      if (s.semantic_name) {
-        await createProposal(db, {
-          kind: 'semantic_name',
-          target_id: item.id,
-          proposed_value: s.semantic_name,
-          rationale: s.rationale,
-          source: 'agent',
-        });
-        proposals += 1;
+    // Proposals are best-effort: raw import already succeeded above, so an LLM
+    // failure (not configured / unreachable) must not fail the whole capture.
+    try {
+      const suggestions = await suggestForChunks(
+        config,
+        segments.map((s) => ({ title: s.title, content: s.content })),
+      );
+      for (const s of suggestions) {
+        if (s.semantic_name) {
+          await createProposal(db, {
+            kind: 'semantic_name',
+            target_id: item.id,
+            proposed_value: s.semantic_name,
+            rationale: s.rationale,
+            source: 'agent',
+          });
+          proposals += 1;
+        }
+        if (s.classification) {
+          await createProposal(db, {
+            kind: 'classification',
+            target_id: item.id,
+            proposed_value: s.classification,
+            rationale: s.rationale,
+            source: 'agent',
+          });
+          proposals += 1;
+        }
       }
-      if (s.classification) {
-        await createProposal(db, {
-          kind: 'classification',
-          target_id: item.id,
-          proposed_value: s.classification,
-          rationale: s.rationale,
-          source: 'agent',
-        });
-        proposals += 1;
-      }
+    } catch (e) {
+      console.error('[intel] proposal generation skipped:', e instanceof Error ? e.message : e);
     }
   }
 
-  await runDetection(db);
+  try {
+    await runDetection(db);
+  } catch (e) {
+    console.error('[intel] detection skipped:', e instanceof Error ? e.message : e);
+  }
   return { itemId: item.id, proposals };
 }
 
@@ -104,4 +115,76 @@ export async function processCaptureTask(
     proposals += result.proposals;
   }
   return { fetched: docs.length, imported, proposals };
+}
+
+export type SourceLike = { id: string; kind: string; label: string; scope: string };
+
+/**
+ * Sync entry point for a configured source: adapter fetch → idempotent snapshot
+ * → Light Up. Used by `POST /api/sources/:id/sync` for every adapter-backed kind
+ * (web / rss / file / notion / drive / x). Deterministic + idempotent — unchanged
+ * content is skipped, changed content is captured as a new snapshot version.
+ * One bad document never aborts the rest of the sync.
+ */
+export async function runSourceSync(
+  db: Database,
+  config: Config,
+  source: SourceLike,
+  token: string,
+  fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>,
+): Promise<{ imported: number; skipped: number }> {
+  const adapter = getAdapter(source.kind);
+  const cfg = { label: source.label, scope: source.scope, token };
+  const docs = await adapter.fetch(cfg, undefined, fetchImpl);
+  let imported = 0;
+  let skipped = 0;
+  for (const doc of docs) {
+    try {
+      const { created } = await upsertSnapshot(db, source.id, doc);
+      if (!created) {
+        skipped += 1;
+        continue;
+      }
+      await processSnapshot(db, config, doc, { kind: source.kind });
+      imported += 1;
+    } catch (e) {
+      console.error('[intel] sync doc failed:', doc.externalId, e instanceof Error ? e.message : e);
+      skipped += 1;
+    }
+  }
+  return { imported, skipped };
+}
+
+/**
+ * Capture worker (Web Intelligence §6.3): background drain + interruption recovery.
+ * Reclaims stale in-flight tasks (worker crash → re-queued), then claims and
+ * processes pending tasks through the idempotent capture pipeline. Each task is
+ * marked completed/failed so retries never leave work half-done. Run periodically.
+ */
+export async function runCaptureWorker(
+  db: Database,
+  config: Config,
+  opts: { staleMs?: number; max?: number } = {},
+): Promise<{ reclaimed: number; processed: number; failed: number }> {
+  const reclaimed = await reclaimStale(db, opts.staleMs ?? 60_000);
+  const max = opts.max ?? 5;
+  let processed = 0;
+  let failed = 0;
+  for (let i = 0; i < max; i += 1) {
+    const task = await claimNextTask(db);
+    if (!task) break;
+    try {
+      await processCaptureTask(db, config, task);
+      await updateTask(db, task.id, { status: 'completed', stage: 'done', completed: true });
+      processed += 1;
+    } catch (e) {
+      await updateTask(db, task.id, {
+        status: 'failed',
+        stage: 'error',
+        error: e instanceof Error ? e.message : 'capture failed',
+      });
+      failed += 1;
+    }
+  }
+  return { reclaimed, processed, failed };
 }

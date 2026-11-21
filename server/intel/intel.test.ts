@@ -5,6 +5,12 @@ import { migrationSql } from '../persistence/migrate.ts';
 import { upsertSnapshot } from '../repo/snapshots.ts';
 import { getAdapter, ADAPTERS } from './adapters/index.ts';
 import { extractHtml, contentHash, normalizeUrl } from './extract.ts';
+import { runSourceSync } from './pipeline.ts';
+import { processCaptureTask } from './pipeline.ts';
+import { createSource } from '../repo/sources.ts';
+import { items } from '../persistence/schema.ts';
+import { like } from 'drizzle-orm';
+import type { Config } from '../config.ts';
 
 describe('web intelligence', () => {
   let handle: DatabaseHandle;
@@ -70,5 +76,73 @@ describe('web intelligence', () => {
     await upsertSnapshot(db, null, base);
     const changed = await upsertSnapshot(db, null, { ...base, contentText: 'v2', rawHash: 'h3' });
     expect(changed.created).toBe(true);
+  });
+});
+
+describe('source sync (runSourceSync)', () => {
+  let handle: DatabaseHandle;
+  let db: DatabaseHandle['db'];
+
+  // Config stub with a remote base_url and no API key → chatComplete throws fast,
+  // proving raw import still succeeds when the LLM is unavailable (resilience).
+  const cfg = {
+    llmBaseUrl: 'https://remote.invalid/v1',
+    llmApiKey: '',
+    llmModel: 'm',
+    llmTimeoutMs: 50,
+    llmMaxRetries: 0,
+    llmRetryBaseMs: 1,
+  } as unknown as Config;
+
+  beforeAll(async () => {
+    handle = createDatabase();
+    await handle.exec(migrationSql());
+    db = handle.db;
+  });
+
+  afterAll(async () => {
+    await handle?.close();
+  });
+
+  it('imports file content into a real item and preserves provenance (fake→real)', async () => {
+    const source = await createSource(db, { kind: 'file', label: 'note.md', scope: '# Title\n\nReal body content for sync.' });
+    const r1 = await runSourceSync(db, cfg, source, '');
+    expect(r1).toEqual({ imported: 1, skipped: 0 });
+
+    const rows = await db.select().from(items).where(like(items.source_label, 'sync:file:%'));
+    expect(rows.length).toBe(1);
+    expect(rows[0].title).toBe('note.md');
+    expect(rows[0].origin).toBe('import');
+    expect(rows[0].source_label.startsWith('sync:file:')).toBe(true);
+  });
+
+  it('is idempotent: re-syncing identical content skips (no duplicate items)', async () => {
+    const source = await createSource(db, { kind: 'file', label: 'dup.md', scope: 'Stable content body.' });
+    const first = await runSourceSync(db, cfg, source, '');
+    expect(first).toEqual({ imported: 1, skipped: 0 });
+    const second = await runSourceSync(db, cfg, source, '');
+    expect(second).toEqual({ imported: 0, skipped: 1 });
+    const rows = await db.select().from(items).where(like(items.source_label, 'sync:file:%'));
+    expect(rows.filter((r) => r.title === 'dup.md').length).toBe(1);
+  });
+
+  it('processCaptureTask runs the URL capture journey: extract → item + provenance, idempotent', async () => {
+    const html = '<html><head><title>Captured Article</title></head><body><p>Deep content about systems.</p></body></html>';
+    const fakeFetch = async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html' } });
+    const task = { id: 'tsk_test1', kind: 'web', url: 'https://example.com/article', source_id: null };
+    const outcome = await processCaptureTask(db, cfg, task, fakeFetch as never);
+    expect(outcome.fetched).toBe(1);
+    expect(outcome.imported).toBe(1);
+
+    const rows = await db.select().from(items).where(like(items.source_label, 'sync:web:%'));
+    expect(rows.length).toBe(1);
+    expect(rows[0].title).toBe('Captured Article');
+    expect(rows[0].origin).toBe('import');
+
+    // Idempotent: re-capturing unchanged content is a no-op (snapshot dedupe).
+    const again = await processCaptureTask(db, cfg, task, fakeFetch as never);
+    expect(again.imported).toBe(0);
+    const after = await db.select().from(items).where(like(items.source_label, 'sync:web:%'));
+    expect(after.length).toBe(1);
   });
 });

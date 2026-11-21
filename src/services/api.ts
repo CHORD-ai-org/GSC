@@ -76,6 +76,9 @@ export type ApiResponse =
   | ProfileResponse
   | LlmConfigResponse
   | LlmCheckResponse
+  | CaptureResponse
+  | TokenListResponse
+  | TokenCreateResponse
   | { ok: true; deleted: true }
   | ApiError;
 
@@ -401,7 +404,7 @@ export function getProfile(): Promise<ProfileResponse> {
 }
 
 // Settings UI: runtime LLM provider configuration (the key is write-only)
-export type LlmPublicConfig = { base_url: string; model: string; key_set: boolean; key_hint: string };
+export type LlmPublicConfig = { provider: string; base_url: string; model: string; key_set: boolean; key_hint: string };
 export type LlmConfigResponse = { ok: true; config: LlmPublicConfig };
 export type LlmCheckResponse = { ok: true; model: string; ms: number; reply: string };
 
@@ -409,10 +412,38 @@ export function getLlmConfig(): Promise<LlmConfigResponse> {
   return request<LlmConfigResponse>('/api/llm/config');
 }
 
-export function updateLlmConfig(body: { base_url?: string; model?: string; api_key?: string }): Promise<LlmConfigResponse> {
+export function updateLlmConfig(body: { provider?: string; base_url?: string; model?: string; api_key?: string }): Promise<LlmConfigResponse> {
   return request<LlmConfigResponse>('/api/llm/config', { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export function checkLlm(): Promise<LlmCheckResponse> {
   return request<LlmCheckResponse>('/api/llm/check', { method: 'POST' });
+}
+
+// Web Intelligence MVP: explicit URL capture → task → extract → persist + proposals.
+export type CaptureResponse = {
+  ok: true;
+  task_id: string;
+  status: string;
+  fetched: number;
+  imported: number;
+  proposals: number;
+};
+export function captureUrl(url: string): Promise<CaptureResponse> {
+  return request<CaptureResponse>('/api/capture', { method: 'POST', body: JSON.stringify({ url }) });
+}
+
+// Token / Agent access management (T301): list + create + revoke PAT access.
+export type TokenSummary = { id: string; name: string; scope: 'read' | 'rw'; userId: string; created_at: string };
+export type TokenListResponse = { ok: true; tokens: TokenSummary[] };
+export type TokenCreateResponse = { ok: true; id: string; token: string; name: string; scope: 'read' | 'rw' };
+
+export function listTokens(): Promise<TokenListResponse> {
+  return request<TokenListResponse>('/api/tokens');
+}
+export function createToken(name: string, scope: 'read' | 'rw'): Promise<TokenCreateResponse> {
+  return request<TokenCreateResponse>('/api/tokens', { method: 'POST', body: JSON.stringify({ name, scope }) });
+}
+export function revokeToken(id: string): Promise<{ ok: true; deleted: true }> {
+  return request<{ ok: true; deleted: true }>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
