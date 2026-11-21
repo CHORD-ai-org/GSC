@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Config } from '../config.ts';
-import { detectProvider, isProviderId, type ProviderId } from '../../src/lib/providers.ts';
+import { detectProvider, isProviderId, PROVIDER_IDS, type ProviderId } from '../../src/lib/providers.ts';
 import { readSecret, writeSecret } from './secrets.ts';
 
 export type LlmSettings = {
@@ -97,15 +97,20 @@ export function llmPublicConfig(base: Config, dataDir: string): {
   model: string;
   key_set: boolean;
   key_hint: string;
+  /** Which providers have a stored key (booleans only — no key material). */
+  key_status: Record<string, boolean>;
 } {
   const effective = resolveLlmConfig(base, dataDir);
   const key = effective.llmApiKey;
+  const key_status: Record<string, boolean> = {};
+  for (const id of PROVIDER_IDS) key_status[id] = hasLlmApiKey(dataDir, id);
   return {
     provider: currentProviderId(dataDir),
     base_url: effective.llmBaseUrl,
     model: effective.llmModel,
     key_set: Boolean(key),
     key_hint: key ? `${key.slice(0, 4)}…${key.slice(-4)}` : '',
+    key_status,
   };
 }
 

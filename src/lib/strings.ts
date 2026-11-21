@@ -96,7 +96,6 @@ export const STRINGS: Record<string, StringPair> = {
   'composer.placeholder': { zh: '把信息带进 GSC…（可直接输入、粘贴、拖入文件）', en: 'Bring information into GSC… (type, paste or drop a file)' },
   'composer.ask': { zh: '问点什么，或把信息带进来…', en: 'Ask anything' },
   'composer.submit': { zh: '提交', en: 'Submit' },
-  'composer.provider': { zh: '提供方', en: 'Provider' },
 
   /* ── Common actions ── */
   'common.save': { zh: '保存', en: 'Save' },
@@ -628,9 +627,8 @@ export const STRINGS: Record<string, StringPair> = {
   'obj.emptyHint': { zh: '结构化对象从原始信息派生，经确认后入库。', en: 'Structured objects derive from raw information and land after confirmation.' },
   'clu.emptyHint': { zh: '把相关联的信息归入一个关联组。', en: 'Group related information into a cluster.' },
   'ctx.emptyHint': { zh: '为特定目的创建一个 Context View。', en: 'Create a Context View for a specific purpose.' },
-  'composer.descMimo': { zh: '小米 MiMo · 快速对话', en: 'Xiaomi MiMo · fast chat' },
-  'composer.descDeepseek': { zh: 'DeepSeek · 深度求索', en: 'DeepSeek · deep reasoning' },
-  'composer.descRym': { zh: 'Rym · 本地模型', en: 'Rym · local model' },
+  'composer.notConfigured': { zh: '未配置', en: 'Not configured' },
+  'composer.noKey': { zh: '无密钥', en: 'no key' },
   'user.localAccount': { zh: '本地账户', en: 'Local account' },
   'user.title': { zh: '用户', en: 'User' },
   'user.sub': { zh: '账户信息、偏好与跨应用输出的 User Profile。', en: 'Account info, preferences, and the User Profile exported to external agents.' },

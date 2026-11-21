@@ -20,7 +20,7 @@ import { idempotentWrite, newRequestId } from './idempotency.ts';
 import { logRequest } from './log.ts';
 import { chatComplete } from './agent/llm.ts';
 import { clearLocalUserId, hasLlmApiKey, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
-import { isProviderId } from '../src/lib/providers.ts';
+import { isProviderId, detectProvider } from '../src/lib/providers.ts';
 import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
 import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
@@ -1013,8 +1013,11 @@ export function createApiRouter(config: Config, db: Database) {
             sendApiError(res, apiError('contract', 'api_key must be a string of at most 512 chars'));
             return;
           }
-          // Keys are stored per provider so switching providers keeps each credential.
-          if (b.api_key) writeLlmApiKey(secretsDir, b.api_key, patch.provider);
+          // Keys are stored per provider so switching providers keeps each
+          // credential. The slot follows the provider in this very patch (the
+          // settings write below happens after this, so resolve it explicitly).
+          const targetProvider = patch.provider ?? (patch.base_url ? detectProvider(patch.base_url) : undefined);
+          if (b.api_key) writeLlmApiKey(secretsDir, b.api_key, targetProvider);
         }
         if (Object.keys(patch).length > 0) writeLlmSettings(secretsDir, patch);
         sendJson(res, 200, { ok: true, config: llmPublicConfig(config, secretsDir) });

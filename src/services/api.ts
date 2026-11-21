@@ -404,7 +404,7 @@ export function getProfile(): Promise<ProfileResponse> {
 }
 
 // Settings UI: runtime LLM provider configuration (the key is write-only)
-export type LlmPublicConfig = { provider: string; base_url: string; model: string; key_set: boolean; key_hint: string };
+export type LlmPublicConfig = { provider: string; base_url: string; model: string; key_set: boolean; key_hint: string; key_status: Record<string, boolean> };
 export type LlmConfigResponse = { ok: true; config: LlmPublicConfig };
 export type LlmCheckResponse = { ok: true; model: string; ms: number; reply: string };
 
