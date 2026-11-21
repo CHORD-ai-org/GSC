@@ -705,3 +705,36 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   (continuing — foundation + flagship verified first, then extend to Objects/Detail/Light Up/Canvas).
 - **Status:** `DECIDED` — 2026-11-21, in progress (Stage A/B + Stage C-Raw done; remaining pages continuing).
   Working doc: `INFORMATION_EXPERIENCE_OVERHAUL.md`.
+
+## D-084 — Model config: per-provider profiles, credentials and request shapes (DECIDED)
+
+- **Decision:** Made the Settings → Model page truly usable per provider ("different providers require
+  different things"). New shared registry `src/lib/providers.ts` (used by UI and server): per-provider auth
+  style, default endpoint, model presets, key format (tp-… / sk-… / AIza… / id.secret) and console URL.
+  `llm.ts` now sends provider-specific request shapes (Claude: x-api-key + anthropic-version + max_tokens;
+  Gemini: x-goog-api-key; MiMo: dual headers + thinking disabled; others: Bearer). API keys are stored in
+  **per-provider slots** (`llm_api_key:<provider>`, mimo maps to the legacy slot) so switching providers never
+  wipes another provider's credential. UI: base URL editable for every provider (+ restore default), model
+  preset chips, per-provider key status/format/get-key link, provider quirk note, test button.
+- **Reasoning:** the old page had one key slot and one request shape — switching provider silently kept the
+  wrong key and sent wrong headers (Claude/Gemini would 401). Fixed `writeLlmSettings` whole-file overwrite
+  (was clobbering `local_user_id`) via merge writes.
+- **Alternatives:** one key + clear-on-switch (rejected — hostile to multi-provider users); a provider SDK per
+  vendor (rejected — all targets are OpenAI-compatible endpoints; header/body deltas suffice).
+- **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, vitest 127/127 (+7), build passed, live API
+  round-trip (claude slot isolated from real mimo key `tp-c…2qm6`, unknown provider → 400, LLM check replied OK).
+
+## D-085 — Start composer dropdowns: real provider/model switching (DECIDED)
+
+- **Decision:** Replaced the Start-page composer's fake dropdowns with real ones. The provider menu now lists
+  all 10 providers from the shared registry with brand icons, an active ✓ and an honest "无密钥" hint per
+  provider (new `key_status` map on `GET /api/llm/config`); picking one really switches the effective LLM
+  config (provider + default endpoint + first preset) through the same PATCH the Settings page uses. The model
+  menu lists the current provider's presets (plus the configured model if off-list) and really switches the
+  model. Submit payload now carries the real provider id (was hardcoded "Local").
+- **Reasoning:** both menus were dead UI (provider fixed at "Local" with one inert option; model options were
+  hardcoded and clicking did nothing) — exactly the "every button must be real" standard from BUTTON audit D-080.
+- **Alternatives:** a per-query model picker with separate configs (rejected — GSC has one effective LLM config;
+  the composer drives it); navigating to Settings instead of switching (rejected — two clicks for a common task).
+- **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, vitest 127/127, live model switch + restore
+  (key untouched), screenshots `menu-provider.png` / `menu-model.png`.

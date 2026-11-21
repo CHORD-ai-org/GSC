@@ -1,76 +1,50 @@
-# REMAINING_WORK.md — 全项目未完成项统一清单
+# REMAINING_WORK.md — 全项目未完成项统一清单（v2）
 
-> 2026-11-21 整理 · 对照当前代码实际状态（而非文档字面），跨所有计划汇总。
-> 标准：P0=旅程断裂 · P1=广发布前必修 · P2=重要改进 · P3=Vision/远期。
+> 2026-11-21 16:00 二次整理 · 对照当前代码实际状态核实（多份计划文档已漂移，code wins）。
+> v1 之后新完成：R3 T301/T302、产品化冲刺、Web Intel 采集 MVP、信息体验 C/D/E/F、
+> 模型配置按供应商真实可用（D-084）、Start 下拉真实化（D-085）、登录页黑白配色。**127 tests 全绿**。
 
-**已完成基线（不再列入）**：R1 身份（账户/引导/价值陈述）、R2 找回（搜索/分页/软删回收站）、
-产品化冲刺（数据源 sync 真实化、IDOR/用户隔离、移动响应式）、Web Intelligence 采集 MVP（`/api/capture`+worker）、
-信息体验重构 C/D/E/F（排版体系/源库/异步 worker/理解摘要）、路由、Canvas、暗色、i18n、MCP/API、后端加固 M1。
-共 **120 tests 全绿**。
-
----
-
-## P1 — 广发布前必修
-
-### 路线图 R3「管得住」— Agent 与信任（GAP-04/07）✅ 已完成
-- ~~**T301 Token/Agent 访问管理面**~~ **DONE**：`GET/POST/DELETE /api/tokens` + Settings→连接 Token 管理 UI（列表/创建/吊销，令牌仅显示一次）。已验证（create 返回明文、list 可见）。
-- ~~**T302 信息演化语义**~~ **DONE**：`outdated` status + `superseded_by` 关系 + 详情页「已被替代/已过时」横幅 + 跳转替代项。
-
-### 路线图 R4「连得通」— 协作与集成（GAP-08/11）
-- **T401 Shared Cluster 真实可用**：多用户协作跑通（邀请=建用户，受限账户层）；概念教学卡（GAP-08）。
-- **T402 Sync 完善**：`frequency=daily` 字段在但**调度器未跑**；范围控制。
-
-### Web Intelligence / 集成
-- **Notion/Drive/X full OAuth**（B3-1）：现仅 token 路径（真实可用）；官方浏览器 OAuth 未做。UI 须如实标注「用访问令牌连接」。
-- **Full-async 采集**：`POST /api/capture` 现 inline（归属正确）；worker 作恢复网。完整「enqueue+立即返回+capture_tasks 加 owner_id」待做。
-- **采集中心**（Web Intel §6.1）：采集活动面（任务/完成/失败/历史）。
-
-### Light Up
-- **三栏审阅工作台**（§5.4）：源面板 | 提案列表 | 提案详情 + 键盘导航 + 批量确认 UX（理解摘要/操作已就位，三栏布局待做）。
-
-### 工程基建
-- **Lint/CI**（GLOBAL_OPT M2 O3）：无 ESLint/Prettier、无 CI。`npm run lint` + GitHub Actions（lint+check+test+build）。
-- **Phase 06 价值验证**（DEVELOPMENT_ROADMAP）：场景 A–D 执行记录、五个评估问题回答 —— **PROPOSED 未启动**（"证明预期价值"）。
+**v1 中已被代码证实完成（移出清单）**
+- ~~T401 共享集群~~ → **实质完成**：shareCluster/listShares/revoke API + sharing.test.ts 多用户用例 +
+  ClusterDetailView 共享面板（按名邀请 view/add 角色 + 撤销）已就位。仅剩概念教学卡（归入 P2）。
 
 ---
 
-## P2 — 重要改进
+## P1 — 广发布前必修（按执行顺序）
 
-- **OpenAPI 3.1 + `/api/docs`**（集成加固 P1）。
-- **LLM 成本核算**：proposer/detector 调用计费。
-- **MCP prompts/resources + failover**（集成加固 P1）。
-- **性能 N+1**：`visibleItemIds`/owner 校验逐行查 → 批量 owner 解析；部分调用未走 keyset 分页。
-- **对象语义布局**（§4.3）：Concept/Decision/Methodology 各自详情布局（现共用 shell）。
-- **Recently 区分**（§4.6）：访问/创建/修改（仅当访问历史被追踪）。
-- **概念教学**（GAP-08）：四概念对比卡、空态内教学。
-- **骨架屏/loading**（GAP-09）。
-- **批量操作入口**（GAP-10）：列表批量打标入口过深。
-- **引用/复用**（GAP-13）：详情页「引用此条到 Context/Cluster」快捷、导出带引用图。
-- **详情页 a11y**：pairChip 是 span（应为 button）；成员增删用 getElementById（脆）。
+1. **T402 Sync 调度器**：`frequency=hourly/daily/weekly` 字段在、**无调度器**。做后台调度循环
+   （到点自动 sync、幂等、失败记 last_error、manual 不调度）。
+2. **Lint / CI**（GLOBAL_OPT M2）：无 ESLint、无 CI。eslint 配置 + `npm run lint` + GitHub Actions
+   （lint + tsc + test + build）。
+3. **采集中心**（Web Intel §6.1）：采集任务列表 API（GET /api/capture）+ 任务/完成/失败/历史 UI。
+4. **Light Up 三栏审阅工作台**（§5.4）：源面板 | 提案列表 | 提案详情 + 批量确认 + 键盘导航。
+5. **Phase 06 价值验证**（DEVELOPMENT_ROADMAP）：场景 A–D 执行记录 + 五个评估问题回答（PROPOSED 未启动）。
+6. **Notion/Drive/X full OAuth**（B3-1）：**外部阻塞**（需各平台开发者凭证），token 路径已真实可用，
+   UI 已如实标注。等用户提供凭证后接入 —— 不可自主执行。
 
----
+## P2 — 重要改进（P1 后依次执行）
 
-## P3 — Vision / 远期（当前不阻塞）
+7. OpenAPI 3.1 + `/api/docs`（集成加固 P1）。
+8. LLM 成本核算（proposer/detector 用量计费展示）。
+9. MCP prompts/resources + failover（集成加固 P1）。
+10. 性能 N+1：owner 校验逐行查 → 批量解析；补 keyset 分页覆盖。
+11. 对象语义布局（§4.3）：Concept/Decision/Methodology 详情各按语义字段排布。
+12. Recently 区分（§4.6）：访问/创建/修改三分组（仅在访问历史真实存在时显示"访问"）。
+13. 概念教学卡（GAP-08）：Raw/Objects/Clusters/Contexts 四概念对比 + 空态教学。
+14. 骨架屏/loading（GAP-09）。
+15. 批量操作入口（GAP-10）：列表批量打标入口过深。
+16. 引用/复用（GAP-13）：详情页「引用此条到 Context/Cluster」快捷。
+17. 详情页 a11y：pairChip span→button、成员增删去 getElementById。
 
-- **GAP-14 语义/向量检索**（DESIGN_BOUNDARIES 不引向量库）。
-- **GAP-15 Context 粒度授权**（Agent 只看指定 Context）。
-- **GAP-16 API Provider / SDK 生态**：Python SDK、用量计费（PLAN-6 C 段）。
-- **GAP-17 跨设备同步 / 云端账户**（本地优先正确；云端是部署议题）。
-- **部署态 PostgreSQL 适配**（GLOBAL_OPT M3 O2-4..6）：PGlite 本地优先；managed/deploy 用 PG 适配 + 备份演练。
+## P3 — Vision / 远期（不阻塞，本轮不动）
 
----
+- 语义/向量检索（GAP-14）· Context 粒度授权（GAP-15）· API SDK 生态（GAP-16）·
+  跨设备/云端（GAP-17）· 部署态 PostgreSQL 适配。
 
-## 文档漂移（AGENTS.md §1：code wins，需记 KNOWN_ISSUES）
+## 文档漂移记录（待顺手修正）
 
-| 文档 | 过期处 | 实际 |
-|---|---|---|
-| `PRODUCT_GAP_REGISTER.md` | GAP-01/02/03/05/06 标为缺口 | 已被 R1/R2 修复 |
-| `GLOBAL_OPTIMIZATION_PLAN.md` | O2-3 healthz/metrics 标 ❌ | 已实现（/healthz /readyz /metrics）|
-| `IMPLEMENTATION_STATUS.md` | "下一步=Phase 05 场景"、缺 D-079..083 | 陈旧，需补近期 |
-| `DECISION_LOG.md` D-079/080 | 标 PROPOSED | 已执行（Canvas/按钮审计已落地）|
-| `plans/PLAN-1..8` | 标 PROPOSED | 已全部执行（见实施状态）|
-
-## 未验证假设（`IMPLEMENTATION_STATUS.md` §5）
-- Docker PostgreSQL 启动（现用 PGlite，D-026）。
-- 部署用 PostgreSQL 适配器（未实现）。
-- Phase 05 场景评估未执行（= Phase 06）。
+| 文档 | 过期处 |
+|---|---|
+| `PRODUCT_GAP_REGISTER.md` | GAP-01/02/03/05/06 已修；GAP-04/07 已修（T301/T302）|
+| `DECISION_LOG.md` D-079/080 | 标 PROPOSED，实际已执行 |
+| `IMPLEMENTATION_STATUS.md` | 缺 D-079..085 |

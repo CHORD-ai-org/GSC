@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **信息体验重构 C/D/E/F 已执行**（D-083）——排版体系(字号/间距/舒适·紧凑密度)+ Raw/对象源库(预览+清洗源标) + **异步采集 worker**(reclaimStale 恢复+drain, 3s 后台) + Light Up 理解摘要 + 响应式验证；tsc=0/build/vitest 120 全绿，见 `INFORMATION_EXPERIENCE_OVERHAUL.md`。待续(P1)：Light Up 三栏审阅工作台、采集中心、对象语义布局、full-async、a11y/认知负载。此前 D-081/D-082 已交付。
+> Status: **登录页配色改 GSC 黑白**（Thylas 暖纸→白底黑墨灰阶，布局/手绘质感保留，build 过，login-bw.png）。此前 D-085 Start 下拉真实化、D-084 模型配置按供应商可用。待续(P1)：Light Up 三栏审阅、采集中心、Notion/Drive/X OAuth、full-async。
 
 ## User approvals received 2026-11-16
 
