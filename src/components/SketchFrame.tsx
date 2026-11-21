@@ -29,7 +29,7 @@ export function SketchFrame({ seed, double = true, variant = 'box' }: FrameProps
     <span className={s.frame} ref={ref} aria-hidden>
       {size.width > 12 && size.height > 12 ? (
         <svg width={size.width} height={size.height} viewBox={`0 0 ${size.width} ${size.height}`} fill="none">
-          {points ? <path d={polygonPath(points)} fill="var(--login-paper, #FBF9F4)" /> : null}
+          {points ? <path d={polygonPath(points)} fill="var(--login-paper, #FFFFFF)" /> : null}
           <path d={outline(2.2)} stroke="currentColor" strokeWidth={1.1} strokeLinecap="round" strokeOpacity={0.9} />
           {double ? (
             <path d={outline(2.8, ':again')} transform="translate(1.4 1.4)" stroke="currentColor" strokeWidth={1} strokeLinecap="round" strokeOpacity={0.28} />

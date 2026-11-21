@@ -995,6 +995,7 @@ export default function App() {
             onCanvas={() => go('canvas')}
             onOpenFile={() => fileInputRef.current?.click()}
             onLightUp={() => go('lightup')}
+            onConfigChange={saveLlmConfig}
             llmConfig={llmConfig}
             empty={items.length === 0}
             onLoadSample={async () => {

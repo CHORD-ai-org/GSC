@@ -1,23 +1,23 @@
-/* GSC sign-in — a CHORD-family login, styled after Thylas (Quiet Computationalism).
-   Warm paper sheet on a desk, next to a printed wire. Palette is scoped to this
-   page so the CHORD login look is independent of GSC's in-app theme. */
+/* GSC sign-in — a CHORD-family login, laid out after Thylas (Quiet Computationalism)
+   but wearing GSC's black-and-white palette: white desk, black ink, gray hairlines.
+   Palette is scoped to this page so the login look stays independent of the in-app
+   theme and of Thylas' warm-paper colours. */
 
 .page {
-  /* Thylas warm-paper palette (design/tokens.css) — the CHORD login surface. */
-  --bg-app: #F1EBDD;
-  --bg-paper: #F7F2E9;
-  --login-paper: #FBF9F4;
-  --bg-rail: #EBE4D4;
-  --ink: #493626;
-  --ink-2: #927B65;
-  --ink-3: #B3A08C;
-  --line: #E6DED1;
-  --line-strong: #D8CCB9;
-  --accent: #B56F50;
-  --error: #8C3A2B;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  /* GSC monochrome palette (src/styles/tokens.css) — black ink on white. */
+  --bg-app: #FFFFFF;
+  --bg-paper: #FAFAFA;
+  --login-paper: #FFFFFF;
+  --bg-rail: #F7F7F8;
+  --ink: #171717;
+  --ink-2: #6B7280;
+  --ink-3: #9CA3AF;
+  --line: #E8E8EC;
+  --line-strong: #D4D4D8;
+  --accent: #111113;
+  --error: #C2413B;
+  --ui: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   position: fixed;
   inset: 0;

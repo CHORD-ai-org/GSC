@@ -39,6 +39,7 @@ export function StartView({
   onCanvas,
   onOpenFile,
   onLightUp,
+  onConfigChange,
   llmConfig,
   empty,
   onLoadSample,
@@ -47,6 +48,7 @@ export function StartView({
   onCanvas: () => void;
   onOpenFile: () => void;
   onLightUp: () => void;
+  onConfigChange: (patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) => Promise<void>;
   llmConfig?: LlmPublicConfig | null;
   empty?: boolean;
   onLoadSample?: () => Promise<void>;
@@ -61,7 +63,7 @@ export function StartView({
         <h1 className={styles.valueTitle}>{t('start.valueTitle')}</h1>
       ) : null}
       <div className={styles.overviewComposer}>
-        <Composer onSubmit={onSubmit} llmConfig={llmConfig} />
+        <Composer onSubmit={onSubmit} onConfigChange={onConfigChange} llmConfig={llmConfig} />
       </div>
       {empty && onLoadSample ? (
         <div className={styles.quickActions}>
