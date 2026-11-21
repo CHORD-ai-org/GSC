@@ -12,6 +12,11 @@ import { itemExists } from './items.ts';
 
 type ContextRow = typeof contexts.$inferSelect;
 
+export async function contextOwner(db: Database, id: string): Promise<string | undefined> {
+  const [row] = await db.select({ owner_id: contexts.owner_id }).from(contexts).where(eq(contexts.id, id)).limit(1);
+  return row?.owner_id;
+}
+
 function toDTO(row: ContextRow): ContextDTO {
   return {
     id: row.id,
@@ -47,7 +52,7 @@ export async function deleteContext(db: Database, id: string): Promise<boolean> 
   return true;
 }
 
-export async function createContext(db: Database, body: CreateContextBody): Promise<ContextDTO> {
+export async function createContext(db: Database, body: CreateContextBody, ownerId?: string): Promise<ContextDTO> {
   const id = `ctx_${randomUUID()}`;
   const now = new Date();
   await db.insert(contexts).values({
@@ -56,6 +61,7 @@ export async function createContext(db: Database, body: CreateContextBody): Prom
     subject: body.subject,
     scope: body.scope,
     purpose: body.purpose,
+    owner_id: ownerId ?? 'usr_local',
     created_at: now,
     updated_at: now,
   });

@@ -64,6 +64,7 @@ export const contexts = pgTable('contexts', {
   subject: text('subject').notNull(),
   scope: text('scope').notNull(),
   purpose: text('purpose').notNull(),
+  owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
@@ -140,6 +141,7 @@ export const sources = pgTable('sources', {
   frequency: text('frequency').notNull().default('manual'),
   last_sync_at: timestamp('last_sync_at', { withTimezone: true }),
   last_error: text('last_error').notNull().default(''),
+  owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });

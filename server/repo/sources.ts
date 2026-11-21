@@ -13,6 +13,11 @@ import type {
 
 type SourceRow = typeof sources.$inferSelect;
 
+export async function sourceOwner(db: Database, id: string): Promise<string | undefined> {
+  const [row] = await db.select({ owner_id: sources.owner_id }).from(sources).where(eq(sources.id, id)).limit(1);
+  return row?.owner_id;
+}
+
 function toDTO(row: SourceRow): SourceDTO {
   return {
     id: row.id,
@@ -38,7 +43,7 @@ export async function getSource(db: Database, id: string): Promise<SourceDTO | u
   return row ? toDTO(row) : undefined;
 }
 
-export async function createSource(db: Database, body: CreateSourceBody): Promise<SourceDTO> {
+export async function createSource(db: Database, body: CreateSourceBody, ownerId?: string): Promise<SourceDTO> {
   const id = `src_${randomUUID()}`;
   const now = new Date();
   await db.insert(sources).values({
@@ -48,6 +53,7 @@ export async function createSource(db: Database, body: CreateSourceBody): Promis
     scope: body.scope ?? '',
     status: 'connected',
     frequency: body.frequency ?? 'manual',
+    owner_id: ownerId ?? 'usr_local',
     last_sync_at: null,
     last_error: '',
     created_at: now,

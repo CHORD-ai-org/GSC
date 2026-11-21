@@ -8,7 +8,7 @@ import path from 'node:path';
 
 export type TokenScope = 'read' | 'rw';
 
-type TokenRecord = { name: string; scope: TokenScope; sha256: string; userId?: string };
+type TokenRecord = { name: string; scope: TokenScope; sha256: string; userId?: string; created_at?: string };
 type TokenMap = Record<string, TokenRecord>;
 
 export const DEFAULT_USER_ID = 'usr_local';
@@ -35,9 +35,23 @@ export function createApiToken(dataDir: string, name: string, scope: TokenScope,
   const token = `gsc_${randomBytes(24).toString('hex')}`;
   const id = `tok_${randomBytes(6).toString('hex')}`;
   const map = readAll(dataDir);
-  map[id] = { name, scope, sha256: hash(token), userId };
+  map[id] = { name, scope, sha256: hash(token), userId, created_at: new Date().toISOString() };
   writeFileSync(fileFor(dataDir), JSON.stringify(map, null, 2), 'utf8');
   return { id, token };
+}
+
+export type TokenSummary = { id: string; name: string; scope: TokenScope; userId: string; created_at: string };
+
+/** List tokens (safe metadata only — never the secret or its hash). */
+export function listTokens(dataDir: string): TokenSummary[] {
+  const map = readAll(dataDir);
+  return Object.entries(map).map(([id, r]) => ({
+    id,
+    name: r.name,
+    scope: r.scope,
+    userId: r.userId ?? DEFAULT_USER_ID,
+    created_at: r.created_at ?? '',
+  }));
 }
 
 export function verifyApiToken(dataDir: string, presented: string): { scope: TokenScope; userId: string } | null {
