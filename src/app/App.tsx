@@ -9,6 +9,7 @@ import { parsePath, buildPath } from './routes.ts';
 import { CommandPalette } from '../components/CommandPalette.tsx';
 import type { PaletteItem } from '../components/CommandPalette.tsx';
 import { CanvasView, DocsView, SyncView } from '../views/views.tsx';
+import { CanvasTreeView } from '../views/CanvasTreeView.tsx';
 import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
 import { OverviewPage, RecentlyPage, SettingsPage, StartView, UserView } from '../views/pages.tsx';
@@ -86,6 +87,7 @@ export default function App() {
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
+  const [overviewMode, setOverviewMode] = useState<'overview' | 'canvas'>('overview');
   const [clusters, setClusters] = useState<ClusterIndexEntry[]>([]);
   const [clusterId, setClusterId] = useState(route.clusterId ?? '');
   const [relationIndex, setRelationIndex] = useState<Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }>>({});
@@ -999,23 +1001,35 @@ export default function App() {
         );
       case 'overview':
         return (
-          <OverviewPage
-            items={items}
-            contexts={contexts}
-            clusters={clusters}
-            pendingProposals={proposals}
-            tagSummary={tagSummary}
-            onNew={() => go('lightup')}
-            onOpenItem={openItemInPage}
-            onOpenContext={openContextInPage}
-            onOpenCluster={(id) => { setClusterId(id); markVisited(id); go('clusters'); }}
-            onOpenQueue={() => go('lightup')}
-            onPickDay={(day) => { setRecentDay(day); go('recently'); }}
-            onSeeAll={() => go('raw')}
-            onResolve={async (id, status) => {
-              await resolveProposalEntry({ id } as ProposalDTO, status);
-            }}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div className={styles.pillTrack} style={{ width: 'max-content', margin: '18px 36px 0' }}>
+              <button type="button" className={overviewMode === 'overview' ? `${styles.pill} ${styles.on}` : styles.pill} onClick={() => setOverviewMode('overview')}>{t('overview.tabOverview')}</button>
+              <button type="button" className={overviewMode === 'canvas' ? `${styles.pill} ${styles.on}` : styles.pill} onClick={() => setOverviewMode('canvas')}>{t('overview.tabCanvas')}</button>
+            </div>
+            {overviewMode === 'canvas' ? (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: '14px 36px 24px' }}>
+                <CanvasTreeView items={items} clusters={clusters} contexts={contexts} onOpenItem={openItemInPage} />
+              </div>
+            ) : (
+              <OverviewPage
+                items={items}
+                contexts={contexts}
+                clusters={clusters}
+                pendingProposals={proposals}
+                tagSummary={tagSummary}
+                onNew={() => go('lightup')}
+                onOpenItem={openItemInPage}
+                onOpenContext={openContextInPage}
+                onOpenCluster={(id) => { setClusterId(id); markVisited(id); go('clusters'); }}
+                onOpenQueue={() => go('lightup')}
+                onPickDay={(day) => { setRecentDay(day); go('recently'); }}
+                onSeeAll={() => go('raw')}
+                onResolve={async (id, status) => {
+                  await resolveProposalEntry({ id } as ProposalDTO, status);
+                }}
+              />
+            )}
+          </div>
         );
       case 'recently':
         return (
