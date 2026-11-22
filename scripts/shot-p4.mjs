@@ -32,11 +32,6 @@ try {
   await send('Runtime.enable', {}, sessionId);
   async function evalJs(expression) { return send('Runtime.evaluate', { expression, awaitPromise: true }, sessionId); }
   async function shot(name) { await sleep(650); const { data } = await send('Page.captureScreenshot', { format: 'png' }, sessionId); writeFileSync(path.join(OUT, `${name}.png`), Buffer.from(data, 'base64')); console.log(`saved ${name}.png`); }
-  async function clickText(text) {
-    const escaped = text.replace(/'/g, "\\'");
-    await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().includes('${escaped}')); if (b) b.click(); return Boolean(b); })()`);
-    await sleep(550);
-  }
   async function pressCombo(key, code, keyCode) {
     for (const type of ['keyDown', 'keyUp']) {
       await send('Input.dispatchKeyEvent', { type, key, code, windowsVirtualKeyCode: keyCode, modifiers: 2 }, sessionId);

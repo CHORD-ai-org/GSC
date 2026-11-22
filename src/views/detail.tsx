@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui.tsx';
-import { BadgeRow, MemberBadge, SemTag } from '../components/SemTag.tsx';
+import { SemTag } from '../components/SemTag.tsx';
 import { Glyph } from '../components/Glyph.tsx';
-import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
-import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
+import { ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
+import type { ItemDTO, ItemType } from '../lib/items.ts';
 import type { ClusterDTO } from '../lib/clusters.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
 import type { ContextIndexEntry } from './pages.tsx';
@@ -115,7 +115,7 @@ function contextsContaining(index: ContextIndexEntry[], id: string): ContextInde
 }
 
 export function RawDetailView({
-  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
@@ -126,7 +126,9 @@ export function RawDetailView({
   onDelete: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
+  onAddToContext: (contextId: string) => Promise<void> | void;
 }) {
+  const [pickCtx, setPickCtx] = useState('');
 
   const t = useT();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
   const { item, relations, events } = detail;
@@ -165,9 +167,9 @@ export function RawDetailView({
     >
       {referencedBy.length > 0 ? (
         <div className={styles.pairChipRow}>
-          <span className={styles.pairChip} onClick={() => onOpenItem(referencedBy[0].from_id)}>
+          <button type="button" className={styles.pairChip} onClick={() => onOpenItem(referencedBy[0].from_id)}>
             {t('detail.pairObject', { name: titleOf(referencedBy[0].from_id) })}
-          </span>
+          </button>
         </div>
       ) : null}
 
@@ -200,6 +202,20 @@ export function RawDetailView({
                 <button type="button" className={styles.linkButton} onClick={() => onOpenContext(c.id)}>{c.title}</button>
               </div>
             ))}
+            {/* GAP-13 quick reuse: reference this object into another context */}
+            {contextIndex.some((c) => !inContexts.some((i) => i.id === c.id)) ? (
+              <div className={styles.pairChipRow}>
+                <select className={styles.pickSelect} value={pickCtx} onChange={(e) => setPickCtx(e.target.value)}>
+                  <option value="">{t('detail.pickContext')}</option>
+                  {contextIndex.filter((c) => !inContexts.some((i) => i.id === c.id)).map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+                <button type="button" className={styles.pairChip} disabled={!pickCtx} onClick={() => { const id = pickCtx; setPickCtx(''); void onAddToContext(id); }}>
+                  {t('detail.addToContext')}
+                </button>
+              </div>
+            ) : null}
           </Block>
         </>
       )}
@@ -217,7 +233,7 @@ export function RawDetailView({
 }
 
 export function ObjectDetailView({
-  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
@@ -228,7 +244,9 @@ export function ObjectDetailView({
   onDelete: () => void;
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
+  onAddToContext: (contextId: string) => Promise<void> | void;
 }) {
+  const [pickCtx, setPickCtx] = useState('');
 
   const t = useT();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
   const { item, relations, events } = detail;
@@ -236,7 +254,30 @@ export function ObjectDetailView({
   const typeOf = (id: string) => items.find((i) => i.id === id)?.type;
 
   const defKeys = definitionFields[item.type] ?? [];
-  const coreFields = Object.entries(item.fields).filter(([key, value]) => defKeys.includes(key) && typeof value === 'string' && value.trim());
+  /* §4.3 semantic layout: defining fields lead, per object type. */
+  const FIELD_PRIORITY: Record<string, string[]> = {
+    'object.concept': ['definition', 'notes'],
+    'object.hypothesis': ['claim', 'notes'],
+    'object.methodology': ['name', 'steps', 'principles', 'notes'],
+    'object.decision': ['statement', 'reasoning', 'alternatives', 'consequences', 'notes'],
+    'object.evidencereference': ['claim', 'notes'],
+  };
+  const order = FIELD_PRIORITY[item.type] ?? [];
+  const coreFields = Object.entries(item.fields)
+    .filter(([key, value]) => defKeys.includes(key) && typeof value === 'string' && value.trim())
+    .sort(([a], [b]) => {
+      const pa = order.indexOf(a);
+      const pb = order.indexOf(b);
+      return (pa < 0 ? order.length : pa) - (pb < 0 ? order.length : pb);
+    });
+  const BLOCK_TITLE: Record<string, string> = {
+    'object.concept': 'detail.definition',
+    'object.hypothesis': 'detail.claimBody',
+    'object.evidencereference': 'detail.claimBody',
+    'object.methodology': 'detail.methodBody',
+    'object.decision': 'detail.decisionBody',
+  };
+  const blockTitleKey = BLOCK_TITLE[item.type] ?? 'detail.definition';
   const propFields = Object.entries(item.fields).filter(([key, value]) => !defKeys.includes(key) && key !== 'source_item_id' && typeof value === 'string' && value.trim());
 
   const related = relations.outgoing.filter((r) => isObject(typeOf(r.to_id) ?? 'raw.document'));
@@ -272,9 +313,9 @@ export function ObjectDetailView({
     >
       {sources.length > 0 || sourceItemId ? (
         <div className={styles.pairChipRow}>
-          <span className={styles.pairChip} onClick={() => onOpenItem(sources[0]?.to_id ?? sourceItemId)}>
+          <button type="button" className={styles.pairChip} onClick={() => onOpenItem(sources[0]?.to_id ?? sourceItemId)}>
             {t('detail.pairSource', { name: titleOf(sources[0]?.to_id ?? sourceItemId) })}
-          </span>
+          </button>
         </div>
       ) : null}
 
@@ -285,7 +326,7 @@ export function ObjectDetailView({
         </div>
       ) : null}
 
-      <Block title={t('detail.definition')} tag={<SemTag kind={item.origin === 'agent' ? 'machine' : 'confirmed'} label={item.origin === 'agent' ? t('detail.machineCreated') : t('detail.semanticIdentity')} />}>
+      <Block title={t(blockTitleKey as Parameters<typeof t>[0])} tag={<SemTag kind={item.origin === 'agent' ? 'machine' : 'confirmed'} label={item.origin === 'agent' ? t('detail.machineCreated') : t('detail.semanticIdentity')} />}>
         {coreFields.length === 0 ? (
           <div className={styles.hint}>{t('detail.noDefinition')}</div>
         ) : coreFields.map(([key, value]) => (
@@ -353,6 +394,20 @@ export function ObjectDetailView({
             <button type="button" className={styles.linkButton} onClick={() => onOpenContext(c.id)}>{c.title}</button>
           </div>
         ))}
+        {/* GAP-13 quick reuse: reference this object into another context */}
+        {contextIndex.some((c) => !inContexts.some((i) => i.id === c.id)) ? (
+          <div className={styles.pairChipRow}>
+            <select className={styles.pickSelect} value={pickCtx} onChange={(e) => setPickCtx(e.target.value)}>
+              <option value="">{t('detail.pickContext')}</option>
+              {contextIndex.filter((c) => !inContexts.some((i) => i.id === c.id)).map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+            <button type="button" className={styles.pairChip} disabled={!pickCtx} onClick={() => { const id = pickCtx; setPickCtx(''); void onAddToContext(id); }}>
+              {t('detail.addToContext')}
+            </button>
+          </div>
+        ) : null}
       </Block>
 
       <More label={`${t('detail.history')} · ${events.length}`}>

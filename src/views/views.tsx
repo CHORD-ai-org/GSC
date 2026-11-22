@@ -1,6 +1,6 @@
 import { CommandBar } from '../app/CommandBar.tsx';
 import { useEffect, useRef, useState } from 'react';
-import { ITEM_GLYPHS, ITEM_LABELS } from '../lib/items.ts';
+import { ITEM_LABELS } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import type { SourceDTO, SourceFrequency, SourceKind } from '../lib/sources.ts';
 import { BrandLogo } from '../components/BrandLogo.tsx';

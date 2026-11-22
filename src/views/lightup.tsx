@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ITEM_LABELS, RAW_TYPES } from '../lib/items.ts';
 import type { ItemType } from '../lib/items.ts';
@@ -9,9 +9,25 @@ import type { ProposalDTO } from '../lib/proposals.ts';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
 import { SemanticObjectSheet } from '../components/SemanticObjectSheet.tsx';
 import type { Sheet } from '../components/SemanticObjectSheet.tsx';
-import { useRelativeTime, useT } from '../lib/i18n.tsx';
-import { captureUrl } from '../services/api.ts';
+import { useT } from '../lib/i18n.tsx';
+import { captureUrl, listCaptureTasks } from '../services/api.ts';
+import type { CaptureTaskDTO } from '../services/api.ts';
 import styles from './lightup.module.css';
+
+const TASK_STATUS_LABEL: Record<string, string> = {
+  pending: 'lu.taskPending',
+  processing: 'lu.taskProcessing',
+  completed: 'lu.taskCompleted',
+  failed: 'lu.taskFailed',
+};
+
+const SHEET_STATUS_LABEL: Record<string, string> = {
+  ready: 'lu.sheetReady',
+  accepted: 'lu.sheetAccepted',
+  edited: 'lu.sheetEdited',
+  rejected: 'lu.sheetRejected',
+  deferred: 'lu.sheetDeferred',
+};
 
 export type CreatedItem = { id: string; title: string; type: ItemType; source_label: string };
 export type PersistResult = { created: CreatedItem[]; failed: { key: string; message: string }[] };
@@ -69,6 +85,8 @@ export function LightUpStudio({
   const [urlOpen, setUrlOpen] = useState(false);
   const [previewNote, setPreviewNote] = useState('');
   const [sourceLabel, setSourceLabel] = useState('lightup:text');
+  /* Capture center (Web Intel §6.1): real task history under the URL entry. */
+  const [captureTasks, setCaptureTasks] = useState<CaptureTaskDTO[]>([]);
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [view, setView] = useState<'overview' | 'chunks' | 'source'>('chunks');
@@ -105,10 +123,23 @@ export function LightUpStudio({
       const result = await captureUrl(url.trim());
       setPreviewNote(t('lu.captureNote', { n: result.imported, p: result.proposals }));
       setSourceLabel(url.trim());
+      void loadCaptureTasks();
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : t('lu.urlFail'));
+      void loadCaptureTasks();
     }
   }
+
+  async function loadCaptureTasks() {
+    try {
+      const r = await listCaptureTasks();
+      setCaptureTasks(r.tasks);
+    } catch { /* history is best-effort */ }
+  }
+
+  useEffect(() => {
+    void loadCaptureTasks();
+  }, []);
 
   async function pasteClipboard() {
     setLocalError('');
@@ -329,6 +360,20 @@ export function LightUpStudio({
             ) : null}
           </div>
 
+          {captureTasks.length > 0 ? (
+            <div className={styles.captureList}>
+              {captureTasks.slice(0, 8).map((task) => (
+                <div key={task.id} className={styles.captureRow}>
+                  <span className={`${styles.captureStatus} ${task.status === 'completed' ? styles.captureOk : task.status === 'failed' ? styles.captureFail : ''}`}>
+                    {t(TASK_STATUS_LABEL[task.status] ?? 'lu.taskPending')}
+                  </span>
+                  <span className={styles.captureUrl} title={task.url}>{task.url}</span>
+                  <span className={styles.captureTime}>{new Date(task.created_at).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <div className={styles.composerBar} style={{ padding: '14px 0 0' }}>
             <button type="button" className={styles.primary} onClick={identify} disabled={!text.trim()}>
               {t('lu.identify')}
@@ -468,24 +513,83 @@ export function LightUpStudio({
               </div>
             </div>
           ) : view === 'chunks' ? (
-            sheets.map((sheet, index) => (
-              <SemanticObjectSheet
-                key={sheet.key}
-                sheet={sheet}
-                index={index}
-                selected={selectedKey === sheet.key}
-                tagDimensions={tagDimensions}
-                onSelect={() => setSelectedKey(sheet.key)}
-                onPatch={(patch) => patchSheet(sheet.key, patch)}
-                onAccept={() => setStatus(sheet.key, sheet.nameOrigin === 'user' ? 'edited' : 'accepted')}
-                onReject={() => setStatus(sheet.key, 'rejected')}
-                onDefer={() => setStatus(sheet.key, 'deferred')}
-                onRestore={() => setStatus(sheet.key, 'ready')}
-                onSplit={() => splitSheet(sheet.key)}
-                onMergeToggle={() => setMergePicked((c) => (c.includes(sheet.key) ? c.filter((k) => k !== sheet.key) : [...c, sheet.key]))}
-                mergePicked={mergePicked.includes(sheet.key)}
-              />
-            ))
+            (() => {
+              const active = sheets.find((s) => s.key === selectedKey) ?? sheets[0];
+              const src = sourceBody();
+              return (
+                <div
+                  className={styles.reviewWorkbench}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+                    e.preventDefault();
+                    const idx = sheets.findIndex((s) => s.key === (active?.key ?? ''));
+                    const next = e.key === 'ArrowDown'
+                      ? Math.min(sheets.length - 1, idx + 1)
+                      : Math.max(0, idx - 1);
+                    if (sheets[next]) setSelectedKey(sheets[next].key);
+                  }}
+                >
+                  {/* Left: source panel (§5.4) — original content with the active span marked */}
+                  <div className={styles.reviewSource}>
+                    <div className={styles.reviewPaneTitle}>{t('lu.sourcePane')}</div>
+                    <div className={styles.reviewSourceBody}>
+                      {src.precise ? (
+                        <>
+                          {src.before}
+                          {src.mark ? <mark className={styles.sourceMark}>{src.mark}</mark> : null}
+                          {src.after}
+                        </>
+                      ) : (
+                        sourceText || text
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Center: proposal list — status, type, name, preview */}
+                  <div className={styles.reviewList}>
+                    <div className={styles.reviewPaneTitle}>{t('lu.proposalPane', { n: sheets.length })}</div>
+                    {sheets.map((sheet) => (
+                      <button
+                        key={sheet.key}
+                        type="button"
+                        className={`${styles.reviewItem} ${active?.key === sheet.key ? styles.on : ''}`}
+                        onClick={() => setSelectedKey(sheet.key)}
+                      >
+                        <span className={styles.reviewItemType}>{ITEM_LABELS[sheet.type] ?? sheet.type}</span>
+                        <span className={styles.reviewItemTitle}>{sheet.title}</span>
+                        <span className={styles.reviewItemPreview}>{sheet.content.slice(0, 80)}</span>
+                        <span className={`${styles.reviewItemStatus} ${sheet.status === 'accepted' || sheet.status === 'edited' ? styles.statusOk : sheet.status === 'rejected' ? styles.statusBad : ''}`}>
+                          {t(SHEET_STATUS_LABEL[sheet.status] ?? 'lu.sheetReady')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Right: proposal detail — editable semantic name / type / provenance */}
+                  <div className={styles.reviewDetail}>
+                    {active ? (
+                      <SemanticObjectSheet
+                        key={active.key}
+                        sheet={active}
+                        index={sheets.indexOf(active)}
+                        selected
+                        tagDimensions={tagDimensions}
+                        onSelect={() => setSelectedKey(active.key)}
+                        onPatch={(patch) => patchSheet(active.key, patch)}
+                        onAccept={() => setStatus(active.key, active.nameOrigin === 'user' ? 'edited' : 'accepted')}
+                        onReject={() => setStatus(active.key, 'rejected')}
+                        onDefer={() => setStatus(active.key, 'deferred')}
+                        onRestore={() => setStatus(active.key, 'ready')}
+                        onSplit={() => splitSheet(active.key)}
+                        onMergeToggle={() => setMergePicked((c) => (c.includes(active.key) ? c.filter((k) => k !== active.key) : [...c, active.key]))}
+                        mergePicked={mergePicked.includes(active.key)}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()
           ) : (
             (() => {
               const src = sourceBody();

@@ -4,13 +4,12 @@ import { NewsPanel } from '../components/NewsPanel.tsx';
 import { GscLogo } from '../components/GscLogo.tsx';
 import { SectionLabel } from '../components/ui.tsx';
 import { BrandLogo } from '../components/BrandLogo.tsx';
-import type { BrandKind } from '../components/BrandLogo.tsx';
 import { PROVIDERS, detectProvider, isProviderId, providerProfile, type ProviderId, type ProviderProfile } from '../lib/providers.ts';
 import { useToast } from '../components/Toast.tsx';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
 import { ANIMATION_QUALITIES, DENSITIES, QUALITY_LABELS, THEMES } from '../lib/prefs.ts';
 import type { AnimationQuality, ThemeMode, DensityMode } from '../lib/prefs.ts';
-import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
+import { ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
 import type { ContextDTO } from '../lib/contexts.ts';
 import { TIME_GROUPS, TIME_GROUP_KEYS, timeGroup } from '../lib/format.ts';
@@ -331,6 +330,7 @@ export function RecentlyPage({
   const t = useT();
   const rt = useRelativeTime();
   const [kind, setKind] = useState<RecentKind>('all');
+  const [activity, setActivity] = useState<'accessed' | 'created' | 'modified'>('accessed');
   const [view, setView] = useViewMode('recently');
 
   const rows = useMemo(() => {
@@ -340,8 +340,18 @@ export function RecentlyPage({
       if (kind === 'objects' && !item.type.startsWith('object.')) continue;
       if (kind === 'contexts') continue;
       const visitedAt = visits[item.id];
+      // §4.6: distinguish accessed (real visits), created, and modified.
+      let at: string;
+      if (activity === 'accessed') {
+        if (!visitedAt) continue;
+        at = visitedAt;
+      } else if (activity === 'created') {
+        at = item.created_at;
+      } else {
+        if (item.updated_at <= item.created_at) continue; // untouched since creation
+        at = item.updated_at;
+      }
       const useVisit = Boolean(visitedAt && visitedAt > item.updated_at);
-      const at = useVisit ? (visitedAt as string) : item.updated_at;
       if (dayFilter && !at.startsWith(dayFilter) && !item.created_at.startsWith(dayFilter)) continue;
       out.push({
         key: item.id,
@@ -356,8 +366,17 @@ export function RecentlyPage({
     if (kind === 'all' || kind === 'contexts') {
       for (const c of contexts) {
         const visitedAt = visits[c.id];
+        let at: string;
+        if (activity === 'accessed') {
+          if (!visitedAt) continue;
+          at = visitedAt;
+        } else if (activity === 'created') {
+          at = c.created_at;
+        } else {
+          if (c.updated_at <= c.created_at) continue;
+          at = c.updated_at;
+        }
         const useVisit = Boolean(visitedAt && visitedAt > c.updated_at);
-        const at = useVisit ? (visitedAt as string) : c.updated_at;
         if (dayFilter && !at.startsWith(dayFilter) && !c.created_at.startsWith(dayFilter)) continue;
         out.push({
           key: c.id,
@@ -371,7 +390,7 @@ export function RecentlyPage({
       }
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));
-  }, [items, contexts, visits, kind, dayFilter, onOpenItem, onOpenContext]);
+  }, [items, contexts, visits, kind, activity, dayFilter, onOpenItem, onOpenContext, t]);
 
   const grouped = useMemo(() => {
     const map = new Map<TimeGroup, RecentRow[]>();
@@ -403,6 +422,17 @@ export function RecentlyPage({
       ) : null}
 
       <div className={styles.tabRow}>
+        {(['accessed', 'created', 'modified'] as const).map((a) => (
+          <button
+            key={a}
+            type="button"
+            className={`${styles.tab} ${activity === a ? styles.on : ''}`}
+            onClick={() => setActivity(a)}
+          >
+            {t(a === 'accessed' ? 'recently.accessed' : a === 'created' ? 'recently.created' : 'recently.modified')}
+          </button>
+        ))}
+        <span style={{ width: 12 }} />
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -430,7 +460,7 @@ export function RecentlyPage({
                   glyph={<Glyph kind={row.glyph} />}
                   typeLabel={row.tag}
                   title={row.title}
-                  time={`${row.visited ? t('recently.visited') : t('recently.modified')} · ${rt(row.at)}`}
+                  time={`${row.visited ? t('recently.visited') : t('recently.badgeModified')} · ${rt(row.at)}`}
                   onClick={row.open}
                 />
               ))}
@@ -448,7 +478,7 @@ export function RecentlyPage({
                   <span className={styles.rowGlyph}><Glyph kind={row.glyph} /></span>
                   <span className={styles.rowTitle}>{row.title}</span>
                   <span className={styles.rowType}>{row.tag}</span>
-                  <span className={styles.rowTime}>{row.visited ? t('recently.visited') : t('recently.modified')}{sameTime ? '' : ` · ${rt(row.at)}`}</span>
+                  <span className={styles.rowTime}>{row.visited ? t('recently.visited') : t('recently.badgeModified')}{sameTime ? '' : ` · ${rt(row.at)}`}</span>
                 </button>
               );
             })}
@@ -856,8 +886,14 @@ function ModelSection({
   const [keyHint, setKeyHint] = useState(llmConfig?.key_hint ?? '');
   const [checking, setChecking] = useState(false);
   const [checkLine, setCheckLine] = useState('');
+  const [usage, setUsage] = useState<{ prompt_tokens: number; completion_tokens: number; estimated_usd: number } | null>(null);
   const [dirty, setDirty] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
+
+  /* LLM cost accounting: factual tokens + labelled estimate */
+  useEffect(() => {
+    api.getLlmUsage().then((r) => setUsage(r.usage)).catch(() => {});
+  }, []);
 
   /* llmConfig refreshes after every save — keep per-provider key status in sync */
   useEffect(() => {
@@ -905,6 +941,7 @@ function ModelSection({
       setCheckLine(e instanceof Error ? `✗ ${e.message}` : t('model.checkFail'));
     } finally {
       setChecking(false);
+      api.getLlmUsage().then((u) => setUsage(u.usage)).catch(() => {});
     }
   }
 
@@ -1019,6 +1056,11 @@ function ModelSection({
       </div>
       {checkLine ? (
         <div className={`${styles.checkLine} ${checkLine.startsWith('✓') ? styles.checkOk : styles.checkFail}`}>{checkLine}</div>
+      ) : null}
+      {usage && usage.prompt_tokens + usage.completion_tokens > 0 ? (
+        <div className={styles.settingValue}>
+          {t('model.usage', { p: String(usage.prompt_tokens), c: String(usage.completion_tokens), usd: usage.estimated_usd.toFixed(4) })}
+        </div>
       ) : null}
     </>
   );

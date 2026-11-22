@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ITEM_GLYPHS, ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
+import { ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
+import type { TagDefinitionDTO } from '../lib/tags.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import type { ClusterIndexEntry } from './detail.tsx';
-import { BadgeRow, MemberBadge } from '../components/SemTag.tsx';
+import { MemberBadge } from '../components/SemTag.tsx';
 import { EmptyState } from '../components/ui.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
 import { useWindowed } from '../lib/useWindowed.ts';
 import { Glyph } from '../components/Glyph.tsx';
-import type { GlyphKind } from '../components/Glyph.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
 import styles from './views.module.css';
 
@@ -132,15 +132,69 @@ function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: 
   );
 }
 
+/* GAP-09: loading skeleton — shimmer rows instead of a blank page. */
+export function SkeletonRows({ n = 4 }: { n?: number }) {
+  return (
+    <div className={styles.list} aria-hidden>
+      {Array.from({ length: n }, (_, i) => (
+        <div key={i} className={styles.skeletonRow}>
+          <div className={`${styles.skeletonBar} ${styles.skeletonGlyph}`} />
+          <div className={styles.skeletonStack}>
+            <div className={`${styles.skeletonBar} ${styles.skeletonTitle}`} />
+            <div className={`${styles.skeletonBar} ${styles.skeletonLine}`} />
+          </div>
+          <div className={`${styles.skeletonBar} ${styles.skeletonTime}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* GAP-10: bulk tag bar — tag every selected item in one go. */
+function BulkTagBar({
+  count, tagDefs, onApply, onClear,
+}: {
+  count: number;
+  tagDefs: TagDefinitionDTO[];
+  onApply: (definitionId: string, value: string) => Promise<void> | void;
+  onClear: () => void;
+}) {
+  const t = useT();
+  const [defId, setDefId] = useState('');
+  const [value, setValue] = useState('');
+  return (
+    <div className={styles.bulkTagBar}>
+      <span className={styles.rowType}>{t('cols.selectedN', { n: count })}</span>
+      <select className={styles.select} value={defId} onChange={(e) => setDefId(e.target.value)}>
+        <option value="">{t('cols.bulkDim')}</option>
+        {tagDefs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>
+      <input className={styles.search} placeholder={t('cols.bulkValue')} value={value} onChange={(e) => setValue(e.target.value)} />
+      <button
+        type="button"
+        className={styles.primaryButton}
+        disabled={!defId || !value.trim()}
+        onClick={() => { void onApply(defId, value.trim()); setValue(''); }}
+      >
+        {t('cols.bulkTag')}
+      </button>
+      <button type="button" className={styles.linkButton} onClick={onClear}>{t('cols.bulkClear')}</button>
+    </div>
+  );
+}
+
 export function RawCollection({
-  items, badges, tagDims, tagDimOptions, onNew, onSelect,
+  items, badges, tagDims, tagDimOptions, tagDefs, loading, onNew, onSelect, onBulkTag,
 }: {
   items: ItemDTO[];
   badges?: ItemBadges;
   tagDims?: Record<string, string[]>;
   tagDimOptions?: string[];
+  tagDefs?: TagDefinitionDTO[];
+  loading?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
+  onBulkTag?: (ids: string[], definitionId: string, value: string) => Promise<void> | void;
 }) {
   const t = useT();
   const rt = useRelativeTime();
@@ -148,6 +202,8 @@ export function RawCollection({
   const [type, setType] = useState('all');
   const [dim, setDim] = useState('all');
   const [view, setView] = useViewMode('raw');
+  const [pickMode, setPickMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const rows = useMemo(
     () => items.filter((i) => i.type.startsWith('raw.'))
       .filter((i) => type === 'all' || i.type === type)
@@ -155,7 +211,7 @@ export function RawCollection({
       .filter((i) => matches(i, q)),
     [items, q, type, dim, tagDims],
   );
-  const { visible: winRows, sentinelRef, hasMore } = useWindowed(rows);
+  const { visible: winRows, sentinelRef } = useWindowed(rows);
   return (
     <div className={styles.page}>
       <PageHead
@@ -175,8 +231,26 @@ export function RawCollection({
             {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         ) : null}
+        <button
+          type="button"
+          className={`${styles.linkButton} ${pickMode ? styles.on : ''}`}
+          onClick={() => { setPickMode((v) => !v); setPicked(new Set()); }}
+        >
+          {t('cols.selectMode')}
+        </button>
         <ViewToggle mode={view} onChange={setView} />
       </div>
+      {pickMode && picked.size > 0 && tagDefs && onBulkTag ? (
+        <BulkTagBar
+          count={picked.size}
+          tagDefs={tagDefs}
+          onApply={async (definitionId, value) => {
+            await onBulkTag([...picked], definitionId, value);
+            setPicked(new Set());
+          }}
+          onClear={() => setPicked(new Set())}
+        />
+      ) : null}
       {view === 'grid' ? (
         rows.length === 0 ? (
           <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
@@ -199,12 +273,28 @@ export function RawCollection({
         <>
           <ListHeader cols={[t('cols.name'), t('cols.typeSource'), t('cols.updated')]} />
           <div className={styles.list}>
-            {rows.length === 0 ? (
+            {loading ? (
+              <SkeletonRows />
+            ) : rows.length === 0 ? (
               <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
             ) : winRows.map((item) => (
               <div key={item.id} className={styles.rowWrap}>
-                <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-                  <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
+                <button
+                  type="button"
+                  className={`${styles.listRow} ${pickMode && picked.has(item.id) ? styles.picked : ''}`}
+                  onClick={() => {
+                    if (!pickMode) { onSelect(item.id); return; }
+                    setPicked((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    });
+                  }}
+                >
+                  <span className={styles.rowGlyph}>
+                    {pickMode ? <span className={styles.pickMark}>{picked.has(item.id) ? '✓' : ''}</span> : <Glyph kind={item.type} />}
+                  </span>
                   <span className={styles.rowStack}>
                     <span className={styles.rowTitle}>{item.title}</span>
                     {previewOf(item) ? <span className={styles.rowPreview}>{previewOf(item)}</span> : null}
@@ -235,15 +325,18 @@ const OBJECT_TABS: { id: string; labelKey: string }[] = [
 ];
 
 export function ObjectCollection({
-  items, sourceCounts, badges, tagDims, tagDimOptions, onNew, onSelect,
+  items, sourceCounts, badges, tagDims, tagDimOptions, tagDefs, loading, onNew, onSelect, onBulkTag,
 }: {
   items: ItemDTO[];
   sourceCounts: Record<string, number>;
   badges?: ItemBadges;
   tagDims?: Record<string, string[]>;
   tagDimOptions?: string[];
+  tagDefs?: TagDefinitionDTO[];
+  loading?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
+  onBulkTag?: (ids: string[], definitionId: string, value: string) => Promise<void> | void;
 }) {
   const t = useT();
   const rt = useRelativeTime();
@@ -251,6 +344,8 @@ export function ObjectCollection({
   const [tab, setTab] = useState('all');
   const [dim, setDim] = useState('all');
   const [view, setView] = useViewMode('objects');
+  const [pickMode, setPickMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const rows = useMemo(
     () => items.filter((i) => (OBJECT_TYPES as readonly string[]).includes(i.type))
       .filter((i) => tab === 'all' || i.type === tab)
@@ -258,7 +353,7 @@ export function ObjectCollection({
       .filter((i) => matches(i, q)),
     [items, q, tab, dim, tagDims],
   );
-  const { visible: winRows, sentinelRef, hasMore } = useWindowed(rows);
+  const { visible: winRows, sentinelRef } = useWindowed(rows);
   return (
     <div className={styles.page}>
       <PageHead
@@ -274,8 +369,26 @@ export function ObjectCollection({
             {tagDimOptions.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         ) : null}
+        <button
+          type="button"
+          className={`${styles.linkButton} ${pickMode ? styles.on : ''}`}
+          onClick={() => { setPickMode((v) => !v); setPicked(new Set()); }}
+        >
+          {t('cols.selectMode')}
+        </button>
         <ViewToggle mode={view} onChange={setView} />
       </div>
+      {pickMode && picked.size > 0 && tagDefs && onBulkTag ? (
+        <BulkTagBar
+          count={picked.size}
+          tagDefs={tagDefs}
+          onApply={async (definitionId, value) => {
+            await onBulkTag([...picked], definitionId, value);
+            setPicked(new Set());
+          }}
+          onClear={() => setPicked(new Set())}
+        />
+      ) : null}
       <div className={styles.tabRow}>
         {OBJECT_TABS.map((tb) => (
           <button key={tb.id} type="button" className={`${styles.tab} ${tab === tb.id ? styles.on : ''}`} onClick={() => setTab(tb.id)}>
@@ -305,12 +418,28 @@ export function ObjectCollection({
         <>
           <ListHeader cols={[t('cols.name'), t('cols.typeSources'), t('cols.updated')]} />
           <div className={styles.list}>
-            {rows.length === 0 ? (
+            {loading ? (
+              <SkeletonRows />
+            ) : rows.length === 0 ? (
               <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
             ) : winRows.map((item) => (
               <div key={item.id} className={styles.rowWrap}>
-                <button type="button" className={styles.listRow} onClick={() => onSelect(item.id)}>
-                  <span className={styles.rowGlyph}><Glyph kind={item.type} /></span>
+                <button
+                  type="button"
+                  className={`${styles.listRow} ${pickMode && picked.has(item.id) ? styles.picked : ''}`}
+                  onClick={() => {
+                    if (!pickMode) { onSelect(item.id); return; }
+                    setPicked((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    });
+                  }}
+                >
+                  <span className={styles.rowGlyph}>
+                    {pickMode ? <span className={styles.pickMark}>{picked.has(item.id) ? '✓' : ''}</span> : <Glyph kind={item.type} />}
+                  </span>
                   <span className={styles.rowStack}>
                     <span className={styles.rowTitle}>{item.title}</span>
                     {previewOf(item) ? <span className={styles.rowPreview}>{previewOf(item)}</span> : null}

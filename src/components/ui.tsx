@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../lib/i18n.tsx';
 import styles from './ui.module.css';
 
 export function Button({
@@ -37,11 +38,21 @@ export function SectionLabel({ title, count }: { title: string; count?: string }
 }
 
 export function EmptyState({ title, hint, action }: { title: string; hint: string; action?: ReactNode }) {
+  const t = useT();
   return (
     <div className={styles.empty}>
       <div className={styles.emptyTitle}>{title}</div>
       <div>{hint}</div>
       {action ? <div className={styles.emptyAction}>{action}</div> : null}
+      {/* GAP-08 concept primer: the four building blocks of the information space. */}
+      <div className={styles.primerRow}>
+        {(['primer.raw', 'primer.objects', 'primer.clusters', 'primer.contexts'] as const).map((k) => (
+          <div key={k} className={styles.primerCard}>
+            <div className={styles.primerTitle}>{t(k)}</div>
+            <div className={styles.primerBody}>{t(`${k}Body` as 'primer.rawBody')}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

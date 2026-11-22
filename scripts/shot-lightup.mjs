@@ -45,7 +45,7 @@ try {
   const origin = new URL(URL_).origin;
   await send('Page.navigate', { url: origin }, sessionId);
   await sleep(1200);
-  await send('Runtime.evaluate', { expression: "localStorage.setItem('gsc.onboarding.done','1'); localStorage.setItem('gsc.account.done','1');" }, sessionId);
+  await send('Runtime.evaluate', { expression: "localStorage.setItem('gsc.onboarding.done','1'); localStorage.setItem('gsc.account.done','1'); localStorage.setItem('gsc.session','usr_local');" }, sessionId);
   await send('Page.navigate', { url: URL_ }, sessionId);
   await sleep(1600);
   // Expand the URL section by clicking the "URL" toggle, then type a URL.

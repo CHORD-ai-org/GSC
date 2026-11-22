@@ -78,16 +78,6 @@ export function CommandPalette({
     return items.filter((i) => i.label.toLowerCase().includes(q) || (i.hint ?? '').toLowerCase().includes(q));
   }, [items, query]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, PaletteItem[]>();
-    for (const item of filtered) {
-      const list = map.get(item.group) ?? [];
-      list.push(item);
-      map.set(item.group, list);
-    }
-    return [...map.entries()];
-  }, [filtered]);
-
   useEffect(() => {
     if (open) {
       setQuery('');

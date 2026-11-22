@@ -42,7 +42,6 @@ import { loadPrefs, savePrefs } from '../lib/prefs.ts';
 import { recordVisit, visitMap } from '../lib/visits.ts';
 import { loadSampleWorkspace, clearSampleWorkspace } from '../lib/sample.ts';
 import { Onboarding, isOnboardingDone } from '../components/Onboarding.tsx';
-import { AccountSetup } from '../components/AccountSetup.tsx';
 import { LoginPage } from '../pages/auth/LoginPage.tsx';
 import {
   buildAgentContext,
@@ -87,6 +86,7 @@ export default function App() {
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
   const [overviewMode, setOverviewMode] = useState<'overview' | 'canvas'>('overview');
   const [clusters, setClusters] = useState<ClusterIndexEntry[]>([]);
@@ -149,6 +149,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     const result = await api.listItems({});
     setItems(result.items);
+    setLoadingItems(false);
   }, []);
 
   const loadContextIndex = useCallback(async () => {
@@ -323,7 +324,7 @@ export default function App() {
 
   /* T103: local account — created on first launch, gates onboarding */
   const [account, setAccount] = useState<{ id: string; name: string; created_at: string } | null>(null);
-  const [accountChecked, setAccountChecked] = useState(false);
+  const [, setAccountChecked] = useState(false);
   /* CHORD-family login session (mirrors Thylas' session cookie): gates the app. */
   const [signedIn, setSignedIn] = useState<boolean>(() => {
     try { return localStorage.getItem('gsc.session') !== null; } catch { return false; }
@@ -413,11 +414,6 @@ export default function App() {
       ...metaFrom(selected),
       ...Object.fromEntries(Object.entries(selected.fields).map(([k, v]) => [k, v ?? ''])),
     });
-  }
-
-  function openLink() {
-    setPanel('link');
-    setForm({ kind: isObjectType(selected?.type ?? 'raw.document') ? 'derived_from' : 'related_to', target: '', note: '' });
   }
 
   function setField(key: string, value: string) {
@@ -868,6 +864,19 @@ export default function App() {
     }
   }
 
+  /* GAP-10: bulk tagging — assign one tag value to every picked item. */
+  async function bulkTag(ids: string[], definitionId: string, value: string) {
+    try {
+      for (const id of ids) {
+        await api.createTagValue({ definition_id: definitionId, item_id: id, value, scope: 'global' });
+      }
+      toast(t('cols.bulkDone', { n: ids.length }));
+      await loadTags();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+    }
+  }
+
   async function confirmTagValue(id: string, confirmed: boolean) {
     try {
       await api.setTagValueConfirmed(id, confirmed);
@@ -949,13 +958,22 @@ export default function App() {
         onDelete: () => void deleteSelected(),
         onOpenItem: openItemInPage,
         onOpenContext: openContextInPage,
+        onAddToContext: async (contextId: string) => {
+          try {
+            await api.addContextMember(contextId, selectedId);
+            toast(t('detail.addedToContext'));
+            await loadContextIndex();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+          }
+        },
       };
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
     return kind === 'raw' ? (
-      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} onNew={() => go('lightup')} onSelect={selectItem} />
+      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} onNew={() => go('lightup')} onSelect={selectItem} onBulkTag={bulkTag} />
     ) : (
-      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} onNew={() => openNew('object.concept')} onSelect={selectItem} />
+      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} onNew={() => openNew('object.concept')} onSelect={selectItem} onBulkTag={bulkTag} />
     );
   }
 
@@ -1369,7 +1387,7 @@ function TypedInputs({
 }
 
 function NewForm({
-  type, form, items, error, onType, onField, onFile, onCancel, onSave,
+  type, form, items, onType, onField, onFile, onCancel, onSave,
 }: {
   type: ItemType;
   form: Record<string, string>;

@@ -25,3 +25,8 @@
 .viewButton.on{background:var(--pill-on);color:var(--ink);box-shadow:var(--shadow-pill)}
 .keyHintBar{display:flex;gap:14px;margin-top:14px;padding:8px 12px;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);color:var(--ink-3);font-size:10.5px;align-items:center;flex-wrap:wrap}
 .kbd{display:inline-block;font-family:var(--mono);font-size:9.5px;line-height:14px;padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:var(--bg-card);color:var(--ink-2)}
+/* GAP-08 concept primer (shown in empty states) */
+.primerRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:22px;max-width:720px;width:100%}
+.primerCard{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;text-align:left;background:var(--bg-card)}
+.primerTitle{font-size:12px;font-weight:650;color:var(--ink);margin-bottom:3px}
+.primerBody{font-size:11px;line-height:16px;color:var(--ink-2)}

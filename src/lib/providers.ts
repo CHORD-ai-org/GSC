@@ -211,3 +211,20 @@ export function bodyExtrasFor(auth: AuthStyle): Record<string, unknown> {
   if (auth === 'claude') return { max_tokens: 2048 }; // Anthropic requires max_tokens
   return {};
 }
+
+/**
+ * Rough public list prices in USD per 1M tokens — **estimates only** for cost
+ * accounting (GSC bills nothing). Adjust here when vendor pricing changes.
+ */
+export const USD_PER_MILLION: Record<string, { input: number; output: number }> = {
+  mimo: { input: 0.3, output: 0.6 },
+  deepseek: { input: 0.3, output: 1.2 },
+  openai: { input: 2.5, output: 10 },
+  claude: { input: 3, output: 15 },
+  gemini: { input: 1.25, output: 5 },
+  kimi: { input: 0.6, output: 2.5 },
+  qwen: { input: 0.4, output: 1.2 },
+  zhipu: { input: 0.6, output: 2 },
+  grok: { input: 3, output: 15 },
+  custom: { input: 0, output: 0 },
+};

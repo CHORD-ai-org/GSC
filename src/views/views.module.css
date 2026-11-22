@@ -139,7 +139,23 @@
 
 /* PLAN-5: pairing chip + membership badges (D-057) */
 .pairChipRow{margin:0 0 14px}
-.pairChip{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2);background:var(--pill-track);border-radius:999px;padding:4px 10px;cursor:pointer}
+.pairChip{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:11px;color:var(--ink-2);background:var(--pill-track);border:0;border-radius:999px;padding:4px 10px;cursor:pointer}
+.pairChip:disabled{opacity:.5;cursor:default}
+.pickSelect{font:inherit;font-size:11px;color:var(--ink);background:var(--bg-card);border:1px solid var(--line);border-radius:999px;padding:3px 8px;max-width:180px}
+/* GAP-09: loading skeleton rows */
+.skeletonRow{display:flex;align-items:center;gap:12px;padding:12px 10px;border-bottom:1px solid var(--line)}
+.skeletonBar{background:linear-gradient(90deg,var(--pill-track) 25%,var(--tint-hover) 37%,var(--pill-track) 63%);background-size:400% 100%;animation:skShimmer 1.4s ease infinite;border-radius:6px;height:10px}
+.skeletonGlyph{width:22px;height:22px;border-radius:50%;flex:none}
+.skeletonStack{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+.skeletonTitle{width:38%;height:12px}
+.skeletonLine{width:62%;height:9px}
+.skeletonTime{width:64px;flex:none}
+@keyframes skShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+@media(prefers-reduced-motion:reduce){.skeletonBar{animation:none}}
+/* GAP-10: bulk tagging */
+.bulkTagBar{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:8px 0;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg-card)}
+.pickMark{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line-strong);color:var(--accent);font-size:11px}
+.listRow.picked{background:var(--tint-sel)}
 .pairChip:hover{color:var(--ink)}
 .rowBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
 
