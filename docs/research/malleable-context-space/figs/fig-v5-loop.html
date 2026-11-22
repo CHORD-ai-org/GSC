@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1120px;height:620px;font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#fff;color:#171717;padding:26px 30px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.hd h1{font-size:17px;font-weight:600}
+.hd .tag{font-size:11px;padding:3px 10px;border-radius:999px;background:#F1F1F3;color:#6B7280}
+.hd .lg{margin-left:auto;font-size:11px;color:#6B7280}
+.flow{display:flex;align-items:stretch;gap:0;margin:10px 0 22px}
+.step{flex:1;position:relative;padding:16px 14px 14px;border:1px solid #E8E8EC;border-radius:12px;background:#fff}
+.step .n{position:absolute;top:-11px;left:14px;font-size:10px;padding:2px 9px;border-radius:999px;color:#fff}
+.step h3{font-size:13px;font-weight:600;margin:6px 0 6px}
+.step p{font-size:11px;line-height:1.7;color:#4B5563;margin:0}
+.arr{display:flex;align-items:center;padding:0 8px;color:#9CA3AF;font-size:18px}
+.gate{margin-top:12px;padding:14px 18px;border:1px solid #E8E8EC;border-radius:12px;background:#FAFAFB}
+.gate h4{font-size:12px;font-weight:600;margin:0 0 8px;color:#374151}
+.gate .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.gate .g{font-size:11px;line-height:1.8;color:#4B5563}
+.gate .g b{display:block;font-size:11px;color:#171717;margin-bottom:2px}
+.back{margin-top:14px;font-size:11px;color:#6B7280;display:flex;align-items:center;gap:8px}
+.back .line{flex:1;height:1px;background:repeating-linear-gradient(90deg,#D3D1C7 0 6px,transparent 6px 12px)}
+</style></head><body>
+<div class="hd"><h1>V5 场景 A 闭环验证 —— 从采集到溯源</h1><span class="tag">M5</span><span class="lg">全程 API 留证（仿 phase06-scenarios.py）</span></div>
+<div class="flow">
+  <div class="step"><span class="n" style="background:#185FA5">1 采集</span><h3>材料入库</h3><p>URL/文件 → raw.document<br>source_label 保留<br>events 记 actor=user</p></div>
+  <div class="arr">→</div>
+  <div class="step"><span class="n" style="background:#3B6D11">2 对象</span><h3>语义对象</h3><p>Hypothesis / Concept<br>derived_from 溯源<br>SemTag 确认标注</p></div>
+  <div class="arr">→</div>
+  <div class="step"><span class="n" style="background:#534AB7">3 圈定委派</span><h3>空间圈选</h3><p>选中 N 项 = 上下文边界<br>「提交给 Agent」<br>显式提交才行动</p></div>
+  <div class="arr">→</div>
+  <div class="step"><span class="n" style="background:#BA7517">4 提案</span><h3>结果落回</h3><p>紫框提案卡落画布<br>机器产物 = 待确认<br>可采纳 / 拒绝 / 暂缓</p></div>
+  <div class="arr">→</div>
+  <div class="step"><span class="n" style="background:#0F6E56">5 确认入库</span><h3>采纳生效</h3><p>resolve → createItem<br>归因事件落定<br>痕迹双色可见</p></div>
+</div>
+<div class="back"><span>回环：入库对象回到列表/空间，痕迹积累 → 下一轮委派带上历史（Agent 可读同一份记录）</span><span class="line"></span><span>↺</span></div>
+<div class="gate">
+  <h4>验收口径</h4>
+  <div class="cols">
+    <div class="g"><b>功能</b>五步全通：采集→对象→圈定→提案→确认；每步 API 状态码与 id 留证</div>
+    <div class="g"><b>治理</b>确认前无任何机器产物进入正式库；归因事件区分 user/agent</div>
+    <div class="g"><b>零副本</b>视图切换不产生写请求；空间摆位不改动对象本体</div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1120px;height:620px;font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#fff;color:#171717;padding:26px 30px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.hd h1{font-size:17px;font-weight:600}
+.hd .tag{font-size:11px;padding:3px 10px;border-radius:999px;background:#F1F1F3;color:#6B7280}
+.hd .lg{margin-left:auto;font-size:11px;color:#6B7280}
+.card{border:1px solid #E8E8EC;border-radius:12px;overflow:hidden}
+.bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #E8E8EC;font-size:11px;color:#6B7280;background:#FAFAFB}
+.tab{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid #E8E8EC;color:#6B7280}
+.tab.on{background:#F1F1F3;color:#171717;border-color:#D3D1C7}
+.canvas{position:relative;height:462px;background:#FAFAFB}
+.c{position:absolute;width:168px;padding:9px 12px;border:1px solid #E8E8EC;border-radius:10px;background:#fff;font-size:12px}
+.c .k{font-size:10px;color:#9CA3AF;margin-bottom:2px}
+.halo{position:absolute;border:1.5px dashed #7F77DD;border-radius:16px;background:rgba(127,119,221,0.06)}
+.ctxbar{position:absolute;display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:10px;background:#fff;border:1px solid #7F77DD;font-size:12px}
+.btn{font-size:12px;padding:5px 14px;border-radius:999px;border:1px solid #D3D1C7;background:#fff;color:#171717}
+.btn.p{background:#534AB7;color:#fff;border-color:#534AB7}
+.lab{position:absolute;font-size:11px;color:#9CA3AF}
+</style></head><body>
+<div class="hd"><h1>V4 空间工作台 —— 圈定即上下文</h1><span class="tag">M4 · 依赖 Q-E 拍板</span><span class="lg">摆位 / 圈选 / 显式委派 · 结果以提案卡落回</span></div>
+<div class="card">
+  <div class="bar"><span class="tab on">空间</span><span class="tab">列表</span><span class="tab">关系</span><span style="margin-left:auto">scratch 档（关页可丢）→ kept 档（钉住）→ canonical 走 Context/Cluster</span></div>
+  <div class="canvas">
+    <div class="c" style="left:30px;top:26px"><div class="k">材料</div>访谈记录 11-20</div>
+    <div class="c" style="left:232px;top:44px"><div class="k">材料</div>cleo.pdf</div>
+    <div class="c" style="left:436px;top:26px"><div class="k">概念</div>自注意力</div>
+    <div class="c" style="left:74px;top:150px"><div class="k">假设</div>注意力替代循环</div>
+    <div class="c" style="left:286px;top:170px"><div class="k">证据</div>评测日志 #42</div>
+    <div class="halo" style="left:210px;top:22px;width:430px;height:210px"></div>
+    <div class="ctxbar" style="left:210px;top:248px;width:430px">
+      <span>圈定：2 材料 + 1 假设 + 1 证据</span><span style="flex:1"></span>
+      <button class="btn">改边界</button><button class="btn p">提交给 Agent</button>
+    </div>
+    <div class="c" style="left:238px;top:318px;border-color:#7F77DD"><div class="k" style="color:#534AB7">Agent 产出 · 待确认</div>新关系：证据 #42 supports H1<div style="margin-top:6px"><button class="btn" style="font-size:11px;padding:2px 10px">采纳</button> <button class="btn" style="font-size:11px;padding:2px 10px">拒绝</button></div></div>
+    <div class="lab" style="left:700px;top:60px">拖放摆位 = 软编排</div>
+    <div class="lab" style="left:700px;top:84px">语义关系仍走显式边（提案）</div>
+    <div class="lab" style="left:700px;top:108px">不做墨迹 / 无限画布 / 自动重组</div>
+    <div class="lab" style="left:700px;top:150px">委派 = POST /api/agent/propose</div>
+    <div class="lab" style="left:700px;top:174px">回落卡 = pending proposal 渲染</div>
+    <div class="lab" style="left:700px;top:198px">采纳 = resolve → createItem</div>
+  </div>
+</div>
+</body></html>

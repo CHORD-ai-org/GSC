@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1120px;height:620px;font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#fff;color:#171717;padding:26px 30px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.hd h1{font-size:17px;font-weight:600}
+.hd .tag{font-size:11px;padding:3px 10px;border-radius:999px;background:#F1F1F3;color:#6B7280}
+.hd .lg{margin-left:auto;font-size:11px;color:#6B7280}
+.card{border:1px solid #E8E8EC;border-radius:12px;overflow:hidden}
+.top{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #E8E8EC;font-size:11px;color:#6B7280;background:#FAFAFB}
+.main{display:grid;grid-template-columns:300px minmax(0,1fr)}
+.pane{padding:14px 16px}
+.pane+.pane{border-left:1px solid #E8E8EC}
+.ph{font-size:11px;color:#9CA3AF;margin:0 0 10px}
+.frow{display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12px}
+.fname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{width:90px;flex:none;display:flex;flex-direction:column;gap:3px}
+.b{height:4px;border-radius:2px}
+.hist{font-size:11px;color:#6B7280;width:52px;text-align:right;flex:none}
+.foot{display:flex;align-items:center;gap:14px;padding:10px 16px;border-top:1px solid #E8E8EC;font-size:12px;color:#374151;background:#FAFAFB}
+.foot .k{display:inline-flex;align-items:center;gap:5px}
+.dot{width:8px;height:8px;border-radius:50%}
+.det{border:1px solid #E8E8EC;border-radius:12px;padding:14px 18px;margin-top:16px}
+.det h2{font-size:13px;font-weight:600;margin:0 0 8px}
+.det .row{display:flex;align-items:center;gap:10px;font-size:12px;color:#374151}
+.pill{font-size:11px;padding:2px 9px;border-radius:999px}
+.pu{background:#E1F5EE;color:#0F6E56}
+.pa{background:#EEEDFE;color:#534AB7}
+.pg{background:#F1F1F3;color:#6B7280}
+</style></head><body>
+<div class="hd"><h1>V1 痕迹层 —— 「谁动过什么」可见</h1><span class="tag">M1</span><span class="lg">蓝 = 你的活动 · 橙 = Agent 的活动（逐条积累）</span></div>
+<div class="card">
+  <div class="top"><span>原始信息 · 列表行尾双色活动条</span><span style="margin-left:auto">条长 = 活动量</span></div>
+  <div class="main">
+    <div class="pane">
+      <p class="ph">最近活跃</p>
+      <div class="frow"><span class="fname">attention.pdf</span><span class="bar"><span class="b" style="background:#85B7EB;width:76px"></span><span class="b" style="background:#EF9F27;width:48px"></span></span><span class="hist">2 天前</span></div>
+      <div class="frow"><span class="fname">ream.pdf</span><span class="bar"><span class="b" style="background:#85B7EB;width:30px"></span><span class="b" style="background:#EF9F27;width:82px"></span></span><span class="hist">1 小时前</span></div>
+      <div class="frow"><span class="fname">cleo.pdf</span><span class="bar"><span class="b" style="background:#85B7EB;width:58px"></span><span class="b" style="background:#EF9F27;width:20px"></span></span><span class="hist">昨天</span></div>
+      <div class="frow"><span class="fname">评测日志 #42</span><span class="bar"><span class="b" style="background:#85B7EB;width:12px"></span><span class="b" style="background:#EF9F27;width:36px"></span></span><span class="hist">3 天前</span></div>
+    </div>
+    <div class="pane">
+      <p class="ph">详情页足迹行（点击任意条目可见）</p>
+      <div class="det" style="margin:0">
+        <h2>attention.pdf</h2>
+        <div class="row"><span class="pill pu">你 · 2 次</span><span class="pill pa">Agent · 5 次</span><span class="pill pg">最近改动 10:22</span><span style="flex:1"></span><span style="color:#6B7280">最近动作：你改写 claim · Agent 提取引文</span></div>
+      </div>
+      <p class="ph" style="margin-top:14px">数据来源</p>
+      <div style="font-size:12px;line-height:2;color:#374151">
+        events 表补 <b>actor</b>（user / agent）与 <b>action</b>（open / read / edit / annotate / derive）<br>
+        列表聚合一次 inArray 查询（GROUP BY item_id, actor）—— 不逐行查，零 N+1<br>
+        前端只读渲染：ActivityBars 组件挂在行尾与详情头部
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <span class="k"><span class="dot" style="background:#85B7EB"></span>你</span>
+    <span class="k"><span class="dot" style="background:#EF9F27"></span>Agent</span>
+    <span class="k"><span class="dot" style="background:#D3D1C7"></span>无活动</span>
+    <span style="margin-left:auto;color:#6B7280">只做对象级痕迹 · passage 级后置</span>
+  </div>
+</div>
+</body></html>

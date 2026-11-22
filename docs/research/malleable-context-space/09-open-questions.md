@@ -14,6 +14,12 @@
 4. **[founder]** Do we accept C's claim that Process must be first-class for long-horizon
    collaboration, despite overhead? (→ Q-D)
 
+> **Founder decision 2026-11-22 (partial answer to Q-A / Q-C lean):** GSC will include
+> **multiple views**, incorporating both the Ream feel (localized, bidirectional
+> engagement traces on work objects) and the Huabu feel (spatial workbench — selection,
+> ink, arrangement; selection as context boundary). Remaining sub-questions of Q-A
+> (which views save, where) and Q-C (spatial persistence tiers) stay open.
+
 ## Product
 
 5. **[founder]** Which Scenario (A/B/C) gets the Malleable treatment *first*? (All three

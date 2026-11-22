@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1120px;height:620px;font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#fff;color:#171717;padding:26px 30px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.hd h1{font-size:17px;font-weight:600}
+.hd .tag{font-size:11px;padding:3px 10px;border-radius:999px;background:#F1F1F3;color:#6B7280}
+.hd .lg{margin-left:auto;font-size:11px;color:#6B7280}
+.card{border:1px solid #E8E8EC;border-radius:12px;overflow:hidden}
+.hdc{padding:12px 18px;border-bottom:1px solid #E8E8EC}
+.hdc h2{font-size:14px;font-weight:600;margin:0 0 3px}
+.hdc .sub{font-size:11px;color:#6B7280}
+.strip{display:flex;gap:8px;padding:10px 18px;border-bottom:1px solid #E8E8EC;background:#FAFAFB;align-items:center}
+.chip{font-size:11px;padding:3px 11px;border-radius:999px}
+.body{padding:14px 18px;font-size:13px;line-height:2.1}
+.u{border-bottom:2px solid #5DCAA5;padding-bottom:1px}
+.g{border-bottom:2px solid #7F77DD;padding-bottom:1px}
+.fields{margin:0 18px 8px;padding:8px 12px;border:1px solid #E8E8EC;border-radius:9px;font-size:11px;color:#374151;display:flex;gap:16px}
+.pv{margin:0 18px 10px;padding:10px 14px;border:1px solid #E8E8EC;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px}
+.why{color:#9CA3AF;font-size:11px}
+.btn{font-size:11px;padding:4px 12px;border-radius:999px;border:1px solid #D3D1C7;background:#fff;color:#171717}
+.ok{background:#0F6E56;color:#fff;border-color:#0F6E56}
+.ft{padding:10px 18px;border-top:1px solid #E8E8EC;font-size:11px;color:#6B7280;background:#FAFAFB}
+</style></head><body>
+<div class="hd"><h1>V3 归因与提案面 —— 谁改了什么</h1><span class="tag">M3</span><span class="lg">编辑级归因（绿=你 / 紫=Agent）+ 机器产物确认前永远是提案</span></div>
+<div class="card">
+  <div class="hdc"><h2>假设 H1：注意力可替代循环</h2><div class="sub">origin: user · 状态：活跃 · 来源：attention.pdf</div></div>
+  <div class="strip">
+    <span class="chip" style="background:#E1F5EE;color:#0F6E56">你 · 2 处编辑</span>
+    <span class="chip" style="background:#EEEDFE;color:#534AB7">Agent · 3 处编辑</span>
+    <span class="chip" style="background:#FAEEDA;color:#854F0B">2 条提案待确认</span>
+    <span style="flex:1"></span>
+    <span class="chip" style="background:#F1F1F3;color:#6B7280">1 处冲突已解决</span>
+  </div>
+  <div class="body">
+    自注意力机制<span class="u">足以替代循环结构</span>完成序列转换；<span class="g">在长序列上的外推性待验证</span>。评测显示<span class="u">有界重试后故障归零</span>。
+  </div>
+  <div class="fields"><span>字段行尾标记：</span><span>claim <b style="color:#0F6E56">● 你</b></span><span>notes <b style="color:#534AB7">● Agent</b></span><span style="margin-left:auto;color:#9CA3AF">changed_keys 随 PATCH 落 events，无 diff 引擎</span></div>
+  <div class="pv">
+    <span class="chip" style="background:#EEEDFE;color:#534AB7">提案</span>
+    <span>重命名：注意力 → <b>自注意力</b></span><span class="why">Agent：与概念卡一致</span>
+    <span style="flex:1"></span>
+    <button class="btn ok">采纳</button><button class="btn">拒绝</button><button class="btn">暂缓</button>
+  </div>
+  <div class="pv">
+    <span class="chip" style="background:#EEEDFE;color:#534AB7">提案</span>
+    <span>新关系：证据 #42 <b>supports</b> H1</span><span class="why">Agent：检视日志 2 段</span>
+    <span style="flex:1"></span>
+    <button class="btn ok">采纳</button><button class="btn">拒绝</button><button class="btn">暂缓</button>
+  </div>
+  <div class="ft">绿 = 你的编辑 · 紫 = Agent 编辑 · 提案经 /api/proposals/:id/resolve 落定 · 冲突时用户裁定，不静默覆盖</div>
+</div>
+</body></html>

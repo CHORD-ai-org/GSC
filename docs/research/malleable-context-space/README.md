@@ -60,6 +60,13 @@ R1/R2/R3 from Research D could not be inspected (abstract only) — recorded as 
 
 ## 4. What has been established (within this research)
 
+**Founder decision (2026-11-22):** GSC will include **multiple views** — with both the
+Ream "feel" (mutual-awareness traces localized on work objects, readable both ways) and
+the Huabu "feel" (spatial workbench: selection/ink/arrangement, selection-as-context-
+boundary). This leans Q-A toward the multi-view end and gives the spatial view real
+standing (see 04/09); implementation discipline unchanged (View = projection; spatial ≠
+infinite canvas).
+
 - The five directions converge on **the working representation as the substrate** of
   human-agent collaboration (see `01-research-synthesis.md`).
 - **Attribution of concurrent edits** (who changed what, and was it feedback?) is the
