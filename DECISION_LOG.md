@@ -770,3 +770,50 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   skeleton hides the empty-state flash before first paint.
 - **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, lint=0, vitest 135/135, screenshot
   `bulk-tag.png` (select mode + bulk bar). P1/P2 now fully cleared except external OAuth credentials.
+
+## D-088 — Phase 07: Malleable multi-view workbench execution plan (PROPOSED)
+
+- **Decision:** Plan (not yet execute) Phase 07 per founder decision 2026-11-22 (GSC multi-view,
+  Ream feel + Huabu feel): V1 engagement traces (dual-color activity bars) → V2 multi-projection
+  views (list/reader/relations/timeline/spatial) → V3 edit-level attribution + inline proposals →
+  V4 spatial workbench (selection-as-context, delegate, results as proposal cards) → V5 Scenario A
+  closed-loop verification. Full task cards in `PHASE_07_PLAN.md`.
+- **Reasoning:** implements the decided view direction with vertical slices; preserves D-042
+  (machine = proposal) and the view-is-projection discipline (D-079 precedent); defers process
+  model (Q-D) and cross-project sharing (Q-F).
+- **Alternatives:** build spatial first (rejected — traces layer is the shared data foundation);
+  big-bang view engine (rejected — violates no-unnecessary-abstraction discipline).
+- **Consequences:** events gain actor/action; new projections are computed views only; V4 gated
+  on Q-E tier decision (proposed: scratch/kept).
+- **Status:** `PROPOSED` — awaiting founder confirmation of Q-E tiers, sequence, and milestone
+  acceptance mode.
+
+## D-089 — Registration receipt demo: self-written ReceiptPrinter (DECIDED)
+
+- **Decision:** The create-account flow ends with a thermal-printer「注册收据」(name/email/identity/
+  time/order + barcode; drag the receipt up to tear off, or Continue → workspace). The ReceiptPrinter
+  component is **self-written** (`src/components/ReceiptPrinter.tsx` + `receipt.module.css`, React +
+  CSS Modules, zero new dependencies) per user 2026-11-22「不要API Key，你自己写效果」. The React Bits
+  Pro registry install path (components.json registries + `REACTBITS_LICENSE_KEY` + shadcn CLI) was
+  configured per the original request, then **reverted** on that instruction — no license key, no
+  registry config, no alias plumbing, no Tailwind anywhere.
+- **Reasoning:** the effect (feed animation, tearable receipt with flick, zigzag tear edge, barcode,
+  LED, reduced-motion) fits in two files without a key-gated paid dependency; D-005 stack (CSS
+  Modules + own tokens) stays intact.
+- **Alternatives:** React Bits Pro `receipt-printer-css` via shadcn CLI (blocked — no
+  REACTBITS_LICENSE_KEY exists on the machine; user declined the key path); Tailwind + shadcn init
+  (rejected — D-005 rejected Tailwind + UI kit); free React Bits library (has no receipt printer).
+- **Consequences:** the receipt is a demo artifact only (no billing/invoice semantics — task card
+  `RECEIPT_DEMO_PLAN.md`); sign-in and CHORD OAuth paths unchanged (`onAuthed` contract untouched).
+  Gotcha recorded: sheet children containing in-flow text need `position: relative; z-index: 1` to
+  paint above the sheet's opaque paper-SVG frame (the rule `.grip`/`.form` already follow) — the
+  hint text was invisible until applied. If the official component is ever wanted: re-add the
+  registries to `components.json`, put the key in `.env.local`, then
+  `npx shadcn@latest add @reactbits-starter/receipt-printer-css`.
+- **Status:** `DECIDED` — 2026-11-22, executed. Verified: e2e screenshots `receipt-1-signin.png`…
+  `receipt-4-continued.png` (register → receipt printed → Continue → workspace + onboarding;
+  `scripts/shot-receipt.mjs`, 1440×900, step assertions included); task files tsc/lint clean —
+  repo-wide tsc at handoff shows only the concurrent D-088 V1 workstream's in-flight `activity`
+  prop errors in `src/app/App.tsx`, and `npm run lint`'s only error is that workstream's untracked
+  `scripts/shot-fig.mjs`; vitest 134/135 (1 timeout in `server/intel/intel.test.ts`, no import
+  relation to this change); full build green at 20:2x before the concurrent edit landed.

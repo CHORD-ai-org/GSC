@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **跨项目研究完成**（Malleable Context Space，GSC×Thylas×Lemma）——`docs/research/malleable-context-space/` 11 份文档（五路研究综合/四模型/交互/跨项目应用/架构备选/开放问题/术语表），五路论文全部核实到真源并标注证据级别；Q-D/Q-C/Q-F 等待创始人研讨。此前 P1/P2 全清（D-087）。
+> Status: **Phase 07 执行计划已立**（`PHASE_07_PLAN.md`，PROPOSED）：V1 痕迹层→V2 多投影→V3 归因提案→V4 空间工作台（待 Q-E 拍板）→V5 场景验证；依据创始人决策（多视角，Ream+Huabu 感觉）与 `docs/research/malleable-context-space/`。待确认点：Q-E 档位、顺序、验收方式。
 
 ## User approvals received 2026-11-16
 
@@ -53,3 +53,7 @@ Plan: `PHASE_05_UI_PLAN.md` (P5-0…P5-6, milestones M1–M6). Requirements read
 ## Next action after approval
 
 User to pick from `DIVERGENCE_PLAN.md` §4 (priority order, D1 provider form, D2 delivery form), then write task cards for the chosen direction(s). Phase 06 (formerly 05) — execute scenarios A–D with observed results — stays gated on user approval.
+
+## Registration receipt demo completed (2026-11-22)
+
+`RECEIPT_DEMO_PLAN.md` + D-089: self-written `ReceiptPrinter` (出纸 + 可撕下收据, zero new deps, per user「不要API Key，你自己写效果」; React Bits Pro install path reverted). Create-account flow prints a registration receipt (name/email/identity/time/order/barcode), tear off or Continue → workspace. Verified end-to-end via `scripts/shot-receipt.mjs` (4 screenshots). Gotcha: sheet in-flow text needs `z-index:1` over the paper-SVG frame.

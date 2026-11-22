@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="docx-page-size" content="A4">
+<title>GSC Phase 07 多视角工作台执行计划</title>
+<style>
+:root {
+  --fs-h1: 18pt;
+  --fs-h2: 15pt;
+  --fs-h3: 13pt;
+  --fs-body: 12pt;
+  --fs-small: 10.5pt;
+  --fs-cover-title: 32pt;
+  --ff-heading: "Microsoft YaHei", "微软雅黑", sans-serif;
+  --ff-body: "SimSun", "宋体", serif;
+  --ff-mono: "Consolas", monospace;
+  --lh-body: 1.75;
+  --lh-heading: 1.35;
+  --fw-bold: bold;
+  --fw-normal: normal;
+  --color-primary: #1565C0;
+  --color-text: #212121;
+  --color-muted: #616161;
+  --color-border: #BDBDBD;
+  --color-bg: #F5F7FA;
+  --color-callout-bg: #EEF4FB;
+  --color-warn-bg: #FDF6E3;
+  --spacing-paragraph: 0.6em;
+  --spacing-section: 1.8em;
+  --page-content-width: 15.6cm;
+}
+@page { @bottom-center { content: counter(page); } }
+@page cover { @bottom-center { content: none; } }
+section[role="cover"] { page: cover; }
+body { font-family: var(--ff-body); font-size: var(--fs-body); color: var(--color-text); line-height: var(--lh-body); max-width: var(--page-content-width); margin-left: auto; margin-right: auto; }
+.bp { text-indent: 2em; margin: var(--spacing-paragraph) 0; }
+h1 { font-family: var(--ff-heading); font-size: var(--fs-h1); font-weight: var(--fw-bold); color: var(--color-primary); margin: var(--spacing-section) 0 0.8em; }
+h2 { font-family: var(--ff-heading); font-size: var(--fs-h2); font-weight: var(--fw-bold); color: var(--color-text); margin: 1.4em 0 0.6em; }
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: var(--fs-small); }
+th, td { border: 1px solid var(--color-border); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: var(--color-bg); font-family: var(--ff-heading); font-weight: var(--fw-bold); }
+caption { caption-side: top; text-align: center; font-family: var(--ff-heading); font-size: var(--fs-small); font-weight: var(--fw-bold); margin-bottom: 4px; }
+.cover-title { font-family: var(--ff-heading); font-size: var(--fs-cover-title); font-weight: var(--fw-bold); color: var(--color-primary); text-align: center; margin-top: 7em; }
+.cover-sub { font-family: var(--ff-heading); font-size: 15pt; color: var(--color-text); text-align: center; margin-top: 1.2em; }
+.cover-meta { font-size: var(--fs-small); color: var(--color-muted); text-align: center; margin-top: 3em; }
+.toc-title { font-family: var(--ff-heading); font-size: var(--fs-h1); font-weight: var(--fw-bold); color: var(--color-primary); text-align: center; margin: 2em 0 1em; }
+.toc-list, .toc-list ol { list-style: none; padding-left: 0; font-family: var(--ff-heading); }
+.toc-list li { margin: 0.45em 0; }
+.toc-list ol li { margin: 0.25em 0 0.25em 1.8em; font-size: var(--fs-small); }
+.toc-list a { text-decoration: none; color: var(--color-text); }
+.callout { border-left: 3px solid var(--color-primary); background: var(--color-callout-bg); padding: 8px 10px; margin: 0.8em 0; }
+.warnbox { border-left: 3px solid #BA7517; background: var(--color-warn-bg); padding: 8px 10px; margin: 0.8em 0; }
+</style>
+</head>
+<body>
+
+<section role="cover">
+  <p class="cover-title">GSC Phase 07 多视角工作台执行计划</p>
+  <p class="cover-sub">Malleable Context Space 落地 GSC · V1–V5 里程碑 · 含技术路径与 Layout 演示</p>
+  <p class="cover-meta">状态：PROPOSED（待确认后开工）　·　2026-11-22<br>依据：创始人决策 2026-11-22（多视角，Ream 感觉 + Huabu 感觉）· 研究集 docs/research/malleable-context-space/ · 决策记录 D-088</p>
+</section>
+
+<section role="cover">
+<nav class="doc-toc" aria-label="文档目录">
+  <p class="toc-title">目录</p>
+  <ol class="toc-list">
+    <li><a href="#section-1">一、背景与决策</a></li>
+    <li><a href="#section-2">二、总体路线</a></li>
+    <li><a href="#section-3">三、V1 痕迹层 —— 「谁动过什么」可见（M1）</a>
+      <ol>
+        <li><a href="#s3-1">（一）目标</a></li>
+        <li><a href="#s3-2">（二）技术路径</a></li>
+        <li><a href="#s3-3">（三）Layout 演示</a></li>
+        <li><a href="#s3-4">（四）验收</a></li>
+      </ol>
+    </li>
+    <li><a href="#section-4">四、V2 多投影切换 —— 一份表征，多种投影（M2）</a>
+      <ol>
+        <li><a href="#s4-1">（一）目标</a></li>
+        <li><a href="#s4-2">（二）技术路径</a></li>
+        <li><a href="#s4-3">（三）Layout 演示</a></li>
+        <li><a href="#s4-4">（四）验收</a></li>
+      </ol>
+    </li>
+    <li><a href="#section-5">五、V3 归因与提案面 —— 谁改了什么（M3）</a>
+      <ol>
+        <li><a href="#s5-1">（一）目标</a></li>
+        <li><a href="#s5-2">（二）技术路径</a></li>
+        <li><a href="#s5-3">（三）Layout 演示</a></li>
+        <li><a href="#s5-4">（四）验收</a></li>
+      </ol>
+    </li>
+    <li><a href="#section-6">六、V4 空间工作台 —— 圈定即上下文（M4）</a>
+      <ol>
+        <li><a href="#s6-1">（一）目标</a></li>
+        <li><a href="#s6-2">（二）技术路径</a></li>
+        <li><a href="#s6-3">（三）Layout 演示</a></li>
+        <li><a href="#s6-4">（四）验收</a></li>
+      </ol>
+    </li>
+    <li><a href="#section-7">七、V5 场景 A 闭环验证（M5）</a>
+      <ol>
+        <li><a href="#s7-1">（一）目标</a></li>
+        <li><a href="#s7-2">（二）技术路径</a></li>
+        <li><a href="#s7-3">（三）Layout 演示</a></li>
+        <li><a href="#s7-4">（四）验收口径</a></li>
+      </ol>
+    </li>
+    <li><a href="#section-8">八、不做清单（全程有效）</a></li>
+    <li><a href="#section-9">九、执行前确认点</a></li>
+    <li><a href="#section-10">十、里程碑总表</a></li>
+  </ol>
+</nav>
+</section>
+
+<section role="body" data-page-restart="1">
+
+<div>
+<h1 id="section-1">一、背景与决策</h1>
+<p class="bp">GSC 已完成 P0–P6 与 P1/P2 全部执行项（vitest 135/135 全绿），核心信息模型（Raw/Object 混合模型、提案→确认制、关系表、溯源）稳定。Malleable Context Space 跨项目研究（Ream、CLEO、Interaction-Process-Infrastructure、Malleable Workspace、Inkitiate 五路论文）给出方向：把「表征→就地操作→归因变更→互相看见→反思改结构」做成一套工作台基底，对琐碎工作优雅降级为普通列表与对话。</p>
+<p class="callout">&nbsp;&nbsp;<strong>创始人决策（DECIDED，2026-11-22）：</strong>GSC 要包含多种视角，同时具备 Ream 的感觉（参与痕迹局部可视化、双向可读的互知意识）与 Huabu 的感觉（空间工作台：选择/圈定即上下文边界、显式委派）。View 是投影不是数据模型（D-079 纪律延续）；机器产物确认前永远是提案（D-042）。</p>
+<table>
+<caption>表 1-1　决策状态</caption>
+<thead><tr><th>项</th><th>状态</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>多视角体系（含 Ream / Huabu 感觉）</td><td>DECIDED</td><td>创始人 2026-11-22</td></tr>
+<tr><td>View = 投影，不为投影建存储</td><td>DECIDED</td><td>既有纪律（D-079 先例）</td></tr>
+<tr><td>机器产物 = 提案，确认前非事实</td><td>DECIDED</td><td>D-042</td></tr>
+<tr><td>表征持久化档位</td><td>PROPOSED</td><td>建议 scratch / kept 两档先行（Q-E）</td></tr>
+<tr><td>过程模型（P/W/O/E/R）</td><td>DEFERRED</td><td>Phase 08 再议（Q-D）</td></tr>
+<tr><td>跨项目共享协议</td><td>OPEN</td><td>不阻塞 GSC 单侧（Q-F）</td></tr>
+<tr><td>Passage 级痕迹</td><td>DEFERRED</td><td>本期只做对象级</td></tr>
+</tbody>
+</table>
+</div>
+
+<div>
+<h1 id="section-2">二、总体路线</h1>
+<p class="bp">五个可独立验收的垂直切片按序推进：V1 痕迹层 → V2 多投影切换 → V3 归因与提案面 → V4 空间工作台（依赖 Q-E 拍板）→ V5 场景闭环验证。其中 V4 可与 V3 并行，其余串行。全程遵守四条底线：不为投影建表、不做向量库与图数据库、不做无限画布、不做自动抽取与自动结构重组。</p>
+<p class="bp">数据基础优先于界面：V1 的事件归因是 V2 时间线、V3 归因条、V5 留证脚本的共同地基；V2 的「切换零副本」断言方法被 V4 沿用。</p>
+</div>
+
+<div>
+<h1 id="section-3">三、V1 痕迹层 —— 「谁动过什么」可见（M1）</h1>
+<h2 id="s3-1">（一）目标</h2>
+<p class="bp">具体场面：打开「原始信息」列表，每行右侧有一对蓝/橙横条，蓝=你的活动量、橙=Agent 的活动量，条长即活动量。点进任一条目，详情页显示「你 2 次 · Agent 5 次 · 最近改动 10:22」，最近动作一句话可见。痕迹随使用逐条积累（Ream 的「计算磨损」感）。</p>
+<h2 id="s3-2">（二）技术路径</h2>
+<table>
+<caption>表 3-1　V1 分层改动清单</caption>
+<thead><tr><th>层</th><th>改动</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td>DB</td><td>events 表补 actor（user/agent/system）与 action（open/read/edit/annotate/derive/propose）两列</td><td>新迁移 0014_engagement.sql；server/persistence/schema.ts</td></tr>
+<tr><td>写入</td><td>detail GET 记 open（同会话同 item 节流）；PATCH 记 edit；agent/propose 成功记 propose（actor=agent）</td><td>server/router.ts 各 handler 内调 recordEvent</td></tr>
+<tr><td>聚合</td><td>activityCountsByItem(db, ids)：一次 inArray 查询 GROUP BY item_id, actor，返回 user/agent 计数</td><td>server/repo/events.ts</td></tr>
+<tr><td>API</td><td>列表响应附 activity: {user, agent}；详情响应 events 含 actor/action</td><td>/api/items、/api/items/:id</td></tr>
+<tr><td>前端</td><td>ActivityBars 双色条组件挂列表行尾；详情头部足迹行</td><td>src/views/collections.tsx、detail.tsx、ui.tsx</td></tr>
+<tr><td>性能</td><td>列表零 N+1（批量聚合一次查询）；open 事件节流写入</td><td>—</td></tr>
+</tbody>
+</table>
+<h2 id="s3-3">（三）Layout 演示</h2>
+<p style="text-align:center"><img src="D:/github projects/GSC/docs/research/malleable-context-space/figs/fig-v1-traces.png" alt="V1 痕迹层演示" width="560"></p>
+<p style="text-align:center;font-size:var(--fs-small);color:var(--color-muted)">图 3-1　V1 痕迹层：列表双色活动条与详情足迹行</p>
+<h2 id="s3-4">（四）验收</h2>
+<p class="bp">vitest 覆盖 events 读写与聚合查询（user/agent 分计正确）；列表与详情手动截图留档。边界：只做对象级痕迹，不做 passage 级、不做注意力推断，痕迹权限沿用 owner/share。</p>
+</div>
+
+<div>
+<h1 id="section-4">四、V2 多投影切换 —— 一份表征，多种投影（M2）</h1>
+<h2 id="s4-1">（一）目标</h2>
+<p class="bp">具体场面：同一批对象在列表顶部一键换投影——列表（扫读）、阅读（原文）、关系（连线）、时间线（事件排布）、空间（编排）。切到时间线看到「11-19 概念确认 / 11-20 H1 派生」，切到关系看到 supports 与 derived_from 连线（提案中的边画虚线）。任何切换都不改动数据；常用筛选可「保存当前筛选」。</p>
+<h2 id="s4-2">（二）技术路径</h2>
+<table>
+<caption>表 4-1　V2 分层改动清单</caption>
+<thead><tr><th>层</th><th>改动</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td>前端</td><td>统一 ViewSwitcher（列表/阅读/关系/时间线/空间占位）；TimelineView 按 events 排布；RelationsView 用 SVG 固定分层布局（不做力导向引擎）</td><td>src/views/pages.tsx、collections.tsx；新 timeline.tsx、relations.tsx</td></tr>
+<tr><td>数据</td><td>时间线消费列表级 events（新只读端点 GET /api/events?item_ids=&amp;since=）；关系消费既有 /api/items/:id/relations</td><td>server/router.ts、repo/events</td></tr>
+<tr><td>存储</td><td>saved views 存 localStorage.gsc.savedViews.v1（名称+筛选条件 JSON）；不为投影建任何表</td><td>src/lib/prefs.ts 风格</td></tr>
+<tr><td>样式</td><td>切换器与四格投影样式</td><td>views.module.css</td></tr>
+</tbody>
+</table>
+<h2 id="s4-3">（三）Layout 演示</h2>
+<p style="text-align:center"><img src="D:/github projects/GSC/docs/research/malleable-context-space/figs/fig-v2-views.png" alt="V2 多投影演示" width="560"></p>
+<p style="text-align:center;font-size:var(--fs-small);color:var(--color-muted)">图 4-1　V2 多投影：同一份数据的列表 / 关系 / 时间线 / 空间四种投影</p>
+<h2 id="s4-4">（四）验收</h2>
+<p class="bp">测试断言：切换前后 API 数据快照一致；切换过程零写请求（spy fetch 无 POST/PATCH）。手动五投影截图；保存筛选后刷新仍在。边界：关系图不是图数据库；时间线为计算视图。</p>
+</div>
+
+<div>
+<h1 id="section-5">五、V3 归因与提案面 —— 谁改了什么（M3）</h1>
+<h2 id="s5-1">（一）目标</h2>
+<p class="bp">具体场面：详情页正文里你的改动画绿线、Agent 的画紫线；顶部归因条显示「你 2 处 · Agent 3 处 · 2 条提案待确认」；每行字段尾有小圆点标最后编辑者；页面下方两条紫色提案行（「重命名：注意力→自注意力」「新关系：证据 #42 supports H1」）各带采纳、拒绝、暂缓按钮，点采纳即生效。</p>
+<h2 id="s5-2">（二）技术路径</h2>
+<table>
+<caption>表 5-1　V3 分层改动清单</caption>
+<thead><tr><th>层</th><th>改动</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td>事件</td><td>PATCH 时 recordEvent(action=edit, actor, changed_keys=[…])，changed_keys 取 PATCH body 字段名；复用 V1 的 actor 字段</td><td>server/router.ts PATCH handler</td></tr>
+<tr><td>归因数据</td><td>attributionByItem(db, id)：聚合 user/agent 编辑数与每字段最后编辑者</td><td>server/repo/events.ts</td></tr>
+<tr><td>API</td><td>详情响应附 attribution: {user_edits, agent_edits, field_owners, conflicts_resolved}</td><td>/api/items/:id</td></tr>
+<tr><td>前端</td><td>归因条（绿/紫计数）；字段行尾编辑者圆点；详情内嵌提案行，按钮直连 /api/proposals/:id/resolve</td><td>detail.tsx、SemTag.tsx</td></tr>
+<tr><td>后置</td><td>正文逐字下划线（diff 渲染）、意图自动推断（CLEO 推断模块）、冲突合并 UI</td><td>DEFERRED</td></tr>
+</tbody>
+</table>
+<h2 id="s5-3">（三）Layout 演示</h2>
+<p style="text-align:center"><img src="D:/github projects/GSC/docs/research/malleable-context-space/figs/fig-v3-attribution.png" alt="V3 归因与提案演示" width="560"></p>
+<p style="text-align:center;font-size:var(--fs-small);color:var(--color-muted)">图 5-1　V3 归因与提案面：绿/紫归因标注与内嵌提案确认行</p>
+<h2 id="s5-4">（四）验收</h2>
+<p class="bp">vitest 覆盖 PATCH 落 actor 与 changed_keys、提案 resolve 后状态与入库正确；手动截图对齐演示图。治理回归：确认前机器产物不进正式库（D-042）。</p>
+</div>
+
+<div>
+<h1 id="section-6">六、V4 空间工作台 —— 圈定即上下文（M4）</h1>
+<p class="warnbox">&nbsp;&nbsp;<strong>开工前提：</strong>本阶段依赖 Q-E 拍板（表征持久化档位）。建议 scratch / kept 两档先行，canonical 照旧走 Context / Cluster。</p>
+<h2 id="s6-1">（一）目标</h2>
+<p class="bp">具体场面：空间视图里拖 5 张卡自由摆位；鼠标拉矩形圈选 3 张，虚线光晕即上下文边界；底部条显示「圈定：3 材料 → 提交给 Agent」。Agent 结果以紫框提案卡（待确认）落到你指示的空位；点「采纳」才进库。摆位只是软编排，语义关系仍走显式边。</p>
+<h2 id="s6-2">（二）技术路径</h2>
+<table>
+<caption>表 6-1　V4 分层改动清单</caption>
+<thead><tr><th>层</th><th>改动</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td>前端</td><td>新 views/spatial.tsx：DOM + transform 绝对定位卡片（非 WebGL、非无限画布，视口滚动）；拖放摆位；矩形圈选；底部上下文条</td><td>src/views/spatial.tsx</td></tr>
+<tr><td>表征存储</td><td>scratch 档：localStorage.gsc.spatial.v1（item_id→{x,y}）；kept 档（Q-E 拍板后）：新表 spatial_layouts(item_id, x, y, owner_id) 逐行存坐标，不用 JSONB 大包</td><td>src/lib/prefs.ts / 新迁移</td></tr>
+<tr><td>委派</td><td>「提交给 Agent」→ POST /api/agent/propose（复用现有 LLM propose 链路），scope = 圈选集合</td><td>既有 API</td></tr>
+<tr><td>回落</td><td>pending proposals 渲染为紫框卡（落点=用户指示位置或自动排布）；采纳 = resolve → createItem</td><td>detail.tsx 提案行同款逻辑</td></tr>
+<tr><td>后置</td><td>墨迹（ink）、自动结构重组、拖拽语义化（邻近→关系仅提案）</td><td>DEFERRED</td></tr>
+</tbody>
+</table>
+<h2 id="s6-3">（三）Layout 演示</h2>
+<p style="text-align:center"><img src="D:/github projects/GSC/docs/research/malleable-context-space/figs/fig-v4-spatial.png" alt="V4 空间工作台演示" width="560"></p>
+<p style="text-align:center;font-size:var(--fs-small);color:var(--color-muted)">图 6-1　V4 空间工作台：摆位、圈定上下文边界与提案卡回落</p>
+<h2 id="s6-4">（四）验收</h2>
+<p class="bp">端到端：摆位→圈选→委派→提案卡回落→采纳入库。零副本断言：摆位不改对象本体。边界：不做无限画布、不做墨迹。</p>
+</div>
+
+<div>
+<h1 id="section-7">七、V5 场景 A 闭环验证（M5）</h1>
+<h2 id="s7-1">（一）目标</h2>
+<p class="bp">研究场景 A 全流程留证：采集→对象→圈定委派→提案→确认→溯源可查。每步 API 状态码与 id 记录在案，写入 MVP_EVALUATION.md 附录。</p>
+<h2 id="s7-2">（二）技术路径</h2>
+<p class="bp">新增 scripts/phase07-scenario-a.py（仿 phase06-scenarios.py）：API 级五步留证、归因事件校验、零副本断言（切换视图无写请求）。手动腿：空间视图圈选→委派→采纳，UI 截图归档。</p>
+<h2 id="s7-3">（三）Layout 演示</h2>
+<p style="text-align:center"><img src="D:/github projects/GSC/docs/research/malleable-context-space/figs/fig-v5-loop.png" alt="V5 场景闭环演示" width="560"></p>
+<p style="text-align:center;font-size:var(--fs-small);color:var(--color-muted)">图 7-1　V5 场景 A 闭环：采集→对象→圈定委派→提案→确认入库与回环</p>
+<h2 id="s7-4">（四）验收口径</h2>
+<p class="bp">功能：五步全通、id 留证。治理：确认前无机器产物入库，归因区分 user/agent。零副本：视图切换零写请求，摆位不改对象本体。</p>
+</div>
+
+<div>
+<h1 id="section-8">八、不做清单（全程有效）</h1>
+<p class="bp">第一，不为视图/投影建存储表；空间邻近不等于语义关系，显式边为准。第二，不做向量库、图数据库、无限画布、自动抽取、自动结构重组。第三，机器产物永远走提案（D-042）；痕迹权限沿用 owner/share（GAP-15 不在本期）。第四，过程模型（P/W/O/E/R）、passage 级痕迹、墨迹、跨项目协议一律后置到后续阶段。</p>
+</div>
+
+<div>
+<h1 id="section-9">九、执行前确认点</h1>
+<p class="bp">第一，Q-E 档位：表征分 scratch / kept 两档先行（canonical 照旧走 Context / Cluster），是否同意。第二，顺序：V1→V2→V3→V4（V4 可与 V3 并行），是否同意。第三，验收方式：逐里程碑（M1–M5）验收，还是全部完成后一次验收。</p>
+</div>
+
+<h1 id="section-10">十、里程碑总表</h1>
+<table>
+<caption>表 10-1　里程碑与验收</caption>
+<thead><tr><th>里程碑</th><th>交付</th><th>验证</th></tr></thead>
+<tbody>
+<tr><td>M1</td><td>events actor/action + 双色活动条 + 详情足迹行</td><td>vitest + 截图</td></tr>
+<tr><td>M2</td><td>ViewSwitcher + 时间线/关系投影 + saved views</td><td>零副本断言 + 截图</td></tr>
+<tr><td>M3</td><td>归因事件 + 归因条 + 内嵌提案行</td><td>提案流测试 + 截图</td></tr>
+<tr><td>M4</td><td>空间视图 + 圈选委派 + 提案卡回落</td><td>端到端 + 零副本断言</td></tr>
+<tr><td>M5</td><td>场景 A 留证脚本 + MVP_EVALUATION 附录</td><td>全流程 id 留证</td></tr>
+</tbody>
+</table>
+
+</section>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — What Actually Works
 
-Updated: 2026-11-19 (Phase 05 UI shell implemented, verification passed).
+Updated: 2026-11-22 (registration receipt demo implemented, D-089).
 
 ## 1. Current phase
 
@@ -24,6 +24,7 @@ Updated: 2026-11-19 (Phase 05 UI shell implemented, verification passed).
 | Provenance / history | IMPLEMENTED |
 | Browse / filter | IMPLEMENTED |
 | Context views | IMPLEMENTED — explicit Knowledge Context membership |
+| Registration receipt demo | IMPLEMENTED — self-written ReceiptPrinter, tearable receipt after create account (D-089) |
 | Persistence layer | IMPLEMENTED — PGlite |
 | Validation | IMPLEMENTED — shared contract checks |
 | Tests | IMPLEMENTED — 16 tests pass |
