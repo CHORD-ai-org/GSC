@@ -3,7 +3,9 @@ export type EventAction =
   | 'updated'
   | 'status_changed'
   | 'relation_added'
-  | 'relation_removed';
+  | 'relation_removed'
+  | 'opened'
+  | 'proposed';
 
 export type EventDTO = {
   id: string;

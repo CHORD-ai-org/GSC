@@ -26,7 +26,7 @@ import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './stor
 import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
 import { createRelation, listRelations } from './repo/relations.ts';
-import { listEvents } from './repo/events.ts';
+import { listEvents, appendEvent, activityCountsByItem } from './repo/events.ts';
 import {
   addContextMember,
   contextOwner,
@@ -117,6 +117,9 @@ function safeHost(origin: string): string {
 }
 
 /* Known routes: powers the 405 + Allow fallback (O1-1). */
+/* V1 engagement traces: throttle duplicate 'opened' events per viewer+item (10 min). */
+const openThrottle = new Map<string, number>();
+
 export const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/items$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/search$/, methods: ['GET'] },
@@ -389,7 +392,15 @@ export function createApiRouter(config: Config, db: Database) {
           limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
         });
         const items = allowed ? page.items.filter((i) => allowed.has(i.id)) : page.items;
-        sendJson(res, 200, { ok: true, items, next_cursor: page.next_cursor, total: page.total });
+        /* V1 engagement traces: per-item user/agent counts (batched, no N+1). */
+        const activity = await activityCountsByItem(db, items.map((i) => i.id));
+        sendJson(res, 200, {
+          ok: true,
+          items,
+          next_cursor: page.next_cursor,
+          total: page.total,
+          activity: Object.fromEntries(activity),
+        });
         return;
       }
 
@@ -428,6 +439,13 @@ export function createApiRouter(config: Config, db: Database) {
           listRelations(db, item.id),
           listEvents(db, item.id),
         ]);
+        /* V1: record an 'opened' trace (throttled per viewer+item, 10 min). */
+        const throttleKey = `${viewerId}:${item.id}`;
+        const lastOpen = openThrottle.get(throttleKey) ?? 0;
+        if (Date.now() - lastOpen > 10 * 60_000) {
+          openThrottle.set(throttleKey, Date.now());
+          await appendEvent(db, { item_id: item.id, actor: 'user', action: 'opened', detail: '' });
+        }
         sendJson(res, 200, { ok: true, item, relations, events: history });
         return;
       }
@@ -447,6 +465,10 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('not_found', 'Item not found'));
           return;
         }
+        /* V1/V3: edit trace with changed keys (field-level attribution input). */
+        const changed = Object.entries(body as Record<string, unknown>).flatMap(([k, v]) =>
+          k === 'fields' && v && typeof v === 'object' ? Object.keys(v as object).map((fk) => `fields.${fk}`) : [k]);
+        await appendEvent(db, { item_id: item.id, actor: 'user', action: 'updated', detail: changed.join(',') });
         sendJson(res, 200, { ok: true, item });
         return;
       }
@@ -944,7 +966,18 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('contract', 'Invalid create proposal body'));
           return;
         }
-        sendJson(res, 201, { ok: true, proposal: await createProposal(db, body) });
+        const proposal = await createProposal(db, body);
+        /* V1: proposal trace on the target item (best-effort; target may not exist yet).
+           Proposals are machine-originated by definition (source: agent|detector) → actor=agent. */
+        try {
+          await appendEvent(db, {
+            item_id: body.target_id,
+            actor: 'agent',
+            action: 'proposed',
+            detail: body.kind,
+          });
+        } catch { /* trace must never break the write */ }
+        sendJson(res, 201, { ok: true, proposal });
         return;
       }
 

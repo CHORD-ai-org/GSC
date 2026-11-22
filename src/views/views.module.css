@@ -156,6 +156,14 @@
 .bulkTagBar{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:8px 0;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg-card)}
 .pickMark{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line-strong);color:var(--accent);font-size:11px}
 .listRow.picked{background:var(--tint-sel)}
+/* V1 engagement traces: dual activity bars (blue=you, orange=agent) */
+.activityBars{display:flex;flex-direction:column;gap:2px;align-items:flex-end;margin-bottom:2px}
+.activityBarU{display:inline-block;height:3px;border-radius:2px;background:#85B7EB}
+.activityBarA{display:inline-block;height:3px;border-radius:2px;background:#EF9F27}
+.footprint{font-size:11px;color:var(--ink-2);margin:2px 0 10px;display:flex;align-items:center;gap:8px}
+.footprint b{font-weight:500}
+.footU{color:#0F6E56}
+.footA{color:#534AB7}
 .pairChip:hover{color:var(--ink)}
 .rowBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
 

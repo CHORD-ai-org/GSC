@@ -35,11 +35,12 @@ function isObject(type: ItemType): boolean {
 }
 
 function DetailShell({
-  kicker, title, subtitle, onBack, actions, rail, children,
+  kicker, title, subtitle, footprint, onBack, actions, rail, children,
 }: {
   kicker: string;
   title: string;
   subtitle?: string;
+  footprint?: ReactNode;
   onBack: () => void;
   actions?: ReactNode;
   rail?: ReactNode;
@@ -58,12 +59,28 @@ function DetailShell({
         {actions ? <div className={styles.detailActions}>{actions}</div> : null}
       </div>
       {subtitle ? <div className={styles.detailSubtitle}>{subtitle}</div> : null}
+      {footprint}
       {rail ? (
         <div className={styles.detailCols}>
           <div className={styles.detailMain}>{children}</div>
           <aside className={styles.detailRail}>{rail}</aside>
         </div>
       ) : children}
+    </div>
+  );
+}
+
+/* V1 engagement traces: footprint line — you N · Agent N · last at. */
+function FootprintLine({ events }: { events: { actor: string; at: string }[] }) {
+  const t = useT();
+  const user = events.filter((e) => e.actor === 'user').length;
+  const agent = events.filter((e) => e.actor === 'agent').length;
+  const last = events[0]?.at;
+  return (
+    <div className={styles.footprint}>
+      <span className={styles.footU}>{t('detail.fpYou', { n: user })}</span>
+      <span className={styles.footA}>{t('detail.fpAgent', { n: agent })}</span>
+      {last ? <span>{t('detail.fpLast', { time: last.slice(5, 16).replace('T', ' ') })}</span> : null}
     </div>
   );
 }
@@ -143,6 +160,7 @@ export function RawDetailView({
     <DetailShell
       kicker={`${t('nav.raw')} › ${ITEM_LABELS[item.type]}`}
       title={item.title}
+      footprint={<FootprintLine events={events} />}
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
       rail={(
@@ -292,6 +310,7 @@ export function ObjectDetailView({
     <DetailShell
       kicker={`${t('nav.objects')} › ${ITEM_LABELS[item.type]}`}
       title={item.title}
+      footprint={<FootprintLine events={detail.events} />}
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
       rail={(

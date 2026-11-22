@@ -132,6 +132,20 @@ function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: 
   );
 }
 
+/* V1 engagement traces: dual activity bars (blue = you, orange = agent), Ream-style wear. */
+export function ActivityBars({ counts }: { counts?: { user: number; agent: number } }) {
+  const u = counts?.user ?? 0;
+  const a = counts?.agent ?? 0;
+  if (u + a === 0) return null;
+  const w = (n: number) => `${Math.min(6 + n * 10, 56)}px`;
+  return (
+    <span className={styles.activityBars} title={u + a === 0 ? '' : `你 ${u} · Agent ${a}`}>
+      <span className={styles.activityBarU} style={{ width: w(u) }} />
+      <span className={styles.activityBarA} style={{ width: w(a) }} />
+    </span>
+  );
+}
+
 /* GAP-09: loading skeleton — shimmer rows instead of a blank page. */
 export function SkeletonRows({ n = 4 }: { n?: number }) {
   return (
@@ -184,7 +198,7 @@ function BulkTagBar({
 }
 
 export function RawCollection({
-  items, badges, tagDims, tagDimOptions, tagDefs, loading, onNew, onSelect, onBulkTag,
+  items, badges, tagDims, tagDimOptions, tagDefs, loading, activity, onNew, onSelect, onBulkTag,
 }: {
   items: ItemDTO[];
   badges?: ItemBadges;
@@ -192,6 +206,7 @@ export function RawCollection({
   tagDimOptions?: string[];
   tagDefs?: TagDefinitionDTO[];
   loading?: boolean;
+  activity?: Record<string, { user: number; agent: number }>;
   onNew: () => void;
   onSelect: (id: string) => void;
   onBulkTag?: (ids: string[], definitionId: string, value: string) => Promise<void> | void;
@@ -303,7 +318,7 @@ export function RawCollection({
                     <span className={styles.rowType}>{ITEM_LABELS[item.type]}{sourceDisplay(item) ? ` · ${sourceDisplay(item)}` : ''}</span>
                     <RowBadges badges={badges?.[item.id]} />
                   </span>
-                  <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+                  <span className={styles.rowTime}><ActivityBars counts={activity?.[item.id]} /><br />{rt(item.updated_at)}</span>
                 </button>
                 <RowActions title={item.title} onOpen={() => onSelect(item.id)} />
               </div>
@@ -325,7 +340,7 @@ const OBJECT_TABS: { id: string; labelKey: string }[] = [
 ];
 
 export function ObjectCollection({
-  items, sourceCounts, badges, tagDims, tagDimOptions, tagDefs, loading, onNew, onSelect, onBulkTag,
+  items, sourceCounts, badges, tagDims, tagDimOptions, tagDefs, loading, activity, onNew, onSelect, onBulkTag,
 }: {
   items: ItemDTO[];
   sourceCounts: Record<string, number>;
@@ -334,6 +349,7 @@ export function ObjectCollection({
   tagDimOptions?: string[];
   tagDefs?: TagDefinitionDTO[];
   loading?: boolean;
+  activity?: Record<string, { user: number; agent: number }>;
   onNew: () => void;
   onSelect: (id: string) => void;
   onBulkTag?: (ids: string[], definitionId: string, value: string) => Promise<void> | void;
@@ -448,7 +464,7 @@ export function ObjectCollection({
                     <span className={styles.rowType}>{ITEM_LABELS[item.type]} · {t('obj.sources', { n: sourceCounts[item.id] ?? 0 })}</span>
                     <RowBadges badges={badges?.[item.id]} />
                   </span>
-                  <span className={styles.rowTime}>{rt(item.updated_at)}</span>
+                  <span className={styles.rowTime}><ActivityBars counts={activity?.[item.id]} /><br />{rt(item.updated_at)}</span>
                 </button>
                 <RowActions title={item.title} onOpen={() => onSelect(item.id)} />
               </div>

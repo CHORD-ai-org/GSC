@@ -9,7 +9,11 @@ import type { ProposalDTO } from '../lib/proposals.ts';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { SourceDTO, SyncResult } from '../lib/sources.ts';
 
-export type ItemListResponse = { ok: true; items: ItemDTO[] };
+export type ItemListResponse = {
+  ok: true;
+  items: ItemDTO[];
+  activity?: Record<string, { user: number; agent: number }>;
+};
 export type ItemDetailResponse = {
   ok: true;
   item: ItemDTO;
