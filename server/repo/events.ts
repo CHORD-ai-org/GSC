@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { events } from '../persistence/schema.ts';
 import type { EventDTO, EventAction } from '../../src/lib/events.ts';

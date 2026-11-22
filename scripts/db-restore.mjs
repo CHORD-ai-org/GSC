@@ -1,7 +1,7 @@
 /* db:restore — restore a backup created by db-backup (Phase 02, §4-3).
    Usage: node scripts/db-restore.mjs <backup-dir>
    Refuses to run without GSC_RESTORE_CONFIRM=1 (destructive to current data). */
-import { cpSync, existsSync, rmSync, mkdirSync, renameSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import path from 'node:path';
 
 /**

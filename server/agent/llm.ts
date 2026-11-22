@@ -93,9 +93,8 @@ async function callOnce(
   const profile = providerProfile(detectProvider(config.llmBaseUrl));
   const controller = new AbortController();
   const startedAt = Date.now();
-  let abortTimer: ReturnType<typeof setTimeout>;
+  const abortTimer = setTimeout(() => controller.abort(), config.llmTimeoutMs);
   let raceTimer: ReturnType<typeof setTimeout>;
-  abortTimer = setTimeout(() => controller.abort(), config.llmTimeoutMs);
 
   const request = fetchImpl(`${config.llmBaseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',

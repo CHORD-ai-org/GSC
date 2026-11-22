@@ -3,9 +3,7 @@
  * candidates. Output lands in `proposals` (source=detector) for human review —
  * never written into user data.
  */
-import { eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
-import { items, itemContent } from '../persistence/schema.ts';
 import type { ItemDTO } from '../../src/lib/items.ts';
 import { listItems } from '../repo/items.ts';
 import { createProposal, listProposals } from '../repo/proposals.ts';

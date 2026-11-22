@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
-import { clusterMembers, clusters, items } from '../persistence/schema.ts';
+import { clusterMembers, clusters, clusterShares, items } from '../persistence/schema.ts';
 import type {
   ClusterDTO,
   ClusterDetailDTO,
@@ -60,6 +60,30 @@ export async function clusterOwner(db: Database, id: string): Promise<string | u
 export async function itemOwner(db: Database, id: string): Promise<string | undefined> {
   const [row] = await db.select({ owner_id: items.owner_id }).from(items).where(eq(items.id, id)).limit(1);
   return row?.owner_id;
+}
+
+/** Batch owner lookup (N+1 fix): one query for many ids. */
+export async function itemOwners(db: Database, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const rows = await db.select({ id: items.id, owner_id: items.owner_id }).from(items).where(inArray(items.id, ids));
+  for (const r of rows) out.set(r.id, r.owner_id);
+  return out;
+}
+
+/** Item ids reachable through clusters shared with `userId` (N+1 fix: 2 queries). */
+export async function sharedItemIds(db: Database, userId: string): Promise<string[]> {
+  const shared = await db
+    .select({ cluster_id: clusterShares.cluster_id })
+    .from(clusterShares)
+    .where(eq(clusterShares.user_id, userId));
+  const ids = shared.map((s) => s.cluster_id);
+  if (ids.length === 0) return [];
+  const members = await db
+    .select({ item_id: clusterMembers.item_id })
+    .from(clusterMembers)
+    .where(inArray(clusterMembers.cluster_id, ids));
+  return members.map((m) => m.item_id);
 }
 
 export async function updateCluster(
