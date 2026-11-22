@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **登录页配色改 GSC 黑白**（Thylas 暖纸→白底黑墨灰阶，布局/手绘质感保留，build 过，login-bw.png）。此前 D-085 Start 下拉真实化、D-084 模型配置按供应商可用。待续(P1)：Light Up 三栏审阅、采集中心、Notion/Drive/X OAuth、full-async。
+> Status: **跨项目研究完成**（Malleable Context Space，GSC×Thylas×Lemma）——`docs/research/malleable-context-space/` 11 份文档（五路研究综合/四模型/交互/跨项目应用/架构备选/开放问题/术语表），五路论文全部核实到真源并标注证据级别；Q-D/Q-C/Q-F 等待创始人研讨。此前 P1/P2 全清（D-087）。
 
 ## User approvals received 2026-11-16
 

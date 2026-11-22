@@ -615,7 +615,7 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   `notFound.*` i18n keys, `routes.test.ts` + `router.test.ts`. Deep links, back/forward, 404 verified.
 - **Status:** `DECIDED` — 2026-11-21, user instruction "用商业化的标准制定项目的路由系统并执行".
 
-## D-079 — Overview Canvas: Expandable Information Tree (PROPOSED)
+## D-079 — Overview Canvas: Expandable Information Tree (DECIDED — executed 2026-11-21)
 
 - **Decision (PROPOSED):** Add a **Canvas mode to Overview** (Overview | Canvas toggle) rendering a
   progressively-expandable information tree: root `My Information Space` → domains (Raw / Structured
@@ -634,7 +634,7 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   (rejected — reference nodes instead).
 - **Status:** `DECIDED` — 2026-11-21, user approved "开始执行" (implement Phase C). Plan: `CANVAS_PLAN.md`.
 
-## D-080 — Button Reality Audit & Optimization Plan (PROPOSED)
+## D-080 — Button Reality Audit & Optimization Plan (DECIDED — executed 2026-11-21)
 
 - **Decision (PROPOSED):** Full audit of every clickable element in GSC (~170 across 21 files) classified
   REAL / FAKE / PARTIAL by tracing each handler body to its final call (`api.*` / `downloadArtifact` /
@@ -738,3 +738,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   the composer drives it); navigating to Settings instead of switching (rejected — two clicks for a common task).
 - **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, vitest 127/127, live model switch + restore
   (key untouched), screenshots `menu-provider.png` / `menu-model.png`.
+
+## D-086 — P2 batch: OpenAPI, LLM cost accounting, MCP prompts/resources, N+1 fix, semantic layouts, primer, quick reuse (DECIDED)
+
+- **Decision:** Executed seven P2 items in one batch. (1) `server/openapi.ts` derives an OpenAPI 3.1 doc from
+  `KNOWN_ROUTES` (the route registry is the single source of truth) served at `/api/openapi.json` + a
+  self-contained `/api/docs` page. (2) LLM cost accounting: `Counter.snapshot()` + per-provider USD price
+  table (explicitly labelled estimates) + `GET /api/llm/usage` + usage line in Settings→Model. (3) MCP
+  prompts (summarize_item, review_proposals with argument interpolation) and resources (gsc://profile,
+  gsc://proposals/pending). (4) N+1 fix: `itemOwners` batch + `sharedItemIds` replaces per-row owner/share
+  lookups in `visibleItemIds` (visibility semantics proven unchanged via sharing/authz tests). (5) §4.3
+  semantic field ordering + type-aware block titles (主张/方法/决策内容). (6) GAP-08 concept primer inside
+  `EmptyState` (4 concept cards). (7) GAP-13 "add to context" quick action on both detail pages.
+- **Reasoning:** execution of `REMAINING_WORK.md` v3 in sequence; spec-from-registry prevents doc drift;
+  price table is one file to edit when vendors change; batch owner resolution preserves exact semantics.
+- **Alternatives:** static hand-written OpenAPI file (rejected — drifts from routes); billing-grade cost
+  tracking (rejected — estimates labelled, GSC bills nothing); per-page bespoke primers (rejected — one
+  component covers all empty states).
+- **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, lint=0, vitest 135/135 (26 files, +5),
+  live `/api/openapi.json` `/api/docs` `/api/llm/usage` all 200. Remaining P2: skeletons (GAP-09), bulk
+  tagging (GAP-10); OAuth blocked on external credentials.
+
+## D-087 — GAP-09 skeletons + GAP-10 bulk tagging (DECIDED)
+
+- **Decision:** Closed the last two P2 items. (1) `SkeletonRows` shimmer loading rows (reduced-motion aware)
+  shown in Raw/Object lists during the initial data load (`loadingItems` state). (2) Bulk tagging: a「选择」
+  toggle in list toolbars switches rows into pick mode (✓ mark + highlight, no nested interactive elements);
+  a bulk bar (dimension select + value input) assigns one tag value to every picked item via per-item
+  `createTagValue` — safe because `tag_values_unique` includes `COALESCE(item_id,'')`.
+- **Reasoning:** completes GAP-09/10; selection-as-mode avoids checkboxes inside row buttons (a11y);
+  skeleton hides the empty-state flash before first paint.
+- **Status:** `DECIDED` — 2026-11-21, executed. Verified: tsc=0, lint=0, vitest 135/135, screenshot
+  `bulk-tag.png` (select mode + bulk bar). P1/P2 now fully cleared except external OAuth credentials.
