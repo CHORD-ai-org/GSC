@@ -112,3 +112,30 @@ describe('gsc mcp hardening (INTEGRATION_HARDENING P0-C)', () => {
     expect(JSON.parse(res.result.content[0].text)).toEqual({ error: { code: 'not_found', message: 'no route' } });
   });
 });
+
+describe('gsc mcp prompts and resources (INTEGRATION_HARDENING P1)', () => {
+  it('lists prompts and renders prompt arguments', async () => {
+    const handle = createMcpHandler(stubFetch({}), 'http://test', 'tok');
+    const list = (await handle({ jsonrpc: '2.0', id: 1, method: 'prompts/list' })) as { result: { prompts: { name: string }[] } };
+    expect(list.result.prompts.map((p) => p.name)).toEqual(['summarize_item', 'review_proposals']);
+    const got = (await handle({ jsonrpc: '2.0', id: 2, method: 'prompts/get', params: { name: 'summarize_item', arguments: { id: 'obj_1' } } })) as {
+      result: { messages: { content: { text: string } }[] };
+    };
+    expect(got.result.messages[0].content.text).toContain('obj_1');
+    const missing = (await handle({ jsonrpc: '2.0', id: 3, method: 'prompts/get', params: { name: 'nope' } })) as { error: { code: number } };
+    expect(missing.error.code).toBe(-32602);
+  });
+
+  it('lists resources and reads one through the HTTP API', async () => {
+    const handle = createMcpHandler(stubFetch({ '/api/v1/profile': { ok: true, profile: {} } }), 'http://test', 'tok');
+    const list = (await handle({ jsonrpc: '2.0', id: 4, method: 'resources/list' })) as { result: { resources: { uri: string }[] } };
+    expect(list.result.resources.map((r) => r.uri)).toContain('gsc://profile');
+    const read = (await handle({ jsonrpc: '2.0', id: 5, method: 'resources/read', params: { uri: 'gsc://profile' } })) as {
+      result: { contents: { uri: string; text: string }[] };
+    };
+    expect(read.result.contents[0].uri).toBe('gsc://profile');
+    expect(JSON.parse(read.result.contents[0].text)).toEqual({ ok: true, profile: {} });
+    const missing = (await handle({ jsonrpc: '2.0', id: 6, method: 'resources/read', params: { uri: 'gsc://nope' } })) as { error: { code: number } };
+    expect(missing.error.code).toBe(-32602);
+  });
+});

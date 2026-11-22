@@ -149,6 +149,37 @@ function paging(args: Record<string, unknown>): string {
   return qs.size ? `&${qs}` : '';
 }
 
+/* MCP prompts (read-only workflows over GSC data) and resources (stable URIs). */
+const MCP_PROMPTS: {
+  name: string;
+  description: string;
+  arguments?: { name: string; required: boolean }[];
+  messages: { role: 'user' | 'assistant'; template: string }[];
+}[] = [
+  {
+    name: 'summarize_item',
+    description: 'Summarize one GSC item with its provenance and relations',
+    arguments: [{ name: 'id', required: true }],
+    messages: [{
+      role: 'user',
+      template: 'Fetch GSC item {id} (tool gsc_get_chunk) and summarize: what it is, where it came from (origin/source_label), and how it relates to other information. Keep the summary faithful to the stored content.',
+    }],
+  },
+  {
+    name: 'review_proposals',
+    description: 'Review pending machine proposals and recommend accept/reject',
+    messages: [{
+      role: 'user',
+      template: 'List pending proposals in GSC (GET /api/v1/proposals via gsc tools) and for each recommend accept/reject with one sentence of reasoning. Machine proposals are unconfirmed until a human accepts them — do not present them as facts.',
+    }],
+  },
+];
+
+const MCP_RESOURCES: { uri: string; name: string; mimeType: string; path: string }[] = [
+  { uri: 'gsc://profile', name: 'User profile (confirmed tag values)', mimeType: 'application/json', path: '/api/v1/profile' },
+  { uri: 'gsc://proposals/pending', name: 'Pending machine proposals', mimeType: 'application/json', path: '/api/v1/proposals' },
+];
+
 export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string = BASE, token: string = TOKEN) {
   return async function handle(msg: JsonRpc): Promise<object | null> {
     const reply = (result: unknown) => ({ jsonrpc: '2.0', id: msg.id ?? null, result });
@@ -173,13 +204,41 @@ export function createMcpHandler(fetchImpl: FetchLike = fetch, baseUrl: string =
       case 'initialize':
         return reply({
           protocolVersion: '2024-11-05',
-          capabilities: { tools: {} },
-          serverInfo: { name: 'gsc-mcp', version: '0.2.0' },
+          capabilities: { tools: {}, prompts: {}, resources: {} },
+          serverInfo: { name: 'gsc-mcp', version: '0.3.0' },
         });
       case 'notifications/initialized':
         return null;
       case 'tools/list':
         return reply({ tools: MCP_TOOLS });
+      case 'prompts/list':
+        return reply({ prompts: MCP_PROMPTS });
+      case 'prompts/get': {
+        const name = String(msg.params?.name ?? '');
+        const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
+        const prompt = MCP_PROMPTS.find((p) => p.name === name);
+        if (!prompt) {
+          return { jsonrpc: '2.0', id: msg.id ?? null, error: { code: -32602, message: `Unknown prompt: ${name}` } };
+        }
+        return reply({
+          description: prompt.description,
+          messages: prompt.messages.map((m) => ({
+            role: m.role,
+            content: { type: 'text', text: m.template.replace(/\{(\w+)\}/g, (_, k: string) => String(args[k] ?? `{${k}}`)) },
+          })),
+        });
+      }
+      case 'resources/list':
+        return reply({ resources: MCP_RESOURCES });
+      case 'resources/read': {
+        const uri = String(msg.params?.uri ?? '');
+        const target = MCP_RESOURCES.find((r) => r.uri === uri);
+        if (!target) {
+          return { jsonrpc: '2.0', id: msg.id ?? null, error: { code: -32602, message: `Unknown resource: ${uri}` } };
+        }
+        const body = await call(target.path);
+        return reply({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(body, null, 2) }] });
+      }
       case 'tools/call': {
         const name = String(msg.params?.name ?? '');
         const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;

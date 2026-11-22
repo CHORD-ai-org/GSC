@@ -19,8 +19,9 @@ import { RateLimiter, rateRuleFor } from './ratelimit.ts';
 import { idempotentWrite, newRequestId } from './idempotency.ts';
 import { logRequest } from './log.ts';
 import { chatComplete } from './agent/llm.ts';
-import { clearLocalUserId, hasLlmApiKey, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
-import { isProviderId, detectProvider } from '../src/lib/providers.ts';
+import { clearLocalUserId, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
+import { isProviderId, detectProvider, USD_PER_MILLION } from '../src/lib/providers.ts';
+import { buildOpenApi } from './openapi.ts';
 import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
 import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
@@ -83,7 +84,7 @@ import {
 } from '../src/lib/sources.ts';
 import { runGithubSync } from './sync/github.ts';
 import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
-import { createTask, getTask, updateTask } from './repo/tasks.ts';
+import { createTask, getTask, listTasks, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
@@ -98,7 +99,7 @@ import {
   shareCluster,
   shareFor,
 } from './repo/users.ts';
-import { clusterOwner, itemOwner } from './repo/clusters.ts';
+import { clusterOwner, itemOwner, itemOwners, sharedItemIds } from './repo/clusters.ts';
 import { clusterMembers } from './persistence/schema.ts';
 import { eq } from 'drizzle-orm';
 import { dirname } from 'node:path';
@@ -116,7 +117,7 @@ function safeHost(origin: string): string {
 }
 
 /* Known routes: powers the 405 + Allow fallback (O1-1). */
-const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
+export const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/items$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/search$/, methods: ['GET'] },
   { pattern: /^\/api\/trash$/, methods: ['GET'] },
@@ -148,11 +149,14 @@ const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/profile$/, methods: ['GET'] },
   { pattern: /^\/api\/llm\/config$/, methods: ['GET', 'PATCH'] },
   { pattern: /^\/api\/llm\/check$/, methods: ['POST'] },
+  { pattern: /^\/api\/llm\/usage$/, methods: ['GET'] },
   { pattern: /^\/api\/news$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/news\/[^/]+$/, methods: ['PATCH', 'DELETE'] },
-  { pattern: /^\/api\/capture$/, methods: ['POST'] },
+  { pattern: /^\/api\/capture$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/capture\/[^/]+$/, methods: ['GET'] },
   { pattern: /^\/api\/tokens$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/openapi\.json$/, methods: ['GET'] },
+  { pattern: /^\/api\/docs$/, methods: ['GET'] },
   { pattern: /^\/api\/tokens\/[^/]+$/, methods: ['DELETE'] },
 ];
 
@@ -313,15 +317,12 @@ export function createApiRouter(config: Config, db: Database) {
         if (unrestricted) return null; // null = no filtering
         const visible = new Set<string>();
         const all = await listItems(db);
+        // N+1 fix: batch owner resolution + one query for shared-cluster members.
+        const owners = await itemOwners(db, all.map((i) => i.id));
         for (const item of all) {
-          if ((await itemOwner(db, item.id)) === viewerId) visible.add(item.id);
+          if (owners.get(item.id) === viewerId) visible.add(item.id);
         }
-        const allClusters = await listClusters(db);
-        for (const cluster of allClusters) {
-          if (!(await shareFor(db, cluster.id, viewerId))) continue;
-          const detail = await getCluster(db, cluster.id);
-          for (const id of detail?.member_ids ?? []) visible.add(id);
-        }
+        for (const id of await sharedItemIds(db, viewerId)) visible.add(id);
         return visible;
       }
 
@@ -876,6 +877,26 @@ export function createApiRouter(config: Config, db: Database) {
       // Smallest reliable implementation: run the task inline through the real
       // lifecycle (create → processing → completed/failed). A separate async worker
       // can later drain the queue via claimNextTask; processCaptureTask is idempotent.
+      // Capture center (Web Intel §6.1): recent capture tasks with real stages.
+      if (path === '/api/capture' && req.method === 'GET') {
+        const rows = await listTasks(db, 50);
+        sendJson(res, 200, {
+          ok: true,
+          tasks: rows.map((r) => ({
+            id: r.id,
+            url: r.url,
+            kind: r.kind,
+            status: r.status,
+            stage: r.stage,
+            retry_count: r.retry_count,
+            last_error: r.last_error,
+            created_at: r.created_at.toISOString(),
+            completed_at: r.completed_at ? r.completed_at.toISOString() : null,
+          })),
+        });
+        return;
+      }
+
       if (path === '/api/capture' && req.method === 'POST') {
         const body = await readJson(req);
         const rawUrl = (body as Record<string, unknown>)?.url;
@@ -1050,6 +1071,39 @@ export function createApiRouter(config: Config, db: Database) {
 
       // PLAN-8 (D-064/D-066): Meta Tag definitions, values and profile output.
       // Settings -> News management: admin-authored announcements (news.json).
+      // LLM cost accounting: factual token totals per model + a clearly-labelled
+      // USD estimate (price table in providers.ts; GSC itself bills nothing).
+      if (path === '/api/llm/usage' && req.method === 'GET') {
+        const rows = metrics.llmTokens.snapshot();
+        const perModel: Record<string, { prompt_tokens: number; completion_tokens: number }> = {};
+        for (const { labels, value } of rows) {
+          const model = labels.model ?? 'unknown';
+          const slot = (perModel[model] ??= { prompt_tokens: 0, completion_tokens: 0 });
+          if (labels.type === 'prompt') slot.prompt_tokens += value;
+          if (labels.type === 'completion') slot.completion_tokens += value;
+        }
+        const provider = detectProvider(resolveLlmConfig(config, secretsDir).llmBaseUrl);
+        const price = USD_PER_MILLION[provider] ?? USD_PER_MILLION.custom;
+        let prompt_tokens = 0;
+        let completion_tokens = 0;
+        for (const slot of Object.values(perModel)) {
+          prompt_tokens += slot.prompt_tokens;
+          completion_tokens += slot.completion_tokens;
+        }
+        const estimated_usd = (prompt_tokens / 1_000_000) * price.input + (completion_tokens / 1_000_000) * price.output;
+        sendJson(res, 200, {
+          ok: true,
+          usage: {
+            prompt_tokens,
+            completion_tokens,
+            estimated_usd: Number(estimated_usd.toFixed(6)),
+            price_note: 'estimate only (USD per 1M tokens from public list prices)',
+            models: perModel,
+          },
+        });
+        return;
+      }
+
       if (path === '/api/news' && req.method === 'GET') {
         sendJson(res, 200, { ok: true, news: readNews(dirname(config.pgliteDir)) });
         return;
@@ -1213,6 +1267,42 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      // OpenAPI 3.1 spec + a self-contained docs page (INTEGRATION_HARDENING P1).
+      if (path === '/api/openapi.json' && req.method === 'GET') {
+        sendJson(res, 200, buildOpenApi());
+        return;
+      }
+      if (path === '/api/docs' && req.method === 'GET') {
+        res.statusCode = 200;
+        res.setHeader('content-type', 'text/html; charset=utf-8');
+        res.end(`<!doctype html><meta charset="utf-8"><title>GSC API</title>
+<style>body{font:14px/1.6 ui-sans-serif,system-ui,sans-serif;margin:0;padding:32px;color:#171717}h1{font-size:20px}h2{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#6B7280;margin:28px 0 8px}.ep{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid #E8E8EC}.m{font:600 11px ui-monospace,monospace;width:56px;text-transform:uppercase}.p{font:12px ui-monospace,monospace}.s{color:#6B7280;font-size:12px}code{background:#F1F1F3;padding:1px 5px;border-radius:6px}</style>
+<h1>GSC API · OpenAPI 3.1</h1>
+<p class="s">Spec: <a href="/api/openapi.json">/api/openapi.json</a> · Auth: <code>Authorization: Bearer &lt;token&gt;</code>（令牌在 设置→连接 里创建）</p>
+<div id="root"></div>
+<script>
+fetch('/api/openapi.json').then(r => r.json()).then(spec => {
+  const byTag = {};
+  for (const [p, ops] of Object.entries(spec.paths)) {
+    for (const [m, op] of Object.entries(ops)) {
+      const tag = (op.tags && op.tags[0]) || 'General';
+      (byTag[tag] = byTag[tag] || []).push({ m, p, s: op.summary || '' });
+    }
+  }
+  const root = document.getElementById('root');
+  for (const [tag, eps] of Object.entries(byTag)) {
+    const h = document.createElement('h2'); h.textContent = tag; root.appendChild(h);
+    for (const ep of eps) {
+      const row = document.createElement('div'); row.className = 'ep';
+      row.innerHTML = '<span class="m">' + ep.m + '</span><span class="p">' + ep.p + '</span><span class="s">' + ep.s + '</span>';
+      root.appendChild(row);
+    }
+  }
+});
+</script>`);
         return;
       }
 

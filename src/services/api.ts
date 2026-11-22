@@ -76,7 +76,9 @@ export type ApiResponse =
   | ProfileResponse
   | LlmConfigResponse
   | LlmCheckResponse
+  | LlmUsageResponse
   | CaptureResponse
+  | CaptureTaskListResponse
   | TokenListResponse
   | TokenCreateResponse
   | { ok: true; deleted: true }
@@ -420,6 +422,22 @@ export function checkLlm(): Promise<LlmCheckResponse> {
   return request<LlmCheckResponse>('/api/llm/check', { method: 'POST' });
 }
 
+// LLM cost accounting: factual token totals + labelled USD estimate.
+export type LlmUsageResponse = {
+  ok: true;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    estimated_usd: number;
+    price_note: string;
+    models: Record<string, { prompt_tokens: number; completion_tokens: number }>;
+  };
+};
+
+export function getLlmUsage(): Promise<LlmUsageResponse> {
+  return request<LlmUsageResponse>('/api/llm/usage');
+}
+
 // Web Intelligence MVP: explicit URL capture → task → extract → persist + proposals.
 export type CaptureResponse = {
   ok: true;
@@ -431,6 +449,24 @@ export type CaptureResponse = {
 };
 export function captureUrl(url: string): Promise<CaptureResponse> {
   return request<CaptureResponse>('/api/capture', { method: 'POST', body: JSON.stringify({ url }) });
+}
+
+// Capture center: recent capture tasks with real processing stages.
+export type CaptureTaskDTO = {
+  id: string;
+  url: string;
+  kind: string;
+  status: string;
+  stage: string;
+  retry_count: number;
+  last_error: string;
+  created_at: string;
+  completed_at: string | null;
+};
+export type CaptureTaskListResponse = { ok: true; tasks: CaptureTaskDTO[] };
+
+export function listCaptureTasks(): Promise<CaptureTaskListResponse> {
+  return request<CaptureTaskListResponse>('/api/capture');
 }
 
 // Token / Agent access management (T301): list + create + revoke PAT access.

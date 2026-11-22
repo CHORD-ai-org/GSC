@@ -41,6 +41,11 @@ class Counter {
     else this.values.set(key, { labels, value: delta });
   }
 
+  /** Programmatic read (LLM cost accounting). */
+  snapshot(): { labels: Labels; value: number }[] {
+    return [...this.values.values()].map((c) => ({ labels: c.labels, value: c.value }));
+  }
+
   render(): string {
     const lines = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} counter`];
     if (this.values.size === 0) lines.push(`${this.name} 0`);
