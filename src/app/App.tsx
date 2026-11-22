@@ -86,6 +86,7 @@ export default function App() {
   const [mosaicToken, setMosaicToken] = useState(0);
   const [prefs, setPrefs] = useState<UiPrefs>(() => loadPrefs());
   const [items, setItems] = useState<ItemDTO[]>([]);
+  const [itemActivity, setItemActivity] = useState<Record<string, { user: number; agent: number }>>({});
   const [loadingItems, setLoadingItems] = useState(true);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
   const [overviewMode, setOverviewMode] = useState<'overview' | 'canvas'>('overview');
@@ -149,6 +150,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     const result = await api.listItems({});
     setItems(result.items);
+    setItemActivity(result.activity ?? {});
     setLoadingItems(false);
   }, []);
 
@@ -971,9 +973,9 @@ export default function App() {
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
     return kind === 'raw' ? (
-      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} onNew={() => go('lightup')} onSelect={selectItem} onBulkTag={bulkTag} />
+      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => go('lightup')} onSelect={selectItem} onBulkTag={bulkTag} />
     ) : (
-      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} onNew={() => openNew('object.concept')} onSelect={selectItem} onBulkTag={bulkTag} />
+      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => openNew('object.concept')} onSelect={selectItem} onBulkTag={bulkTag} />
     );
   }
 

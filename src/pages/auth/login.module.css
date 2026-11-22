@@ -130,6 +130,24 @@
   text-underline-offset: 3px; cursor: pointer;
 }
 
+/* ---- registration receipt step ---- */
+.receiptStep {
+  /* z-index:1 over the sheet's paper SVG frame (same as .grip/.form),
+     otherwise the static hint text paints under the opaque paper fill */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 30px 36px;
+}
+.receiptHint {
+  margin: 22px 0 0;
+  font: 400 11px/16px var(--ui);
+  color: var(--ink-3);
+  text-align: center;
+}
+
 .devBlock { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); }
 .devNote { font: 400 10.5px/16px var(--mono); color: var(--ink-3); }
 .devLink {

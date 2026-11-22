@@ -1,10 +1,15 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useRef, useState, type FormEvent } from 'react';
 import { SketchFrame, SketchUnderline, SketchRule } from '../../components/SketchFrame.tsx';
 import { GscLogo } from '../../components/GscLogo.tsx';
+import { ReceiptPrinter } from '../../components/ReceiptPrinter.tsx';
+import type { ReceiptPrinterHandle } from '../../components/ReceiptPrinter.tsx';
 import * as api from '../../services/api.ts';
 import s from './login.module.css';
 
 type Mode = 'signin' | 'create';
+
+/** The registration receipt printed after "Create account" succeeds. */
+type Issued = { id: string; name: string; email: string; date: string; order: number; code: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,8 +22,10 @@ const OAUTH = ['CHORD', 'Google', 'GitHub', 'X'] as const;
  *
  * CHORD owns sign-in. The form validates locally; identity becomes a GSC user
  * (register → api.createUser, sign-in → an existing local user). The OAuth row
- * reflects the CHORD/Thylas providers. `onAuthed` hands the active identity back
- * to the app shell, which then enters the workspace.
+ * reflects the CHORD/Thylas providers. After a successful registration the
+ * form is replaced by a thermal printer that prints the registration receipt
+ * (RECEIPT_DEMO_PLAN.md); tearing it off — or Continue — enters the workspace
+ * through `onAuthed`, which hands the active identity back to the app shell.
  */
 export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: string) => void }) {
   const [mode, setMode] = useState<Mode>('signin');
@@ -28,17 +35,15 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [issued, setIssued] = useState<Issued | null>(null);
+  const receiptRef = useRef<ReceiptPrinterHandle | null>(null);
 
-  const finishWith = useCallback(
-    async (displayName: string) => {
-      // Register a GSC identity for this account; sign-in reuses an existing one.
-      const users = await api.listUsers().catch(() => ({ ok: true as const, users: [] as api.UserDTO[] }));
-      const existing = users.users.find((u) => u.name === displayName);
-      const user = existing ?? (await api.createUser(displayName)).user;
-      onAuthed(user.id, user.name);
-    },
-    [onAuthed],
-  );
+  const finishWith = useCallback(async (displayName: string) => {
+    // Register a GSC identity for this account; sign-in reuses an existing one.
+    const users = await api.listUsers().catch(() => ({ ok: true as const, users: [] as api.UserDTO[] }));
+    const existing = users.users.find((u) => u.name === displayName);
+    return existing ?? (await api.createUser(displayName)).user;
+  }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -53,7 +58,21 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
     setError(null);
     setBusy(true);
     try {
-      await finishWith(display);
+      const user = await finishWith(display);
+      if (mode === 'create') {
+        // Registration prints a receipt first; tearing it off enters the app.
+        const order = 1000 + (Math.floor(Date.now() / 60000) % 9000);
+        setIssued({
+          id: user.id,
+          name: user.name,
+          email: address,
+          date: new Date().toLocaleString(),
+          order,
+          code: `GSC-${order}-${user.id.replace(/^usr_/, '').slice(0, 4).toUpperCase()}`,
+        });
+      } else {
+        onAuthed(user.id, user.name);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not sign in.');
     } finally {
@@ -72,7 +91,9 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
     if (provider === 'CHORD') {
       // CHORD is the shared identity: establish the local GSC session stand-in.
       setBusy(true);
-      void finishWith(name.trim() || email.trim().split('@')[0] || 'CHORD user').finally(() => setBusy(false));
+      void finishWith(name.trim() || email.trim().split('@')[0] || 'CHORD user')
+        .then((user) => onAuthed(user.id, user.name))
+        .finally(() => setBusy(false));
       return;
     }
     setNotice(`${provider} sign-in is not connected in this build.`);
@@ -94,9 +115,42 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
           <SketchFrame seed="gsc-login-paper" variant="paper" />
           <div className={s.grip}>
             <span className={s.gripMarks} aria-hidden><span /><span /><span /></span>
-            <span className={s.gripTitle}>{creating ? 'Create an account' : 'Sign in'}</span>
+            <span className={s.gripTitle}>{issued ? 'Registration receipt' : creating ? 'Create an account' : 'Sign in'}</span>
           </div>
 
+          {issued ? (
+            /* registration receipt — printed, tearable, then the workspace */
+            <div className={s.receiptStep}>
+              <ReceiptPrinter
+                ref={receiptRef}
+                title="GSC · Global Shared Context"
+                subtitle="Registration receipt"
+                order={issued.order}
+                width={258}
+                autoplay={false}
+                tearable
+                lines={[
+                  { kind: 'row', label: 'Name', value: issued.name },
+                  { kind: 'row', label: 'Email', value: issued.email || '—' },
+                  { kind: 'row', label: 'Identity', value: issued.id.slice(0, 8) },
+                  { kind: 'row', label: 'Via', value: 'Email form' },
+                  { kind: 'row', label: 'Date', value: issued.date },
+                  { kind: 'divider' },
+                  { kind: 'row', label: 'Status', value: 'Active' },
+                  { kind: 'space' },
+                  { kind: 'barcode', value: issued.code },
+                  { kind: 'text', text: issued.code },
+                ]}
+                footer="Give information a persistent identity. · chord owns sign-in"
+                onTear={() => onAuthed(issued.id, issued.name)}
+              />
+              <p className={s.receiptHint}>Drag the receipt up to tear it off</p>
+              <button type="button" className={s.submit} onClick={() => receiptRef.current?.tear()}>
+                <SketchFrame seed="gsc-receipt-continue" double={false} />
+                <span className={s.submitLabel}>Continue</span>
+              </button>
+            </div>
+          ) : (
           <form className={s.form} onSubmit={submit} noValidate>
             {error ? <p className={s.error} role="alert">{error}</p> : null}
             {notice ? <p className={s.notice} role="status">{notice}</p> : null}
@@ -147,6 +201,7 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
               <p className={s.devNote}>chord owns sign-in · gsc stores a local identity</p>
             </div>
           </form>
+          )}
         </div>
       </div>
 
