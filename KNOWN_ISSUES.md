@@ -156,3 +156,10 @@ Current verification note: `npm run check` passes. `npm test` could not start in
 2. **可见性过滤在分页之后**：`GET /api/items` 先取页再按 visibleItemIds 过滤，某页全为
    不可见条目时出现「items 空但 next_cursor 非空」的假空页。多用户数据共存时影响观感；
    属既有行为（T202 分页 + PLAN-7 可见性叠加），修法是过滤下推到查询层（后续择机处理）。
+
+## 2026-11-23 — 决策号撞号（双并行流独立追加，已修复）
+
+两条并行工作流（Phase 07 里程碑流 / UI-后端优化流）各自向 DECISION_LOG.md 追加决策，出现
+D-092、D-093 双占。已将 Phase 07 侧的两条重编号为 **D-097**（V4 集成验收）与 **D-098**（M5），
+并在条目内注明原号。注意：优化流的 D-095 与 D-097 记录同一 V4 里程碑（各线视角）。
+防复发：追加决策前先 grep 号段最大值，或改用带前缀的号（如 P7-xx / OPT-xx）。
