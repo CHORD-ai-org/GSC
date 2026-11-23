@@ -12,7 +12,7 @@ import type { FetchedDoc, FetchLike, ProbeResult, SourceAdapter, SourceConfig } 
 const MAX_BYTES = 2 * 1024 * 1024;
 const TIMEOUT_MS = 10_000;
 
-async function fetchHtmlSafe(rawUrl: string, fetchImpl: FetchLike): Promise<{ url: string; html: string }> {
+export async function fetchHtmlSafe(rawUrl: string, fetchImpl: FetchLike): Promise<{ url: string; html: string }> {
   let url = (await assertSafeIngestUrl(rawUrl, false)).toString();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
