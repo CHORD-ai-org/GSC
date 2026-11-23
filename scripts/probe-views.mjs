@@ -64,7 +64,7 @@ try {
   };
   let failed = false;
   for (const round of [1, 2]) {
-    for (const title of ['关系', '时间线', '列表', '网格', '关系']) {
+    for (const title of ['关系', '时间线', '空间', '列表', '网格', '关系']) {
       const ok = await clickByTitle(title);
       if (!ok) { console.log(`round ${round}: button '${title}' NOT FOUND`); failed = true; }
     }
