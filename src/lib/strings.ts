@@ -423,6 +423,7 @@ export const STRINGS: Record<string, StringPair> = {
   'detail.attrAgent': { zh: 'Agent {n} 处编辑', en: 'Agent edited {n}' },
   'detail.attrProposals': { zh: '{n} 条提案待确认', en: '{n} pending proposal(s)' },
   'detail.proposalResolved': { zh: '提案已处置', en: 'Proposal resolved' },
+  'detail.propCount': { zh: '{n} 条提案', en: '{n} proposals' },
   'detail.adopt': { zh: '采纳', en: 'Adopt' },
   'detail.reject': { zh: '拒绝', en: 'Reject' },
   'detail.defer': { zh: '暂缓', en: 'Later' },
