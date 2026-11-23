@@ -45,8 +45,7 @@ export function ViewSwitcher({
       path: <><path d="M3 8h10" /><circle cx="5" cy="8" r="1.4" /><circle cx="10.5" cy="8" r="1.4" /><path d="M4 12h8" /></>,
     },
     spatial: {
-      title: '空间（V4）',
-      disabled: true,
+      title: '空间',
       path: <><rect x="2.5" y="3" width="5" height="4" rx="1" /><rect x="8.5" y="8" width="5" height="5" rx="1" /></>,
     },
   };
