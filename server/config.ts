@@ -7,8 +7,13 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 
 export type Config = {
   port: number;
-  dbAdapter: 'pglite';
+  /** DB-1: 'pglite' (embedded default) or 'postgres' (deployment adapter). */
+  dbAdapter: 'pglite' | 'postgres';
   pgliteDir: string;
+  /** DB-1: DSN for the postgres adapter (DATABASE_URL). */
+  pgDsn: string;
+  /** SEC-2: production profile gates dev/test escape hatches at startup. */
+  env: 'development' | 'production';
   storageDir: string;
   llmBaseUrl: string;
   llmApiKey: string;
@@ -25,13 +30,24 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
   const port = Number(env.PORT ?? 8788);
   const portValue = Number.isInteger(port) && port > 0 && port < 65536 ? port : 8788;
   const adapter = env.DB_ADAPTER ?? 'pglite';
-  if (adapter !== 'pglite') {
-    throw new Error(`Unsupported DB_ADAPTER: ${adapter}. Phase 03 uses local PGlite (D-026).`);
+  if (adapter !== 'pglite' && adapter !== 'postgres') {
+    throw new Error(`Unsupported DB_ADAPTER: ${adapter}. Use 'pglite' (local) or 'postgres' (deployment, D-004).`);
+  }
+  const pgDsn = env.DATABASE_URL ?? '';
+  if (adapter === 'postgres' && !pgDsn) {
+    throw new Error('DB_ADAPTER=postgres requires DATABASE_URL (e.g. postgres://user:pass@host:5432/gsc).');
+  }
+  const runtimeEnv: Config['env'] = env.GSC_ENV === 'production' ? 'production' : 'development';
+  // SEC-2: fail fast — the private-ingest escape hatch must never ship to prod.
+  if (runtimeEnv === 'production' && env.GSC_INGEST_ALLOW_PRIVATE === '1') {
+    throw new Error('GSC_INGEST_ALLOW_PRIVATE=1 is refused with GSC_ENV=production (dev/test escape hatch only).');
   }
   return {
     port: portValue,
-    dbAdapter: 'pglite',
+    dbAdapter: adapter,
     pgliteDir: resolve(env.PGLITE_DIR ?? './.data/pglite'),
+    pgDsn,
+    env: runtimeEnv,
     storageDir: resolve(env.STORAGE_DIR ?? './data/files'),
     // Xiaomi MiMo Token Plan (OpenAI-compatible, tp- keys) — CN cluster by default.
     // Note: tp-* keys only work on token-plan-* hosts, not api.xiaomimimo.com.
