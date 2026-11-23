@@ -33,8 +33,11 @@ function toDTO(row: SourceRow): SourceDTO {
   };
 }
 
-export async function listSources(db: Database): Promise<SourceDTO[]> {
-  const rows = await db.select().from(sources);
+export async function listSources(db: Database, ownerId?: string): Promise<SourceDTO[]> {
+  // B2: scoped list — ownerId filters at the query seam (owner-only visibility).
+  const rows = ownerId
+    ? await db.select().from(sources).where(eq(sources.owner_id, ownerId))
+    : await db.select().from(sources);
   return rows.map(toDTO);
 }
 

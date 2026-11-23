@@ -29,8 +29,11 @@ function toDTO(row: ContextRow): ContextDTO {
   };
 }
 
-export async function listContexts(db: Database): Promise<ContextDTO[]> {
-  const rows = await db.select().from(contexts).orderBy(asc(contexts.created_at));
+export async function listContexts(db: Database, ownerId?: string): Promise<ContextDTO[]> {
+  // B2: scoped list — ownerId filters at the query seam (owner-only visibility).
+  const rows = ownerId
+    ? await db.select().from(contexts).where(eq(contexts.owner_id, ownerId)).orderBy(asc(contexts.created_at))
+    : await db.select().from(contexts).orderBy(asc(contexts.created_at));
   return rows.map(toDTO);
 }
 

@@ -19,6 +19,7 @@ export type ItemDetailResponse = {
   item: ItemDTO;
   relations: { outgoing: RelationDTO[]; incoming: RelationDTO[] };
   events: EventDTO[];
+  attribution?: { user_edits: number; agent_edits: number; field_owners: Record<string, 'user' | 'agent'> };
 };
 export type MutationResponse =
   | { ok: true; item: ItemDTO; relation?: undefined; context?: undefined }
@@ -90,6 +91,20 @@ export type ApiResponse =
   | { ok: true; deleted: true }
   | ApiError;
 
+/** Typed API failure (U1): the error kind survives for programmatic handling
+ *  without leaking into the user-visible message. */
+export class ApiRequestError extends Error {
+  readonly kind: string;
+  readonly retryable: boolean;
+
+  constructor(kind: string, message: string, retryable = false) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.kind = kind;
+    this.retryable = retryable;
+  }
+}
+
 async function request<T extends ApiResponse>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -100,7 +115,10 @@ async function request<T extends ApiResponse>(path: string, init?: RequestInit):
   });
   const body = (await res.json()) as ApiResponse;
   if (!res.ok || body.ok === false) {
-    throw new Error(body.ok === false ? `${body.kind}: ${body.message}` : `HTTP ${res.status}`);
+    if (body.ok === false) {
+      throw new ApiRequestError(body.kind, body.message, body.retryable ?? false);
+    }
+    throw new ApiRequestError('internal', `HTTP ${res.status}`);
   }
   return body as T;
 }
@@ -180,7 +198,9 @@ export async function listItems(params: { type?: string; domain?: string; q?: st
   const activity: Record<string, { user: number; agent: number }> = {};
   let cursor: string | undefined;
   for (let i = 0; i < 50; i += 1) {
-    const page = await listItemsPage({ ...params, cursor });
+    // U1: pull the largest page the server allows — refresh() runs after every
+    // write and a 50-page round-trip per refresh was pure overhead.
+    const page = await listItemsPage({ ...params, cursor, limit: 200 });
     items.push(...page.items);
     if (page.activity) Object.assign(activity, page.activity);
     if (!page.next_cursor) break;
@@ -208,8 +228,11 @@ export function listRelationsFor(ids: string[]): Promise<RelationListResponse> {
   return request(`/api/relations?${search.toString()}`);
 }
 
-export function getItem(id: string): Promise<ItemDetailResponse> {
-  return request<ItemDetailResponse>(`/api/items/${encodeURIComponent(id)}`);
+export function getItem(id: string, opts: { trace?: boolean } = {}): Promise<ItemDetailResponse> {
+  // `trace: true` records an 'opened' engagement event (the user opened the
+  // detail). Plain reads (export, indexing) pass nothing and stay side-effect-free.
+  const query = opts.trace ? '?trace=1' : '';
+  return request<ItemDetailResponse>(`/api/items/${encodeURIComponent(id)}${query}`);
 }
 
 export function createItem(body: unknown): Promise<MutationResponse> {

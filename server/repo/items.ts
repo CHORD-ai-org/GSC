@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, count, desc, eq, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { events, itemContent, items } from '../persistence/schema.ts';
 import type {
@@ -23,6 +23,11 @@ const fieldColumns = [
   'name', 'steps', 'intended_use', 'statement', 'alternatives', 'consequences',
   'source_item_id',
 ] as const satisfies readonly (keyof ItemFields)[];
+
+/** Single source for the soft-delete predicate (B3): items alive = deleted_at IS NULL. */
+function notDeleted() {
+  return isNull(items.deleted_at);
+}
 
 export function toDTO(row: ItemRow, content?: ContentRow): ItemDTO {
   const fields: ItemFields = {};
@@ -70,11 +75,21 @@ function decodeCursor(cursor: string): { at: string; id: string } | undefined {
 export async function listItemsPaged(
   db: Database,
   filters: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number } = {},
+  // B2/F8: viewer scope applied in SQL *before* pagination so total/cursor
+  // only describe rows the viewer can see. null/absent = unscoped.
+  scope: { visibleIds?: Set<string> | null } = {},
 ): Promise<ItemPage> {
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
-  const conditions = [isNull(items.deleted_at)];
-  if (filters.type) conditions.push(eq(items.type, filters.type));
-  if (filters.domain) conditions.push(eq(items.domain, filters.domain));
+  const baseConditions = [notDeleted()];
+  if (scope.visibleIds) {
+    // Empty visible set must match nothing (postgres rejects `IN ()`).
+    baseConditions.push(scope.visibleIds.size > 0 ? inArray(items.id, [...scope.visibleIds]) : sql`1 = 0`);
+  }
+  if (filters.type) baseConditions.push(eq(items.type, filters.type));
+  if (filters.domain) baseConditions.push(eq(items.domain, filters.domain));
+  // total must describe exactly the rows a page can draw from — filter and
+  // scope conditions, but never the cursor keyset (F8).
+  const conditions = [...baseConditions];
   const cursor = filters.cursor ? decodeCursor(filters.cursor) : undefined;
   if (cursor) {
     const keyset = or(
@@ -99,7 +114,7 @@ export async function listItemsPaged(
     const needle = filters.q.toLowerCase();
     all = all.filter((item) => itemTextForFilter(item).includes(needle));
   }
-  const [{ rowCount }] = await db.select({ rowCount: count() }).from(items).where(isNull(items.deleted_at));
+  const [{ rowCount }] = await db.select({ rowCount: count() }).from(items).where(and(...baseConditions));
   const last = page[page.length - 1];
   return {
     items: all,
@@ -112,7 +127,7 @@ export async function listItems(
   db: Database,
   filters: { type?: string; domain?: string; q?: string } = {},
 ): Promise<ItemDTO[]> {
-  const conditions = [isNull(items.deleted_at)];
+  const conditions = [notDeleted()];
   if (filters.type) conditions.push(eq(items.type, filters.type));
   if (filters.domain) conditions.push(eq(items.domain, filters.domain));
   const rows = await db
@@ -131,7 +146,7 @@ export async function listItems(
 
 export async function getItem(db: Database, id: string): Promise<ItemDTO | undefined> {
   /* T203: soft-deleted items are hidden from normal access (trash only) */
-  const [row] = await db.select().from(items).where(and(eq(items.id, id), isNull(items.deleted_at))).limit(1);
+  const [row] = await db.select().from(items).where(and(eq(items.id, id), notDeleted())).limit(1);
   if (!row) return undefined;
   const [content] = await db.select().from(itemContent).where(eq(itemContent.item_id, id)).limit(1);
   return toDTO(row, content);
@@ -182,41 +197,46 @@ export async function updateItem(
   db: Database,
   id: string,
   body: UpdateItemBody,
+  opts: { actor?: 'user' | 'agent' | 'system'; via?: string } = {},
 ): Promise<ItemDTO | undefined> {
   const current = await getItem(db, id);
   if (!current) return undefined;
   const now = new Date();
-  await db
-    .update(items)
-    .set({
-      title: body.title ?? current.title,
-      domain: body.domain ?? current.domain,
-      origin: body.origin ?? current.origin,
-      source_label: body.source_label ?? current.source_label,
-      status: (body.status ?? current.status) as Status,
-      updated_at: now,
-    })
-    .where(eq(items.id, id));
+  // O1-4/B3: items + content + events commit or roll back together.
+  await db.transaction(async (tx) => {
+    const t = tx as unknown as Database;
+    await t
+      .update(items)
+      .set({
+        title: body.title ?? current.title,
+        domain: body.domain ?? current.domain,
+        origin: body.origin ?? current.origin,
+        source_label: body.source_label ?? current.source_label,
+        status: (body.status ?? current.status) as Status,
+        updated_at: now,
+      })
+      .where(eq(items.id, id));
 
-  const editable = fieldKeysFor(current.type);
-  const patch: Record<string, string | null> = {};
-  for (const key of editable) {
-    if (body.fields && key in body.fields) patch[key] = body.fields[key] ?? null;
-  }
-  if (Object.keys(patch).length > 0) {
-    await db.update(itemContent).set(patch).where(eq(itemContent.item_id, id));
-  }
-  await db.insert(events).values({
-    id: `evt_${randomUUID()}`,
-    item_id: id,
-    at: now,
-    actor: 'user',
-    action: body.status && body.status !== current.status ? 'status_changed' : 'updated',
-    detail: Object.keys(body).length > 0
-      ? Object.entries(body).flatMap(([k, v]) =>
-          k === 'fields' && v && typeof v === 'object' ? Object.keys(v as object).map((fk) => `fields.${fk}`) : [k],
-        ).join(', ')
-      : 'updated',
+    const editable = fieldKeysFor(current.type);
+    const patch: Record<string, string | null> = {};
+    for (const key of editable) {
+      if (body.fields && key in body.fields) patch[key] = body.fields[key] ?? null;
+    }
+    if (Object.keys(patch).length > 0) {
+      await t.update(itemContent).set(patch).where(eq(itemContent.item_id, id));
+    }
+    await t.insert(events).values({
+      id: `evt_${randomUUID()}`,
+      item_id: id,
+      at: now,
+      actor: opts.actor ?? 'user',
+      action: body.status && body.status !== current.status ? 'status_changed' : 'updated',
+      detail: (Object.keys(body).length > 0
+        ? Object.entries(body).flatMap(([k, v]) =>
+            k === 'fields' && v && typeof v === 'object' ? Object.keys(v as object).map((fk) => `fields.${fk}`) : [k],
+          ).join(', ')
+        : 'updated') + (opts.via ? ` | via proposal ${opts.via}` : ''),
+    });
   });
   return getItem(db, id);
 }
@@ -228,7 +248,7 @@ export async function itemExists(db: Database, id: string): Promise<boolean> {
 
 export async function deleteItem(db: Database, id: string): Promise<boolean> {
   /* T203 soft delete: row stays (relations/events preserved for restore) */
-  const [row] = await db.select({ id: items.id }).from(items).where(and(eq(items.id, id), isNull(items.deleted_at))).limit(1);
+  const [row] = await db.select({ id: items.id }).from(items).where(and(eq(items.id, id), notDeleted())).limit(1);
   if (!row) return false;
   await db.update(items).set({ deleted_at: new Date() }).where(eq(items.id, id));
   return true;

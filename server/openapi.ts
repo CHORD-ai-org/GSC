@@ -5,12 +5,13 @@
  */
 import { KNOWN_ROUTES } from './router.ts';
 
-/** Regex source → OpenAPI path template: `/api/items/[^/]+` → `/api/items/{id}`. */
+/** Regex source → OpenAPI path template: `/api/items/([^/]+)` → `/api/items/{id}`. */
 export function routeToPath(source: string): string {
   return source
     .replace(/^\^/, '')
     .replace(/\$$/, '')
-    .replace(/\[\^\/\]\+/g, '{id}')
+    // B1: table patterns use capture groups; accept bare and parenthesized forms.
+    .replace(/\(\[\^\/\]\+\)|\[\^\/\]\+/g, '{id}')
     .replace(/\\\//g, '/');
 }
 
@@ -28,10 +29,6 @@ const META: Record<string, Partial<Record<string, Meta>>> = {
   },
   '/api/items/{id}/restore': { post: { summary: 'Restore a soft-deleted item', tag: 'Items' } },
   '/api/items/{id}/purge': { post: { summary: 'Permanently delete an item', tag: 'Items' } },
-  '/api/items/{id}/relations': {
-    post: { summary: 'Create a relation (derived_from/references/related_to/supports/challenges/superseded_by)', tag: 'Relations', body: 'CreateRelationBody' },
-    delete: { summary: 'Delete a relation', tag: 'Relations' },
-  },
   '/api/search': { get: { summary: 'Full-text search across items, clusters, contexts, tag values', tag: 'Search' } },
   '/api/trash': { get: { summary: 'List soft-deleted items', tag: 'Items' } },
   '/api/contexts': {

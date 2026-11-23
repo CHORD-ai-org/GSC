@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpenApi, routeToPath } from './openapi.ts';
+import { KNOWN_ROUTES } from './router.ts';
 
 describe('OpenAPI 3.1 spec (INTEGRATION_HARDENING P1)', () => {
   it('is a valid 3.1 document with security and schemas', () => {
@@ -21,6 +22,17 @@ describe('OpenAPI 3.1 spec (INTEGRATION_HARDENING P1)', () => {
 
   it('converts route regexes to OpenAPI path templates', () => {
     expect(routeToPath('\\/api\\/items\\/[^/]+$')).toBe('/api/items/{id}');
+    expect(routeToPath('\\/api\\/items\\/([^/]+)$')).toBe('/api/items/{id}');
     expect(routeToPath('\\/api\\/capture$')).toBe('/api/capture');
+  });
+
+  it('documents every route in the registry (registry ↔ META alignment, B1)', () => {
+    const spec = buildOpenApi() as Record<string, any>;
+    for (const { pattern, methods } of KNOWN_ROUTES) {
+      const p = routeToPath(pattern.source);
+      for (const method of methods) {
+        expect(spec.paths[p]?.[method.toLowerCase()], `${method} ${p}`).toBeTruthy();
+      }
+    }
   });
 });

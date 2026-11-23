@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { proposals } from '../persistence/schema.ts';
 import { updateItem } from './items.ts';
+import { appendEvent } from './events.ts';
 import { createRelation } from './relations.ts';
 import { addClusterMember, createCluster } from './clusters.ts';
 import type {
@@ -91,13 +92,15 @@ export async function resolveProposalApplying(
     const resolved = await resolveProposal(t, id, status);
     if (!resolved || status !== 'accepted') return resolved;
     if (existing.kind === 'semantic_name') {
-      await updateItem(t, existing.target_id, { title: existing.proposed_value });
+      /* V3 (M3): machine-originated change — actor=agent, flagged with the proposal id. */
+      await updateItem(t, existing.target_id, { title: existing.proposed_value }, { actor: 'agent', via: existing.id });
     } else if (existing.kind === 'association' && existing.related_id) {
       await createRelation(t, {
         kind: 'related_to',
         from_id: existing.target_id,
         to_id: existing.related_id,
         note: `proposal ${existing.id}`,
+        created_by: 'agent',
       });
     } else if (existing.kind === 'cluster') {
       const cluster = await createCluster(t, {
@@ -106,6 +109,12 @@ export async function resolveProposalApplying(
       });
       await addClusterMember(t, cluster.id, existing.target_id);
       if (existing.related_id) await addClusterMember(t, cluster.id, existing.related_id);
+      await appendEvent(t, {
+        item_id: existing.target_id,
+        actor: 'agent',
+        action: 'updated',
+        detail: `cluster | via proposal ${existing.id}`,
+      });
     }
     return resolved;
   }) as Promise<ProposalDTO | undefined>;

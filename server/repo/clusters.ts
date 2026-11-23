@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { clusterMembers, clusters, clusterShares, items } from '../persistence/schema.ts';
 import type {
@@ -22,8 +22,25 @@ function toDTO(row: ClusterRow): ClusterDTO {
   };
 }
 
-export async function listClusters(db: Database): Promise<ClusterDTO[]> {
-  const rows = await db.select().from(clusters).orderBy(asc(clusters.created_at));
+export async function sharedClusterIds(db: Database, userId: string): Promise<string[]> {
+  const rows = await db.select({ cluster_id: clusterShares.cluster_id })
+    .from(clusterShares)
+    .where(eq(clusterShares.user_id, userId));
+  return rows.map((r) => r.cluster_id);
+}
+
+export async function listClusters(db: Database, viewerId?: string): Promise<ClusterDTO[]> {
+  // B2: scoped list — viewerId filters at the query seam (owner OR shared).
+  if (!viewerId) {
+    const rows = await db.select().from(clusters).orderBy(asc(clusters.created_at));
+    return rows.map(toDTO);
+  }
+  const shared = await sharedClusterIds(db, viewerId);
+  const rows = await db
+    .select()
+    .from(clusters)
+    .where(shared.length > 0 ? or(eq(clusters.owner_id, viewerId), inArray(clusters.id, shared)) : eq(clusters.owner_id, viewerId))
+    .orderBy(asc(clusters.created_at));
   return rows.map(toDTO);
 }
 

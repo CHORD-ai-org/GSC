@@ -83,11 +83,12 @@ describe('shared clusters (PLAN-7)', () => {
       const privateDetail = await call('GET', `/api/items/${priv.json.item.id}`, undefined, tokenB.token);
       expect(privateDetail.status).toBe(404);
 
-      // B cannot mutate A's member chunk; A's cluster is view-only for B
+      // B cannot mutate A's member chunk; A's cluster is view-only for B.
+      // D-092 policy: visible but not permitted → 403 (was 400 'contract').
       const attempt = await call('PATCH', `/api/items/${shared.json.item.id}`, { title: 'hijack' }, tokenB.token);
-      expect(attempt.status).toBe(400);
+      expect(attempt.status).toBe(403);
       const memberAttempt = await call('POST', `/api/clusters/${cluster.json.cluster.id}/members`, { item_id: priv.json.item.id }, tokenB.token);
-      expect(memberAttempt.status).toBe(400);
+      expect(memberAttempt.status).toBe(403);
 
       // Revoke → immediate loss of access
       const revoke = await call('DELETE', `/api/clusters/${cluster.json.cluster.id}/shares/${userB.json.user.id}`, undefined, tokenA.token);
