@@ -124,6 +124,7 @@ function AttributionPanel({
   const visible = proposals.filter((p) => !hidden.has(p.id));
   const u = detail.attribution?.user_edits ?? 0;
   const a = detail.attribution?.agent_edits ?? 0;
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   if (u + a + visible.length === 0) return null;
 
   const act = async (id: string, status: 'accepted' | 'rejected') => {
@@ -137,6 +138,27 @@ function AttributionPanel({
     }
   };
 
+  /* P1 hygiene: fold same-kind proposals into one expandable row (12 rows → 3 groups). */
+  const groups = new Map<string, ProposalDTO[]>();
+  for (const p of visible) {
+    const list = groups.get(p.kind) ?? [];
+    list.push(p);
+    groups.set(p.kind, list);
+  }
+  const renderRow = (p: ProposalDTO) => (
+    <div key={p.id} className={styles.propRow}>
+      <span className={styles.propChip}>{t((PROPOSAL_KIND_KEY[p.kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
+      <span className={styles.propBody}>
+        <b>{p.proposed_value}</b>
+        {p.related_id === itemId && p.target_id !== itemId ? <span className={styles.propWhy}>{t('prop.related')}</span> : null}
+        {p.rationale ? <span className={styles.propWhy}>{p.rationale}</span> : null}
+      </span>
+      <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'accepted')}>{t('detail.adopt')}</button>
+      <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'rejected')}>{t('detail.reject')}</button>
+      <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(p.id))}>{t('detail.defer')}</button>
+    </div>
+  );
+
   return (
     <>
       <div className={styles.attrStrip}>
@@ -144,19 +166,29 @@ function AttributionPanel({
         {a > 0 ? <span className={styles.attrA}>{t('detail.attrAgent', { n: a })}</span> : null}
         {visible.length > 0 ? <span className={styles.attrP}>{t('detail.attrProposals', { n: visible.length })}</span> : null}
       </div>
-      {visible.map((p) => (
-        <div key={p.id} className={styles.propRow}>
-          <span className={styles.propChip}>{t((PROPOSAL_KIND_KEY[p.kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
-          <span className={styles.propBody}>
-            <b>{p.proposed_value}</b>
-            {p.related_id === itemId && p.target_id !== itemId ? <span className={styles.propWhy}>{t('prop.related')}</span> : null}
-            {p.rationale ? <span className={styles.propWhy}>{p.rationale}</span> : null}
-          </span>
-          <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'accepted')}>{t('detail.adopt')}</button>
-          <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'rejected')}>{t('detail.reject')}</button>
-          <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(p.id))}>{t('detail.defer')}</button>
-        </div>
-      ))}
+      {[...groups.entries()].map(([kind, list]) => {
+        if (list.length === 1) return renderRow(list[0]);
+        const open = openGroups.has(kind);
+        return (
+          <div key={kind} className={styles.propGroup}>
+            <button
+              type="button"
+              className={styles.propGroupHead}
+              onClick={() => setOpenGroups((s) => {
+                const next = new Set(s);
+                if (open) next.delete(kind);
+                else next.add(kind);
+                return next;
+              })}
+            >
+              <span className={styles.propChip}>{t((PROPOSAL_KIND_KEY[kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
+              <span className={styles.propBody}>{t('detail.propCount', { n: list.length })}</span>
+              <span className={styles.propChevron}>{open ? '▾' : '▸'}</span>
+            </button>
+            {open ? list.map(renderRow) : null}
+          </div>
+        );
+      })}
     </>
   );
 }
