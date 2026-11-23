@@ -979,3 +979,71 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 167/167
   (34 files, +spatial.test.ts), zero-copy probe PASS incl. spatial (12 switches, 0 writes),
   acceptance shot `v4-spatial.png` (20-card marquee selection + context bar + proposal cards).
+
+## D-096 — Backend optimization plan: defaults taken + batch A executed (DECIDED)
+
+- **Decision:** Execute `BACKEND_OPTIMIZATION_PLAN.md` (user "开始执行" 2026-11-23). Three plan
+  defaults taken here: (1) deployment form = Docker self-hosted PostgreSQL per D-004 — the
+  adapter is DSN-driven so a managed DB connects the same way; Supabase not selected (no cloud
+  dependency, DESIGN_BOUNDARIES); (2) error format stays `{ok:false,kind,message}` — RFC 7807
+  `type` URIs are DEFERRED (zero client churn; the error catalog lands in API_CONTRACT instead);
+  (3) SLO defaults for a local single-node tool: availability 99.5%, read p95 ≤ 500ms,
+  write p95 ≤ 800ms — revisable on user input.
+- **Batch A executed:** DB-1 postgres adapter seam (`DatabaseHandle` unified over PGlite and
+  node-postgres, exec shape kept `[{rows}]`), DB-2 `schema_migrations` version table (startup
+  applies pending files only; legacy DBs stamped without replay), SEC-2 `GSC_ENV=production`
+  refuses `GSC_INGEST_ALLOW_PRIVATE` at startup. postgres acceptance is **pending** a reachable
+  server — stub-tested only, gated behind `GSC_PG_DSN` (no Docker daemon here, D-026 lineage).
+- **Concurrency note:** the parallel V5 session commits the shared working tree continuously and
+  swept the batch A implementation into its own commits mid-flight (2eeddb9 client seam,
+  bf73a90 migrate runner, f2a9768 config, 4783320 bootstrap, 55201f7 migration 0013,
+  53a4018 adapter tests, 264bdcb versioning tests; .env.example left in 5d8b2b7 whose message
+  records the scatter). Per-file `git log` verified every piece is in history.
+- **Status:** `DECIDED` — 2026-11-23, batch A verified: tsc=0, eslint=0, vitest 176 passed +
+  1 skipped (the GSC_PG_DSN acceptance), 10 new tests.
+
+## D-098 — Phase 07 M5 scenario loop: executed; Phase 07 COMPLETE (DECIDED)
+
+> Numbering note (2026-11-23): originally appended as D-093, colliding with the parallel line's
+> D-093 (B1/B2); renumbered to D-098.
+
+- **Decision:** Execute V5 per PHASE_07_V5_PLAN.md (user confirmed 2026-11-23, defaults adopted:
+  generated materials, real URLs with honest degradation, screenshots). Both scenarios ran the
+  full loop 入料→圈定→委派→提案→裁决→归因/溯源 with real API writes; adjudication performed by
+  agent on the user's behalf via real resolve calls (disclosed in the report, not faked UI clicks).
+- **Results:** Scenario A 20/20 materials ingested (idempotent re-sync verified); Scenario B
+  10/10 URLs captured (2 needed manual retry — auto-retry gap recorded). Delegation (real LLM)
+  produced 40+40 proposals that fell back into the space; adjudicated 3 accepts (all with
+  via-proposal traces), 3 rejects (zero edit traces), 1 defer (stays pending). Attribution
+  reconciliation 7/7 PASS (`scripts/verify-attribution.mjs`). Zero-copy probe PASS. Write ledger
+  fully accounted (32 ingest + 80 proposals + 6 adjudications, 0 background writes).
+- **Findings (P1, recorded for later):** proposal flood (detector metadata noise + per-chunk
+  capture naming — up to 12 proposals per target, pending 149→459+); no automatic capture retry;
+  classification proposals are review-marked only (by contract).
+- **Status:** `DECIDED` — 2026-11-23, executed. Evidence: `PHASE_07_M5_结论.md` +
+  m5-a5/a7/b1/b5 screenshots. **Phase 07 COMPLETE** (M1-M5: D-089/090/091, D-095+097 for M4, D-098 for M5).
+
+## D-097 — Batch B baseline + DB-4 evidence-driven rewrite: executed (DECIDED)
+
+- **Decision:** Run batch B of `BACKEND_OPTIMIZATION_PLAN.md` as measurement-first, then let the
+  measurements pick the rewrites (database-optimizer discipline: no optimization without a
+  baseline, one change at a time, no redundant indexes).
+- **Baseline (DB-3 + SRE-2):** `scripts/bench-backend.mjs` (zero new deps) — 7 HTTP workloads +
+  8 EXPLAIN (ANALYZE, BUFFERS) shapes + index inventory at N=1k and N=10k
+  (`docs/BACKEND_PERF_BASELINE.md`, `docs/BACKEND_PERF_BASELINE_10K.md`). Baseline facts
+  recorded: the write token bucket (60/min/key) IS the standing throughput policy (first run
+  hit 429 by design); PGlite single-connection serializes concurrent reads.
+- **DB-4 executed (two rewrites, one hotspot):** the 10k cliff (list p50 686ms with all SQL ≤20ms)
+  localized to `listItemsPaged`: (1) it loaded the ENTIRE `item_content` table into memory per
+  request to map page rows (multi-MB at 10k) — now fetches only the page's rows; (2) the `q`
+  keyword filter ran in JS *after* pagination (could only match within one page; `total` was a
+  lie) — now pushed into SQL over title/source_label/content_text (D-020 semantics). Result:
+  10k list p50 686→167ms (-76%), p95 867→190ms (back under the 500ms read SLO); keyword p95
+  879→270ms. Index audit verdict: zero changes — the page sort key matches `items_updated_id_idx`
+  and all other tables are covered; first EXPLAIN draft had the wrong sort key (created_at vs
+  actual updated_at) and was corrected before drawing conclusions.
+- **Left open (measured, not fixed):** `/api/search` full-scan p95 752ms @10k exceeds the read
+  SLO — deferred to be decided together with P3 semantic search (GAP-14). Non-hotspot workloads
+  moved ±10ms from machine load only (parallel session running on the same box).
+- **Status:** `DECIDED` — 2026-11-23. Verified: tsc=0, vitest 176 passed + 1 skipped after the
+  rewrite (q-semantics tests all green); before/after numbers archived in the baseline reports §4.

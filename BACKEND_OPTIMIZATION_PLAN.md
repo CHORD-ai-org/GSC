@@ -77,14 +77,33 @@ Status: `PROPOSED` — 2026-11-23，待确认后按批执行。
 依赖：DB-1 是 DB-3/SRE-4 的前置；DB-3 是 DB-4 的前置（**无基线不动手**）。
 每个候选开工前按 `AGENTS.md` §3 写七项任务卡入当批工作笔记。
 
-## 7. 待决策（3 个，`PROPOSED`）
+## 7. 待决策（3 个，已在 D-096 取默认裁决）
 
-1. **部署形态**（GLOBAL 遗留待裁）：Docker 自托管 PG / Supabase 托管 / 先只做适配器？→ 决定 DB-1 验收环境与 SRE-4 共享存储选型。
-2. **错误格式**：保持 `{ok:false,kind,message}` 只补文档，还是加 RFC 7807 `type` URI 字段（兼容叠加）？
-3. **SLO 数字**：可用性（99.5/99.9%？）、读 p95（200/500ms？）的预期——按 skill 纪律，没有你的用户影响依据不拍数字。
+1. **部署形态** → `DECIDED`（D-096）：Docker 自托管 PG（D-004 一致），适配器 DSN 驱动、托管库同口接入；Supabase 不选。
+2. **错误格式** → `DECIDED`（D-096）：保持 `{ok:false,kind,message}`，RFC 7807 `type` URI `DEFERRED`（零客户端改动）。
+3. **SLO 数字** → `DECIDED`（D-096，可改）：可用性 99.5%、读 p95 ≤ 500ms、写 p95 ≤ 800ms。
 
 ## 8. 不做（沿用 DESIGN_BOUNDARIES）
 
 - 不引微服务/队列/K8s/向量库；语义检索、跨设备云端是 P3 独立项不混入。
 - 不动 UI（见 `UI_BACKEND_OPTIMIZATION_PLAN.md`，U2 仍待 V4 提交后执行）。
 - 不为压测/生成引入运行时依赖；devDep 若引入（autocannon/openapi-typescript）记 DECISION_LOG 理由。
+
+## 9. 执行记录
+
+### 9.1 批次 A（2026-11-23，D-096）✅
+
+| 任务 | 状态 | 证据 |
+|---|---|---|
+| DB-1 postgres 适配 | ✅（验收挂起） | `DatabaseHandle` 统一接缝（PGlite / node-postgres，exec 形状 `[{rows}]`）；`DB_ADAPTER=postgres` + `DATABASE_URL` 配置校验。真库验收 `describe.skipIf(GSC_PG_DSN)` 1 例——本机无 Docker daemon，stub-tested only（D-026 血统），**未称已验收** |
+| DB-2 迁移版本表 | ✅ | `schema_migrations` 只跑未应用文件；legacy 库（无版本表）打标不重放；4 个单测（fresh 全量/二次 0 重放/legacy 打标/仅补新文件）。注：文件仍保持 IF NOT EXISTS 幂等双保险 |
+| SEC-2 生产配置门 | ✅ | `GSC_ENV=production` + `GSC_INGEST_ALLOW_PRIVATE=1` → readConfig 拒启报因；3 个配置单测 |
+
+验证：tsc=0 · eslint=0 · vitest 176 passed + 1 skipped。提交落在并行会话的 sweep 提交里（2eeddb9/bf73a90/f2a9768/4783320/55201f7/53a4018/264bdcb）+ 5d8b2b7（.env.example）——归属散布见 D-096 并发注记。
+
+### 9.2 批次 B（2026-11-23）✅
+
+| 任务 | 状态 | 证据 |
+|---|---|---|
+| DB-3 + SRE-2 基线 | ✅ | `scripts/bench-backend.mjs`（零新依赖）：HTTP 端到端 7 组工作负载 + 8 组 EXPLAIN (ANALYZE, BUFFERS) + 索引清单；`docs/BACKEND_PERF_BASELINE.md`（N=1k）+ `_10K.md`（N=10k）。基线事实：写限流 60/min 是吞吐策略上限（429 实证）；PGlite 单连接串行化并发读 |
+| DB-4 证据驱动改写 | ✅ | 证据链：10k 下 SQL 全部 ≤20ms 而端点 686ms p50 ⇒ Node 侧。定位 `listItemsPaged` ① `item_content` 全表拉内存 ② `q` 页内 JS 过滤（分页语义坏）。改写后 **10k list p50 686→167ms（-76%）、p95 867→190ms 回 SLO 内**；keyword p95 879→270ms。索引审计零改动（排序键与 `items_updated_id_idx` 匹配，不建冗余索引）。遗留：`search` 端点全表扫描 p95 752ms @10k 超 SLO，与 P3 GAP-14 一并裁 |

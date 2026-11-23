@@ -83,6 +83,18 @@ export async function listItemsPaged(
   }
   if (filters.type) baseConditions.push(eq(items.type, filters.type));
   if (filters.domain) baseConditions.push(eq(items.domain, filters.domain));
+  if (filters.q) {
+    // D-020 keyword filter pushed into SQL (DB-4): the old shape filtered the
+    // page in JS *after* pagination — it could only ever match within one page
+    // of rows and made `total` a lie. Substring, case-insensitive, over title,
+    // source label and typed text (content_text).
+    const needle = `%${filters.q.toLowerCase()}%`;
+    baseConditions.push(or(
+      sql`lower(${items.title}) like ${needle}`,
+      sql`lower(${items.source_label}) like ${needle}`,
+      sql`exists (select 1 from item_content qc where qc.item_id = ${items.id} and lower(coalesce(qc.content_text, '')) like ${needle})`,
+    )!);
+  }
   // total must describe exactly the rows a page can draw from — filter and
   // scope conditions, but never the cursor keyset (F8).
   const conditions = [...baseConditions];
@@ -103,13 +115,14 @@ export async function listItemsPaged(
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
 
-  const contents = await db.select().from(itemContent);
+  // DB-4: fetch content only for the page's rows — this used to pull the whole
+  // item_content table per request (multi-MB at 10k items; the list endpoint
+  // was 686ms p50 because of it).
+  const contents = page.length > 0
+    ? await db.select().from(itemContent).where(inArray(itemContent.item_id, page.map((r) => r.id)))
+    : [];
   const contentById = new Map(contents.map((c) => [c.item_id, c]));
-  let all = page.map((row) => toDTO(row, contentById.get(row.id)));
-  if (filters.q) {
-    const needle = filters.q.toLowerCase();
-    all = all.filter((item) => itemTextForFilter(item).includes(needle));
-  }
+  const all = page.map((row) => toDTO(row, contentById.get(row.id)));
   const [{ rowCount }] = await db.select({ rowCount: count() }).from(items).where(and(...baseConditions));
   const last = page[page.length - 1];
   return {
