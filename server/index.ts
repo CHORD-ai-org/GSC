@@ -8,7 +8,7 @@ import { runCaptureWorker } from './intel/pipeline.ts';
 import { startSyncScheduler } from './sync/scheduler.ts';
 
 const config = readConfig(process.env);
-const handle = await getDatabase(config.pgliteDir);
+const handle = await getDatabase({ dataDir: config.pgliteDir, adapter: config.dbAdapter, dsn: config.pgDsn });
 await migrate();
 const router = createApiRouter(config, handle.db);
 
