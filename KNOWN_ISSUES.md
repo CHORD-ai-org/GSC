@@ -163,3 +163,12 @@ Current verification note: `npm run check` passes. `npm test` could not start in
 D-092、D-093 双占。已将 Phase 07 侧的两条重编号为 **D-097**（V4 集成验收）与 **D-098**（M5），
 并在条目内注明原号。注意：优化流的 D-095 与 D-097 记录同一 V4 里程碑（各线视角）。
 防复发：追加决策前先 grep 号段最大值，或改用带前缀的号（如 P7-xx / OPT-xx）。
+
+## 2026-11-23 — PGlite 强杀损坏事故（已恢复为新库）
+
+`taskkill /F` 强杀 API 进程导致 `.data/pglite` 损坏（残留 postmaster.pid + 深层损坏，WASM 库
+Abort 拒启）。已保全残骸 `.data/pglite.corrupt-20261123`（**未删**），开发库迁至 `.data/pglite-v2`
+重建；17:47 前的开发数据不可恢复（11-20 有旧备份 `pglite.replaced-*` 但太旧）。教训与对策：
+① 停 API 用温和方式（让进程自然退出/关 stdin），别 kill -F；② PGlite 是单写者，进程被并行
+脚本（如 ui-checks.mjs）同时打开也会冲突——**这正是 LOCAL_SIM 走 Docker PG 的直接理由**，
+compose 起套后开发/模拟都不再碰 PGlite。
