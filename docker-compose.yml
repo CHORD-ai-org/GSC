@@ -1,0 +1,64 @@
+# GSC cloud-isomorphic topology (LOCAL_SIM_PLAN) — this file IS the deployment
+# file: what runs here runs on the cloud host unchanged (D-096 Docker + PG).
+#   db     PostgreSQL 16 (pgdata volume)
+#   api    HTTP API + Dashboard (GSC_WORKERS=off — background jobs live in worker)
+#   worker capture queue + source sync + schedules scheduler
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gsc
+      POSTGRES_PASSWORD: gsc
+      POSTGRES_DB: gsc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gsc']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    command: node server/index.ts
+    environment:
+      DB_ADAPTER: postgres
+      DATABASE_URL: postgres://gsc:gsc@db:5432/gsc
+      GSC_WORKERS: 'off'
+      HOST: 0.0.0.0
+      GSC_LLM_API_KEY: ${GSC_LLM_API_KEY:-}
+      GSC_LLM_BASE_URL: ${GSC_LLM_BASE_URL:-}
+      GSC_LLM_MODEL: ${GSC_LLM_MODEL:-}
+    ports:
+      - '8788:8788'
+    volumes:
+      - ./data/crawl:/app/data/crawl
+      - ./data/watch:/app/data/watch
+      - ./data/sim:/app/data/sim
+      # registered project folders (read-only) — schedules use /mnt/projects/... paths
+      - ${GSC_WATCH_ROOT:-./data/watch}:/mnt/projects:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: node server/worker.ts
+    environment:
+      DB_ADAPTER: postgres
+      DATABASE_URL: postgres://gsc:gsc@db:5432/gsc
+      HOST: 0.0.0.0
+      GSC_LLM_API_KEY: ${GSC_LLM_API_KEY:-}
+      GSC_LLM_BASE_URL: ${GSC_LLM_BASE_URL:-}
+      GSC_LLM_MODEL: ${GSC_LLM_MODEL:-}
+    volumes:
+      - ./data/crawl:/app/data/crawl
+      - ./data/watch:/app/data/watch
+      - ./data/sim:/app/data/sim
+      - ${GSC_WATCH_ROOT:-./data/watch}:/mnt/projects:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
