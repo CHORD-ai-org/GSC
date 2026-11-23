@@ -27,6 +27,7 @@ import type { GlyphKind } from '../components/Glyph.tsx';
 import type { TagDefinitionDTO } from '../lib/tags.ts';
 import type { LlmPublicConfig } from '../services/api.ts';
 import * as api from '../services/api.ts';
+import { MCP_CLIENT_TARGETS, MCP_SNIPPET_FILE, mcpSnippet, type McpClientTarget } from '../lib/mcpSnippets.ts';
 import styles from './views.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
@@ -535,6 +536,63 @@ function TokenSection() {
 
 type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'news' | 'privacy';
 
+/* MCP_CONFIG_UI_PLAN U-1/U-3 — Settings › MCP onboarding card. */
+function McpSection() {
+  const t = useT();
+  const toast = useToast();
+  const [meta, setMeta] = useState<api.McpMetaResponse | null>(null);
+  const [target, setTarget] = useState<McpClientTarget>('claude-code');
+  const [token, setToken] = useState('');
+  const [root, setRoot] = useState('');
+  useEffect(() => {
+    void api.getMcpMeta().then(setMeta).catch(() => setMeta(null));
+  }, []);
+  const snippet = mcpSnippet(target, {
+    // dev splits frontend/API origins — prefer the API base the server reports
+    url: meta?.env.find((e) => e.name === 'GSC_API_URL')?.example
+      ?? (typeof window === 'undefined' ? 'http://127.0.0.1:8788' : window.location.origin),
+    token,
+    root: root.trim() || undefined,
+  });
+  return (
+    <div className={styles.settingBlock}>
+      <div className={styles.settingCaption}>{t('mcp.caption')}</div>
+      <div className={styles.settingValue}>{t('mcp.intro')}</div>
+      {meta ? (
+        <div className={styles.settingValue}>
+          {t('mcp.command')}: <code>{meta.command}</code> · {meta.server.name} v{meta.server.version}
+        </div>
+      ) : (
+        <div className={styles.hint}>{t('mcp.loadFailed')}</div>
+      )}
+      <div className={styles.addRow}>
+        <input className={styles.settingInput} placeholder={t('mcp.repoRoot')} value={root} onChange={(e) => setRoot(e.target.value)} />
+        <input className={styles.settingInput} placeholder={t('mcp.tokenHint')} value={token} onChange={(e) => setToken(e.target.value)} />
+        <select className={styles.select} value={target} onChange={(e) => setTarget(e.target.value as McpClientTarget)}>
+          {MCP_CLIENT_TARGETS.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className={styles.settingValue}>{t('mcp.snippetFile')}: <code>{MCP_SNIPPET_FILE[target]}</code> · {t('mcp.needRw')}</div>
+      <pre className={styles.settingValue} style={{ overflowX: 'auto' }}><code>{snippet}</code></pre>
+      <button type="button" className={styles.primaryButton} onClick={() => {
+        void navigator.clipboard.writeText(snippet).then(() => toast(t('mcp.copied')));
+      }}>{t('mcp.copy')}</button>
+      <div className={styles.settingCaption}>{t('mcp.tools')}</div>
+      {meta ? (
+        <div className={styles.list}>
+          {meta.tools.map((tool) => (
+            <div className={styles.listRow} key={tool.name}>
+              <span className={styles.rowTitle}>{tool.name}</span>
+              <span className={styles.rowType}>{tool.annotations?.readOnlyHint ? t('mcp.readOnly') : t('mcp.write')}</span>
+              <span className={styles.settingValue}>{tool.description}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const SETTINGS_NAV: { id: SettingsSection; labelKey: string }[] = [
   { id: 'general', labelKey: 'settings.general' },
   { id: 'account', labelKey: 'settings.account' },
@@ -783,6 +841,7 @@ export function SettingsPage({
           <>
             <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
             <TokenSection />
+            <McpSection />
             <div className={styles.settingBlock}>
               <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
               <div className={styles.settingValue}>{t('settings.connClaude')}</div>

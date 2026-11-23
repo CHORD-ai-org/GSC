@@ -1,0 +1,1 @@
+{"bodyLen":13496,"errs":[],"url":"http://localhost:5175/settings","found":true,"hasSnippet":true,"hasPlaceholder":true,"toolCount":9,"tools":["gsc_get_chunk","gsc_list_chunks","gsc_search","gsc_browse_clusters","gsc_get_cluster","gsc_browse_contexts","gsc_get_context","gsc_get_user_profile","gsc_propose"]}

@@ -91,6 +91,7 @@ export type ApiResponse =
   | CaptureTaskListResponse
   | TokenListResponse
   | TokenCreateResponse
+  | McpMetaResponse
   | SpatialLayoutResponse
   | { ok: true; saved: number }
   | { ok: true; deleted: true }
@@ -551,6 +552,20 @@ export function listCaptureTasks(): Promise<CaptureTaskListResponse> {
 export type TokenSummary = { id: string; name: string; scope: 'read' | 'rw'; userId: string; created_at: string };
 export type TokenListResponse = { ok: true; tokens: TokenSummary[] };
 export type TokenCreateResponse = { ok: true; id: string; token: string; name: string; scope: 'read' | 'rw' };
+
+// M-2: MCP onboarding metadata (shared tool registry; no secrets).
+export type McpMetaTool = { name: string; description: string; inputSchema: Record<string, unknown>; annotations?: Record<string, boolean> };
+export type McpMetaResponse = {
+  ok: true;
+  server: { name: string; version: string };
+  command: string;
+  env: { name: string; required: boolean; example: string }[];
+  tools: McpMetaTool[];
+};
+
+export function getMcpMeta(): Promise<McpMetaResponse> {
+  return request<McpMetaResponse>('/api/meta/mcp');
+}
 
 export function listTokens(): Promise<TokenListResponse> {
   return request<TokenListResponse>('/api/tokens');
