@@ -2,7 +2,9 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **Phase 07 V4 空间工作台完成（M4，D-095）**：摆位/圈选/委派/提案卡回落全链路 + Q-E 两档（scratch localStorage / kept spatial_layouts 表）+ 零副本探针 12 切 0 写，vitest 167/167。下一步 V5 场景闭环（M5：采集→对象→圈定委派→提案→确认→溯源 双场景 + 归因校验 + 零副本断言）。并行线：UI/后端优化计划（D-092…D-094）批次 C U1/U3 已落地（79fb666），U2 collections 合并待 V4 提交后执行；新计划 `BACKEND_OPTIMIZATION_PLAN.md`（PROPOSED，2026-11-23）：jeffallan/claude-skills 四视角（DB 基线/API 契约/SLO/安全收尾），批次 A 地基→B 基线→C 证据驱动→D 可靠性，3 个待裁（部署形态/错误格式/SLO 数字）。
+> Status: **创始人目标已拆解（D-100，GOALS_2026-11-23.md）**：G1 组件拆分+component-list.md（最高，已出 v1）→ G2 三端采集闭环（opencode/codex/workbuddy 分组上传→Agent 分块，这两天）→ G3 插件兼容矩阵（这两天）→ G4 原始信息缩放+语义标题 / G5 Meta-tag v1.0 / G6 信息模型 v1.0（本周）。提案制不变，分块=提案。
+> Prior: P1 提案面治理完成（D-099，2026-11-23）**：detector 去重键错配根修（洪峰主因）+ 命名聚合（12→2）+ 采集自动重试（退避 3 次）+ UI 折叠（12 行→3 组）+ 存量清理（pending 497→255、0 重复），vitest 182+1skip/183。遗留 P2：批量裁决 UI（后置）。并行线：U2 collections 合并待执行；BACKEND_OPTIMIZATION 批次推进中（D-096 已拍部署/错误格式/SLO）。
+> Prior: Phase 07 COMPLETE（2026-11-23，D-089..091/095/097/098）**：M1 痕迹 → M2 多投影 → M3 归因提案 → M4 空间工作台 → M5 双场景闭环（归因对账 7/7 PASS、写账本 32+80+6 笔可数、零副本实证）；三感觉落点齐（Ream 痕迹/Huabu 圈定/CLEO 归因）。遗留 P1：提案堆积（detector 噪声+管线按 chunk 命名单目标 12 条）、采集无自动重试。并行线：UI/后端优化计划（D-092…D-094/096）批次 C U1/U3 已落地（79fb666），U2 collections 合并待执行；新计划 `BACKEND_OPTIMIZATION_PLAN.md`（jeffallan/claude-skills 四视角）：批次 A 地基（DB-1 适配器验收挂起 docker、DB-2 版本表、SEC-2 生产门，D-096 三默认裁决）+ 批次 B 基线（D-097：1k/10k 压测 + EXPLAIN 入 docs/，DB-4 改写 listItemsPaged 全表内容加载与 q 页内过滤 → 10k list p50 686→167ms 回 SLO）已执行完（0501d86）；剩批次 C/D（API 分页/契约 + SRE/SEC），search 端点全表扫描超 SLO 待与 GAP-14 一并裁。
 
 ## User approvals received 2026-11-16
 
