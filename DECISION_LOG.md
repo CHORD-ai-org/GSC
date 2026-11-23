@@ -1167,3 +1167,27 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   not product UI — keeping it out of the GSC app keeps the product surface honest.
 - **Status:** `DECIDED` — 2026-11-23, executed. Verified: page 200 + proxy returns schedules,
   screenshot `local-dashboard-standalone.png`, tsc=0, bat smoke (both services healthy).
+
+## D-103 — G2 three-client capture loop: executed (DECIDED)
+
+- **Decision:** Execute G2_CAPTURE_LOOP_PLAN.md (user confirmed 2026-11-23 with defaults:
+  codex notify-hook auto-push, WorkBuddy as user-level skill, block assignment by content).
+  Founder instruction: expand the WorkBuddy channel (easiest to test) — delivered as the full
+  `gsc-push` skill with capability table, group conventions, commands, verification checklist.
+- **Delivered:** `POST /api/ingest/batch` (group=client×project×session → agent source anchor,
+  snapshot-idempotent, Light Up pipeline, then best-effort block-assignment `cluster` proposals);
+  `integrations/gsc-push.mjs` shared CLI (incl. `--codex-event` notify-hook entry with rollout
+  harvesting); opencode plugin (`session.idle` push); codex config.toml notify integration doc;
+  WorkBuddy skill at `~/.workbuddy/skills/gsc-push/`; cluster-accept **merge semantics** (existing
+  same-title cluster → join as member, else create — natural extension of D-042); G3 matrix
+  completed in component-list.md.
+- **Live verification (WorkBuddy channel, the acceptance):** push → `imported=1`, source anchor
+  `agent:workbuddy:GSC`; re-push → `imported=0 skipped=1` (idempotent); naming + classification
+  proposals land; block-assignment chain confirmed (`block_proposals=1` on a follow-up push).
+  Two real bugs caught by the loop and fixed: (1) LLM contract fragility — models sometimes wrap
+  the array in an object ("Agent reply is not an array") → tolerate wrapped arrays;
+  (2) hallucinated item ids in block assignments violated the proposals FK → unknown-id guard
+  in the organizer (+ prompt hardened to copy full ids).
+- **Status:** `DECIDED` — 2026-11-23, executed. opencode/codex integration pieces are written
+  and installed-ready; their live end-to-end run (real session push) is the remaining acceptance
+  item, with the documented risk that codex rollout JSONL is not a stable API.
