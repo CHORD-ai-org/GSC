@@ -28,6 +28,11 @@ import { searchAll } from './repo/search.ts';
 import { createRelation, listRelations, listRelationsForItems } from './repo/relations.ts';
 import { listEvents, listEventsForItems, appendEvent, activityCountsByItem } from './repo/events.ts';
 import { getSpatialLayout, putSpatialLayout } from './repo/spatial.ts';
+import {
+  listSchedules, createSchedule, updateSchedule, deleteSchedule,
+} from './repo/schedules.ts';
+import { runScheduleNow } from './intel/scheduler.ts';
+import { validateCreateScheduleBody, validateUpdateScheduleBody } from '../src/lib/schedules.ts';
 import { computeAttribution } from '../src/lib/events.ts';
 import {
   addContextMember,
@@ -329,6 +334,34 @@ async function hSpatialPut(ctx: RouteCtx): Promise<RouteResult> {
     Boolean((body as Record<string, unknown>).replace),
   );
   return ok({ ok: true, saved });
+}
+
+async function hSchedulesList(ctx: RouteCtx): Promise<RouteResult> {
+  /* LOCAL_SIM: scheduler registry read. */
+  return ok({ ok: true, schedules: await listSchedules(ctx.db) });
+}
+
+async function hSchedulesCreate(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, body, viewerId } = ctx;
+  return ok({ ok: true, schedule: await createSchedule(db, body as Parameters<typeof createSchedule>[1], viewerId) }, 201);
+}
+
+async function hSchedulePatch(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, body, params } = ctx;
+  const updated = await updateSchedule(db, params[0], body as Parameters<typeof updateSchedule>[2]);
+  return updated ? ok({ ok: true, schedule: updated }) : fail('not_found', 'Schedule not found');
+}
+
+async function hScheduleDelete(ctx: RouteCtx): Promise<RouteResult> {
+  const removed = await deleteSchedule(ctx.db, ctx.params[0]);
+  return removed ? ok({ ok: true, deleted: true }) : fail('not_found', 'Schedule not found');
+}
+
+async function hScheduleRun(ctx: RouteCtx): Promise<RouteResult> {
+  /* Console "run now": inline execution guarded by the running lock. */
+  const { db, config, params } = ctx;
+  const result = await runScheduleNow(db, config, params[0]);
+  return result.ok ? ok({ ok: true, detail: result.detail }) : fail('contract', result.detail);
 }
 
 async function hRelationsGet(ctx: RouteCtx): Promise<RouteResult> {
@@ -985,6 +1018,21 @@ export const ROUTES: RouteSpec[] = [
   },
   { pattern: /^\/api\/events$/, ops: [{ method: 'GET', handler: hEventsGet }] },
   { pattern: /^\/api\/spatial-layout$/, ops: [{ method: 'GET', handler: hSpatialGet }, { method: 'PUT', handler: hSpatialPut, body: true, idem: true }] },
+  {
+    pattern: /^\/api\/schedules$/,
+    ops: [
+      { method: 'GET', handler: hSchedulesList },
+      { method: 'POST', handler: hSchedulesCreate, body: true, validate: validateCreateScheduleBody, validateMessage: 'Invalid schedule body', idem: true },
+    ],
+  },
+  {
+    pattern: /^\/api\/schedules\/([^/]+)$/,
+    ops: [
+      { method: 'PATCH', handler: hSchedulePatch, body: true, validate: validateUpdateScheduleBody, validateMessage: 'Invalid schedule patch', idem: true },
+      { method: 'DELETE', handler: hScheduleDelete, idem: true },
+    ],
+  },
+  { pattern: /^\/api\/schedules\/([^/]+)\/run$/, ops: [{ method: 'POST', handler: hScheduleRun, idem: true }] },
   {
     pattern: /^\/api\/relations$/,
     ops: [
