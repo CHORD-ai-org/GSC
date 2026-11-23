@@ -11,19 +11,13 @@ import type { ProposalDTO } from '../lib/proposals.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
 import { listProposals, resolveProposal } from '../services/api.ts';
 import type { ContextIndexEntry } from './pages.tsx';
-import { useT } from '../lib/i18n.tsx';
+import { useI18n, useT } from '../lib/i18n.tsx';
+import { fieldLabel } from '../lib/itemFields.ts';
 import styles from './views.module.css';
 
 export type ClusterIndexEntry = ClusterDTO & { member_ids: string[] };
 
-const fieldLabels: Record<string, string> = {
-  content_text: 'Content', author: 'Author', locator: 'Locator', filename: 'Filename',
-  storage_ref: 'Storage ref', mime_type: 'MIME type', captured_at: 'Captured at',
-  measured_at: 'Measured at', definition: 'Definition', notes: 'Notes', claim: 'Claim',
-  reasoning: 'Reasoning', name: 'Name', steps: 'Steps', intended_use: 'Intended use',
-  statement: 'Statement', alternatives: 'Alternatives', consequences: 'Consequences',
-  source_item_id: 'Source item',
-};
+/* U3: field vocabulary single-sourced in lib/itemFields.ts (was fieldLabels here). */
 
 const definitionFields: Record<string, string[]> = {
   'object.concept': ['definition'],
@@ -230,7 +224,7 @@ export function RawDetailView({
 }) {
   const [pickCtx, setPickCtx] = useState('');
 
-  const t = useT();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
+  const { t, lang } = useI18n();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
   const { item, relations, events } = detail;
   const titleOf = (id: string) => items.find((i) => i.id === id)?.title ?? id;
   const derived = relations.outgoing.find((r) => r.kind === 'derived_from');
@@ -260,7 +254,7 @@ export function RawDetailView({
             <RailKvs rows={[
               [t('detail.createdUpdated'), `${item.created_at.slice(0, 16).replace('T', ' ')} · ${item.updated_at.slice(0, 16).replace('T', ' ')}`],
               [t('detail.id'), item.id],
-              ...extraFields.map(([key, value]) => [fieldLabels[key] ?? key, <>{value}<OwnerDot owner={detail.attribution?.field_owners[`fields.${key}`]} /></>] as [string, ReactNode]),
+              ...extraFields.map(([key, value]) => [fieldLabel(key, lang), <>{value}<OwnerDot owner={detail.attribution?.field_owners[`fields.${key}`]} /></>] as [string, ReactNode]),
             ]} />
           </More>
         </>
@@ -352,7 +346,7 @@ export function ObjectDetailView({
 }) {
   const [pickCtx, setPickCtx] = useState('');
 
-  const t = useT();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
+  const { t, lang } = useI18n();  if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
   const { item, relations, events } = detail;
   const titleOf = (id: string) => items.find((i) => i.id === id)?.title ?? id;
   const typeOf = (id: string) => items.find((i) => i.id === id)?.type;
@@ -403,14 +397,14 @@ export function ObjectDetailView({
         <>
           <RailBadges badges={[[t('detail.type'), item.type], [t('detail.domain'), item.domain], [t('detail.status'), item.status]]} />
           <RailKvs rows={[
-            ['Origin', item.origin],
+            [t('detail.origin'), item.origin],
             [t('detail.sourceLabel'), item.source_label || '—'],
           ]} />
           <More label={t('detail.more')}>
             <RailKvs rows={[
               [t('detail.createdUpdated'), `${item.created_at.slice(0, 16).replace('T', ' ')} · ${item.updated_at.slice(0, 16).replace('T', ' ')}`],
               [t('detail.id'), item.id],
-              ...propFields.map(([key, value]) => [fieldLabels[key] ?? key, value as string] as [string, ReactNode]),
+              ...propFields.map(([key, value]) => [fieldLabel(key, lang), value as string] as [string, ReactNode]),
             ]} />
           </More>
         </>
@@ -438,7 +432,7 @@ export function ObjectDetailView({
           <div className={styles.hint}>{t('detail.noDefinition')}</div>
         ) : coreFields.map(([key, value]) => (
           <div className={styles.fieldBlock} key={key}>
-            <div className={styles.kvLabel}>{fieldLabels[key] ?? key}</div>
+            <div className={styles.kvLabel}>{fieldLabel(key, lang)}</div>
             <div className={styles.fieldValue}>{value}<OwnerDot owner={detail.attribution?.field_owners[`fields.${key}`]} /></div>
           </div>
         ))}
