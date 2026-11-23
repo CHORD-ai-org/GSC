@@ -69,3 +69,12 @@ Type sources of truth: `src/lib/{items,relations,events,contexts,clusters,propos
 | Offline fallback | Export page / `GSC-CONTEXT.md` |
 
 History semantics: every create/update/accept-applying mutation appends exactly one event; `origin` is descriptive (`user | import | agent`), never a trust level.
+
+## MCP onboarding (M-2)
+
+- `GET /api/meta/mcp`（read scope）→ `{ ok, server: {name, version}, command: 'npm run mcp',
+  env: [{name, required, example}], tools: McpTool[] }`。
+- `tools` 与 stdio MCP server 的 `tools/list` **同源**（`server/mcp/tools.ts` 注册表单点），
+  含 `annotations`（readOnly/idempotent/destructive）；契约测试锁死两面一致。
+- 响应**不含任何 secret**：PAT 明文只在 `POST /api/tokens` 创建时一次性回显（T301 先例）。
+- 消费方：Settings › MCP 板块（接入命令卡 + 客户端配置片段 + 工具清单卡）。

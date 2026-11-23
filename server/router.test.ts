@@ -359,3 +359,21 @@ describe('SSRF guard (O1-3)', () => {
     }
   });
 });
+
+describe('M-2 /api/meta/mcp (shared MCP tool registry)', () => {
+  it('serves the tool registry and connect command with no secrets', async () => {
+    const { MCP_TOOLS, MCP_SERVER_INFO } = await import('./mcp/tools.ts');
+    const res = fakeRes();
+    await router(fakeReq('GET', '/api/meta/mcp') as IncomingMessage, res as unknown as ServerResponse, () => {});
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.server).toEqual(MCP_SERVER_INFO);
+    expect(body.command).toBe('npm run mcp');
+    // anti-drift: the endpoint lists exactly the shared registry
+    expect(body.tools.map((t: { name: string }) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name));
+    for (const tool of body.tools) expect(tool.annotations, tool.name).toBeTruthy();
+    // no token material of any kind in the payload
+    expect(res.body).not.toMatch(/token_[a-z0-9]/i);
+  });
+});

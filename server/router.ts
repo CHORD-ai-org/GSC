@@ -106,6 +106,7 @@ import { storeTextFile } from './storage/local.ts';
 import { createAuthz } from './authz.ts';
 import type { RouteCtx, RouteResult, RouteSpec } from './pipeline.ts';
 import { dispatch, fail, knownRoutes, ok } from './pipeline.ts';
+import { MCP_SERVER_INFO, MCP_TOOLS } from './mcp/tools.ts';
 
 const rateLimiter = new RateLimiter(); // O1-5: single-process bucket store
 
@@ -161,6 +162,21 @@ async function clusterOwnerOnly(ctx: RouteCtx, id: string, message: string): Pro
 
 async function hTrashGet(ctx: RouteCtx): Promise<RouteResult> {
   return ok({ ok: true, items: await listDeletedItems(ctx.db) });
+}
+
+/* M-2: MCP onboarding metadata — the Settings page renders the tool list and
+   connect command from here (never hardcoded in the UI). Read-only, no secrets. */
+function hMetaMcpGet(): RouteResult {
+  return ok({
+    ok: true,
+    server: MCP_SERVER_INFO,
+    command: 'npm run mcp',
+    env: [
+      { name: 'GSC_API_URL', required: true, example: 'http://127.0.0.1:8788' },
+      { name: 'GSC_API_TOKEN', required: true, example: '<PAT — scope read for tools, rw for gsc_propose>' },
+    ],
+    tools: MCP_TOOLS,
+  });
 }
 
 async function hItemRestore(ctx: RouteCtx): Promise<RouteResult> {
@@ -951,6 +967,7 @@ export const ROUTES: RouteSpec[] = [
   { pattern: /^\/api\/items\/([^/]+)\/restore$/, ops: [{ method: 'POST', handler: hItemRestore, idem: true }] },
   { pattern: /^\/api\/items\/([^/]+)\/purge$/, ops: [{ method: 'POST', handler: hItemPurge, idem: true }] },
   { pattern: /^\/api\/search$/, ops: [{ method: 'GET', handler: hSearchGet }] },
+  { pattern: /^\/api\/meta\/mcp$/, ops: [{ method: 'GET', handler: hMetaMcpGet }] },
   {
     pattern: /^\/api\/items$/,
     ops: [

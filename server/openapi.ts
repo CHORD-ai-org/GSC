@@ -119,6 +119,9 @@ const META: Record<string, Partial<Record<string, Meta>>> = {
     get: { summary: 'List API tokens (metadata only)', tag: 'Tokens' },
     post: { summary: 'Mint an API token (plaintext returned once)', tag: 'Tokens' },
   },
+  '/api/meta/mcp': {
+    get: { summary: 'MCP onboarding metadata (shared tool registry + connect command)', tag: 'MCP', response: 'McpMetaResponse' },
+  },
 };
 
 const SCHEMAS: Record<string, unknown> = {
@@ -156,6 +159,17 @@ const SCHEMAS: Record<string, unknown> = {
   CreateClusterBody: { type: 'object', required: ['title'], properties: { title: { type: 'string' }, description: { type: 'string' } } },
   LlmConfigPatch: { type: 'object', properties: { provider: { type: 'string' }, base_url: { type: 'string', format: 'uri' }, model: { type: 'string' }, api_key: { type: 'string', writeOnly: true } } },
   LlmConfigResponse: { type: 'object', properties: { ok: { type: 'boolean' }, config: { type: 'object', properties: { provider: { type: 'string' }, base_url: { type: 'string' }, model: { type: 'string' }, key_set: { type: 'boolean' }, key_hint: { type: 'string' }, key_status: { type: 'object', additionalProperties: { type: 'boolean' } } } } } },
+  McpMetaResponse: {
+    type: 'object',
+    description: 'MCP onboarding metadata: shared tool registry + stdio connect command (no secrets).',
+    properties: {
+      ok: { type: 'boolean' },
+      server: { type: 'object', properties: { name: { type: 'string' }, version: { type: 'string' } } },
+      command: { type: 'string' },
+      env: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, required: { type: 'boolean' }, example: { type: 'string' } } } },
+      tools: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, inputSchema: { type: 'object', additionalProperties: true }, annotations: { type: 'object', additionalProperties: true } } } },
+    },
+  },
 };
 
 export function buildOpenApi(): Record<string, unknown> {
