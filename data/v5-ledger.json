@@ -22,5 +22,22 @@
     "label": "A: 读书会(拒绝,无编辑)",
     "expect": { "user_edits": 0, "agent_edits": 0, "field_owners": {} },
     "noEditAfter": "prp_5e3c3b5d"
+  },
+  {
+    "item_id": "raw_f9c40abb-873b-4d9f-8043-418ea4547b8e",
+    "label": "B: Transformer笔记(采纳重命名)",
+    "expect": { "user_edits": 0, "agent_edits": 1, "field_owners": { "title": "agent" } },
+    "via": "prp_2e3cb370-831f-4e73-80f2-625dc9096c06"
+  },
+  {
+    "item_id": "raw_0c8362f5-e320-49cf-8dbf-1225b5a264cc",
+    "label": "B: BERT笔记(拒绝,无编辑)",
+    "expect": { "user_edits": 0, "agent_edits": 0, "field_owners": {} },
+    "noEditAfter": "prp_15cea69d"
+  },
+  {
+    "item_id": "raw_ad91be7d-3f4a-4d98-94ab-69dd05f8bf8f",
+    "label": "B: web条目(管线提案未裁决,无编辑)",
+    "expect": { "user_edits": 0, "agent_edits": 0, "field_owners": {} }
   }
 ]
