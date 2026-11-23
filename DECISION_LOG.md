@@ -861,3 +861,67 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   edge visibility across owners.
 - **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 138/138 (28 files),
   zero-copy probe PASS, screenshots `v2-relations.png` / `v2-timeline.png`.
+
+## D-091 — Phase 07 V3 attribution & inline proposals: executed (DECIDED)
+
+- **Decision:** Execute V3 per PHASE_07_V3_PLAN.md (user confirmed 2026-11-23, three defaults
+  accepted). Result: (1) edit-level attribution — `updateItem` takes optional `{actor, via}`;
+  accepted proposals apply as actor=agent with `| via proposal <id>` in the event detail;
+  association proposals create relations with created_by=agent. (2) `computeAttribution(events)`
+  pure function (shared server/V5): edit counts + per-field last editor. (3) Detail page:
+  attribution strip (green you / purple agent / amber pending-proposal chips), per-field owner
+  dots, inline proposal rows with 采纳/拒绝/暂缓 (defer = local dismiss, stays pending — schema
+  vocabulary is accepted|rejected only).
+- **Attribution semantics (confirmed):** a change applied via an accepted proposal is recorded
+  as agent-originated; the human confirmation shows up in the proposal's own status transition —
+  consistent with D-042 (machine products stay machine-labelled even after confirmation).
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 140/140
+  (29 files, +2 attribution tests), live attribution payload + 3 pending proposal rows on
+  detail page, screenshot `v3-attribution.png`.
+
+## D-092 — UI/backend optimization plan: defaults taken + batch A executed (DECIDED)
+
+- **Decision:** Execute `UI_BACKEND_OPTIMIZATION_PLAN.md` batches A→B→C (user "开始执行"
+  2026-11-23). Three plan defaults taken and decided here: (1) this plan runs before Phase 07
+  V4 — V4 is blocked on the Q-E archive-tier decision anyway; (2) hide-vs-forbid = **404 hide
+  existence** for unauthorized reads (consistent with `restoreItem`'s `not_found`; alternative
+  403 rejected — it leaks existence and enables probing in shared mode; `PATCH item`'s current
+  `contract` leak gets fixed in B2); (3) soft-delete stays items-only for now — expanding
+  `deleted_at` to contexts/clusters/sources/tags is `DEFERRED` (the `notDeleted()` predicate
+  seam in `server/repo/items.ts` is the single source to copy when it happens).
+- **Batch A executed (U4 + B3):**
+  - U4 flaky root cause found: `sharing`/`attribution`/`engagement` integration tests boot a
+    real PGlite + migrations inside one `it()` and exceeded vitest's default 5s timeout under
+    parallel worker contention (reproduced: 4 failed at ~5.02–5.08s). Fix: `testTimeout: 20_000`
+    in `vitest.config.ts`. Drift vs plan text: the plan guessed "fake clock / throttle windows";
+    the tests are deterministic, the timeout was the lie.
+  - B3: `updateItem` now wraps items + content + events in `db.transaction` (its comment claimed
+    atomicity since O1-4; the code never did). Soft-delete read predicate single-sourced as
+    `notDeleted()` (was 5 hand-written `isNull(items.deleted_at)`).
+  - The O1-4 acceptance "injected failure → no orphan rows" was never actually tested (execution
+    record only noted "67 tests pass") — now written: `server/repo/items.test.ts` injects a
+    failing `events` insert through a proxy Database and proves createItem leaves no orphans and
+    updateItem leaves no half-update (title/content unchanged, no phantom event).
+- **Status:** `DECIDED` — 2026-11-23, batch A verified. tsc=0, eslint=0, vitest 142/142
+  (30 files, +2 injection tests) × 3 consecutive rounds green.
+
+## D-093 — B1 route pipeline + B2 authz decision point: executed (DECIDED)
+
+- **Decision:** Execute batch B of `UI_BACKEND_OPTIMIZATION_PLAN.md`. (1) B1: `server/pipeline.ts`
+  dispatch table (`ROUTES` in `router.ts`); KNOWN_ROUTES is now *derived* from the handler table
+  (route-manifest drift structurally impossible); body/validation/idempotency configured per method;
+  idempotent-write extended from 3 endpoints to all write endpoints except the documented
+  run-action exceptions (`sources/:id/sync`, `llm/check` — re-running should re-run, not replay).
+  (2) B2: `server/authz.ts` single decision point; D-092 policy landed — invisible → 404,
+  visible-but-not-permitted → 403 (was scattered 400 'contract'); list-level owner filtering for
+  GET /api/contexts | /api/clusters | /api/sources (fixes the list-IDOR where any valid token saw
+  every row); items pagination now scoped in SQL so `total`/`next_cursor` only describe visible rows.
+- **Drift found and removed during work:** `POST|DELETE /api/items/:id/relations` was declared in
+  KNOWN_ROUTES and documented in openapi META but had **no handler** (every call fell to 405) —
+  a phantom route. Removed from the manifest and META; relation creation remains
+  `POST /api/relations` (the only endpoint the client ever used).
+- **Alternatives rejected:** keeping the if-chain and just extracting helpers (drift surface stays);
+  blanket-404 for role denials on visible clusters (share holders would lose honest feedback).
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, eslint=0, vitest 149/149
+  (31 files, +7 pipeline/authz tests), `api-checks.mjs` 12/12. sharing.test.ts assertions updated
+  400→403 per the policy change (recorded here so the diff reads as intentional).

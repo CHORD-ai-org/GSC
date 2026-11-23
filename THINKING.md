@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **Phase 07 V2 多投影切换完成（M2，D-090）**：ViewSwitcher 五态 + 时间线/关系投影 + saved views + GET /api/events|/api/relations（零副本探针 10 切 0 写），vitest 138/138。下一步 V3 归因与提案面（M3）→ V4 空间（待 Q-E）→ V5 闭环。
+> Status: **Phase 07 V3 归因与提案面完成（M3，D-091）**：actor 穿线（提案接受=agent+via 标注）、computeAttribution、详情归因条/字段圆点/内嵌提案三键行，vitest 140/140。下一步 V4 空间工作台（⚠️ 待 Q-E 档位拍板）→ V5 闭环留证。
 
 ## User approvals received 2026-11-16
 
@@ -53,6 +53,10 @@ Plan: `PHASE_05_UI_PLAN.md` (P5-0…P5-6, milestones M1–M6). Requirements read
 ## Next action after approval
 
 User to pick from `DIVERGENCE_PLAN.md` §4 (priority order, D1 provider form, D2 delivery form), then write task cards for the chosen direction(s). Phase 06 (formerly 05) — execute scenarios A–D with observed results — stays gated on user approval.
+
+## UI/backend optimization plan drafted (2026-11-23)
+
+`UI_BACKEND_OPTIMIZATION_PLAN.md` (Status: `PROPOSED`) — architecture-deepening plan produced with the mattpocock/skills improve-codebase-architecture + codebase-design method (deep-module vocabulary). Candidates: B1 route handler pipeline, B2 authorize module (fixes list-level IDOR on GET /api/contexts|clusters|sources), B3 updateItem transaction, U1 client data layer (25× try/catch + hand-picked invalidation), U2 collections merge + URL filter state, U3 ItemFields vocabulary, U4 flaky test baseline (vitest 138/140 wobbles). Batches: A (U4→B3) → B (B1→B2) → C (U1→U3→U2). Open decisions: ordering vs Phase 07 V4 (V3 itself landed 2026-11-23 as D-091, no conflict), hide-vs-forbid policy, soft-delete scope. Awaiting user pick.
 
 ## Registration receipt demo completed (2026-11-22)
 

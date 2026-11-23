@@ -521,3 +521,11 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - 新只读端点：GET /api/events?item_ids=（限 200 ids/1000 条）、GET /api/relations?item_ids=（两端均可见才返回）；均注册 KNOWN_ROUTES（顺手补漏 POST /api/relations 注册漂移）。
 - Saved views：命名筛选+视图组合存 localStorage（保存当前筛选/视图库/删除）。
 - 验证：tsc=0 lint=0 vitest 138/138（+server/views-projections.test.ts 2 测）；零副本探针 10 次切换 0 写；截图 v2-relations.png / v2-timeline.png。
+
+## Phase 07 — V3 归因与提案面（M3）：COMPLETE（2026-11-23）
+
+- actor 穿线：updateItem(opts: actor/via)，提案接受 → actor=agent + `via proposal <id>`；association → relation created_by=agent；cluster → target 补 agent 事件。
+- computeAttribution（src/lib/events.ts 纯函数）：编辑计数 + field_owners（最近编辑者优先）；GET /api/items/:id 附 attribution。
+- 详情页：归因条（你 N 处编辑/Agent N 处编辑/N 条提案待确认）+ 字段行尾编辑者圆点 + 内嵌提案行（采纳/拒绝/暂缓=本地收起）。
+- 词表纪律：提案状态仅 accepted|rejected（暂缓不入 schema）；正文逐字下划线/意图推断/冲突合并 UI 后置。
+- 验证：tsc=0 lint=0 vitest 140/140（+server/attribution.test.ts 2 测）；截图 v3-attribution.png。
