@@ -8,11 +8,15 @@
 
 ## 安装（一次性）
 
-1. 在 `~/.codex/config.toml` 加：
+1. **notify 槽可能已被占用**（如 Codex Desktop 的 codex-computer-use）。不覆盖——用链式
+   派发器透传原钩子并追加推送（`notify-dispatcher.mjs`）。`~/.codex/config.toml` 改为：
 
 ```toml
-notify = ["node", "D:\\github projects\\GSC\\integrations\\gsc-push.mjs", "--codex-event"]
+notify = [ "node", "D:\\github projects\\GSC\\integrations\\codex\\notify-dispatcher.mjs" ]
 ```
+
+原钩子路径固化在 notify-dispatcher.mjs 顶部（换机器/换版本需同步）。
+改配置前先备份（`config.toml.bak-*`）。
 
 2. 验证：跑一轮 codex，然后查 GSC：
 
