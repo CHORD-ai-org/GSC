@@ -817,3 +817,47 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   prop errors in `src/app/App.tsx`, and `npm run lint`'s only error is that workstream's untracked
   `scripts/shot-fig.mjs`; vitest 134/135 (1 timeout in `server/intel/intel.test.ts`, no import
   relation to this change); full build green at 20:2x before the concurrent edit landed.
+
+## D-089 — Phase 07 V1 engagement traces: executed (DECIDED)
+
+- **Decision:** Execute V1 per D-088 (user confirmed 开始执行 2026-11-22). Result: dual-color
+  activity bars (blue=user, orange=agent) on list rows + detail footprint line, backed by
+  events actor/action traces (opened throttled 10min per viewer+item, updated with changed-keys
+  detail, proposed actor=agent on proposal targets).
+- **Execution findings (deviations from plan, all documented):**
+  1. No migration needed — `events.actor/action` columns already existed (plan assumed a new
+     0014 migration; schema verified first, dropped the migration).
+  2. Repo-level items.ts already wrote created/updated events; a router-level PATCH event was
+     removed as double-counting; field-level changed_keys (`fields.<key>`) enriched at the repo
+     source instead.
+  3. `api.listItems` aggregated paged responses and silently dropped new `activity` field —
+     fixed at the aggregation point (client bug caught by DOM probe, not tests).
+  4. Proposals are machine-only by contract (PROPOSAL_SOURCES = agent|detector) → trace actor
+     is always 'agent'.
+- **Test hardening:** `server/intel/intel.test.ts` now stubs `node:dns/promises` lookup — the
+  capture journey no longer depends on live DNS (sandbox-safe; pre-existing flake surfaced when
+  DNS went down mid-session).
+- **Operational incident (recorded in KNOWN_ISSUES):** local user binding (`local_user_id`)
+  hijacked visibility after historical hint-check scripts created a fresh user; deleted the
+  orphan user to restore binding-free default visibility.
+- **Status:** `DECIDED` — 2026-11-22, executed. Verified: tsc=0, lint=0, vitest 136/136 (+
+  engagement), DOM probe 174 bars, screenshots `v1-activity-bars.png` / `v1-footprint.png`.
+
+## D-090 — Phase 07 V2 multi-projection views: executed (DECIDED)
+
+- **Decision:** Execute V2 per PHASE_07_V2_PLAN.md (user confirmed 2026-11-23). Result: ViewMode
+  widened to list/grid/relations/timeline/spatial(placeholder); ViewSwitcher in raw/objects toolbars;
+  TimelineView (date-grouped event stream, V1 dual-color actor dots) and RelationsView (deterministic
+  layered SVG — explicitly NOT a graph DB / NOT force-directed) as read-only projections over the
+  current filtered rows; batched read-only endpoints GET /api/events + GET /api/relations (both
+  visibility-scoped, both-ends filter on edges); saved views (named filter+view recipes) in
+  localStorage only.
+- **Drift fixed during work:** bare POST /api/relations was missing from KNOWN_ROUTES (registered
+  now along with the new GET routes — openapi doc stays truthful).
+- **Zero-copy discipline verified live:** CDP fetch-spy probe (`scripts/probe-views.mjs`) switched
+  all projections 10× — 0 mutating requests. Building edges stays on the proposal path (dashed edge
+  = pending association proposal).
+- **Test hardening:** `server/views-projections.test.ts` — events stream visibility scoping + both-ends
+  edge visibility across owners.
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 138/138 (28 files),
+  zero-copy probe PASS, screenshots `v2-relations.png` / `v2-timeline.png`.

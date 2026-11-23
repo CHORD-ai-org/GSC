@@ -504,3 +504,20 @@ Zero-dependency (no react-router). See `ROUTING_SYSTEM.md`.
 ## 6. Next action
 
 Phase 05 — execute scenarios A–D, record observed results, known limitations and Thylas integration requirements. Do not start without user approval.
+
+## Phase 07 — V1 痕迹层（M1）：COMPLETE（2026-11-22）
+
+- 写入点：detail GET 记 `opened`（10 分钟节流）；updateItem 记 `updated`/`status_changed`（detail=changed_keys，含 `fields.<key>`）；POST /api/proposals 记 `proposed`（actor=agent）。
+- 聚合：`activityCountsByItem`（一次 inArray GROUP BY，零 N+1）→ GET /api/items 附 `activity` map（listItems 客户端聚合时透传）。
+- 前端：ActivityBars 双色条（蓝=你/橙=Agent）挂列表行尾；详情足迹行「你 N 次 · Agent N 次 · 最近 T」（DetailShell footprint 槽）。
+- 无需迁移（events.actor/action 已存在）；repo/items.ts 为事件唯一写源（避免双记）。
+- 验证：tsc=0 lint=0 vitest 136/136（+server/engagement.test.ts）；DOM 探针 174 条；截图 v1-activity-bars.png / v1-footprint.png。
+
+## Phase 07 — V2 多投影切换（M2）：COMPLETE（2026-11-23）
+
+- ViewMode 五态（list/grid/relations/timeline/spatial 占位）+ ViewSwitcher（raw/objects 页）。
+- TimelineView：当前筛选集事件流按日分组，蓝/橙 actor 色点+动作标签+点击跳详情。
+- RelationsView：SVG 固定分层布局（非图库），实线=已确认边、虚线=待确认 association 提案，点击开详情。
+- 新只读端点：GET /api/events?item_ids=（限 200 ids/1000 条）、GET /api/relations?item_ids=（两端均可见才返回）；均注册 KNOWN_ROUTES（顺手补漏 POST /api/relations 注册漂移）。
+- Saved views：命名筛选+视图组合存 localStorage（保存当前筛选/视图库/删除）。
+- 验证：tsc=0 lint=0 vitest 138/138（+server/views-projections.test.ts 2 测）；零副本探针 10 次切换 0 写；截图 v2-relations.png / v2-timeline.png。

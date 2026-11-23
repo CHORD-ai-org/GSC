@@ -146,3 +146,13 @@ These are current implementation gaps found by code review and screenshot inspec
 | Draft row keys can collide when batches are appended | edits can target the wrong row | use stable unique draft ids |
 
 Current verification note: `npm run check` passes. `npm test` could not start in the managed sandbox because Vitest/esbuild attempted `spawn EPERM`; this is an environment/tooling limitation, not a recorded test failure. Re-run tests in the approved execution environment before claiming verification.
+
+## 2026-11-22 — 运维与分页过滤两则（V1 执行期发现）
+
+1. **local_user_id 绑定劫持可见性**：`POST /api/users` 首个用户会写入 `local_user_id`
+   （storage/settings.ts），此后无 token 请求以该用户为 viewer，其名下无数据时 `/api/items`
+   列表为空（total 有数、items 空）。历史 hint 检查脚本（`.workbuddy/tmp/hint-*.mjs`）会走
+   onboarding 创建新用户并可能改写绑定。恢复法：DELETE 该用户自动解绑。
+2. **可见性过滤在分页之后**：`GET /api/items` 先取页再按 visibleItemIds 过滤，某页全为
+   不可见条目时出现「items 空但 next_cursor 非空」的假空页。多用户数据共存时影响观感；
+   属既有行为（T202 分页 + PLAN-7 可见性叠加），修法是过滤下推到查询层（后续择机处理）。

@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **Phase 07 执行计划已立**（`PHASE_07_PLAN.md`，PROPOSED）：V1 痕迹层→V2 多投影→V3 归因提案→V4 空间工作台（待 Q-E 拍板）→V5 场景验证；依据创始人决策（多视角，Ream+Huabu 感觉）与 `docs/research/malleable-context-space/`。待确认点：Q-E 档位、顺序、验收方式。
+> Status: **Phase 07 V2 多投影切换完成（M2，D-090）**：ViewSwitcher 五态 + 时间线/关系投影 + saved views + GET /api/events|/api/relations（零副本探针 10 切 0 写），vitest 138/138。下一步 V3 归因与提案面（M3）→ V4 空间（待 Q-E）→ V5 闭环。
 
 ## User approvals received 2026-11-16
 
