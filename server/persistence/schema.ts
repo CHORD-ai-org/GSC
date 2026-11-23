@@ -1,4 +1,4 @@
-import { doublePrecision, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const items = pgTable('items', {
   id: text('id').primaryKey(),
@@ -223,4 +223,22 @@ export const spatialLayouts = pgTable('spatial_layouts', {
   pk: primaryKey({ columns: [table.item_id, table.page, table.owner_id] }),
 }));
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts };
+/* LOCAL_SIM (cloud-isomorphic): scheduler registry — folder scans and web crawls
+   run on the worker with interval + in-flight lock (idle/running). */
+export const schedules = pgTable('schedules', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  kind: text('kind').notNull(), // 'folder' | 'web'
+  root_path: text('root_path').notNull().default(''),
+  url_list: text('url_list').notNull().default(''), // newline-separated URLs
+  interval_min: integer('interval_min').notNull().default(5),
+  enabled: boolean('enabled').notNull().default(true),
+  status: text('status').notNull().default('idle'), // 'idle' | 'running'
+  last_run_at: timestamp('last_run_at', { withTimezone: true }),
+  started_at: timestamp('started_at', { withTimezone: true }),
+  owner_id: text('owner_id').notNull().default('usr_local'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, schedules };
