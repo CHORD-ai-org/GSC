@@ -19,6 +19,17 @@ import type { FetchedDoc } from './adapters/types.ts';
 
 const MAX_SEGMENTS = 20;
 
+/** P1 hygiene: roll per-chunk suggestions into one naming + one classification
+    per item (rationale capped at 3 fragments). Pure — unit-tested. */
+export function aggregateSuggestions(
+  suggestions: { semantic_name: string; classification: string; rationale: string }[],
+): { name: string; classification: string; rationale: string } {
+  const name = suggestions.map((s) => s.semantic_name).filter(Boolean)[0] ?? '';
+  const classification = suggestions.map((s) => s.classification).filter(Boolean)[0] ?? '';
+  const rationale = suggestions.map((s) => s.rationale).filter(Boolean).slice(0, 3).join(' / ');
+  return { name, classification, rationale };
+}
+
 export type ProcessResult = { itemId: string; proposals: number };
 
 /** Turn one extracted document into a raw item + semantic/classification proposals. */
@@ -53,27 +64,29 @@ export async function processSnapshot(
         config,
         segments.map((s) => ({ title: s.title, content: s.content })),
       );
-      for (const s of suggestions) {
-        if (s.semantic_name) {
-          await createProposal(db, {
-            kind: 'semantic_name',
-            target_id: item.id,
-            proposed_value: s.semantic_name,
-            rationale: s.rationale,
-            source: 'agent',
-          });
-          proposals += 1;
-        }
-        if (s.classification) {
-          await createProposal(db, {
-            kind: 'classification',
-            target_id: item.id,
-            proposed_value: s.classification,
-            rationale: s.rationale,
-            source: 'agent',
-          });
-          proposals += 1;
-        }
+      /* P1 hygiene: aggregate per-item (was one proposal per chunk → up to 12
+         naming proposals on a single capture). Now at most 1 semantic_name +
+         1 classification per item, rationale rolled up. */
+      const agg = aggregateSuggestions(suggestions);
+      if (agg.name) {
+        await createProposal(db, {
+          kind: 'semantic_name',
+          target_id: item.id,
+          proposed_value: agg.name,
+          rationale: agg.rationale,
+          source: 'agent',
+        });
+        proposals += 1;
+      }
+      if (agg.classification) {
+        await createProposal(db, {
+          kind: 'classification',
+          target_id: item.id,
+          proposed_value: agg.classification,
+          rationale: agg.rationale,
+          source: 'agent',
+        });
+        proposals += 1;
       }
     } catch (e) {
       console.error('[intel] proposal generation skipped:', e instanceof Error ? e.message : e);
@@ -164,7 +177,7 @@ export async function runSourceSync(
 export async function runCaptureWorker(
   db: Database,
   config: Config,
-  opts: { staleMs?: number; max?: number } = {},
+  opts: { staleMs?: number; max?: number; fetchImpl?: typeof fetch } = {},
 ): Promise<{ reclaimed: number; processed: number; failed: number }> {
   const reclaimed = await reclaimStale(db, opts.staleMs ?? 60_000);
   const max = opts.max ?? 5;
@@ -174,15 +187,28 @@ export async function runCaptureWorker(
     const task = await claimNextTask(db);
     if (!task) break;
     try {
-      await processCaptureTask(db, config, task);
+      await processCaptureTask(db, config, task, opts.fetchImpl);
       await updateTask(db, task.id, { status: 'completed', stage: 'done', completed: true });
       processed += 1;
     } catch (e) {
-      await updateTask(db, task.id, {
-        status: 'failed',
-        stage: 'error',
-        error: e instanceof Error ? e.message : 'capture failed',
-      });
+      const msg = e instanceof Error ? e.message : 'capture failed';
+      /* P1 hygiene: retryable transport failures go back to the queue with
+         exponential backoff (gate lives in claimNextTask), up to 3 retries. */
+      const retryable = /abort|fetch failed|ECONNRESET|ETIMEDOUT|timeout|socket|network/i.test(msg);
+      if (retryable && (task.retry_count ?? 0) < 3) {
+        await updateTask(db, task.id, {
+          status: 'pending',
+          stage: 'queued',
+          error: msg,
+          retry_count: (task.retry_count ?? 0) + 1,
+        });
+      } else {
+        await updateTask(db, task.id, {
+          status: 'failed',
+          stage: 'error',
+          error: msg,
+        });
+      }
       failed += 1;
     }
   }
