@@ -529,3 +529,11 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - 详情页：归因条（你 N 处编辑/Agent N 处编辑/N 条提案待确认）+ 字段行尾编辑者圆点 + 内嵌提案行（采纳/拒绝/暂缓=本地收起）。
 - 词表纪律：提案状态仅 accepted|rejected（暂缓不入 schema）；正文逐字下划线/意图推断/冲突合并 UI 后置。
 - 验证：tsc=0 lint=0 vitest 140/140（+server/attribution.test.ts 2 测）；截图 v3-attribution.png。
+
+## Phase 07 — V4 空间工作台（M4）：COMPLETE（2026-11-23）
+
+- SpatialView：拖放摆位（pointer 事件，位移阈值区分点击）+ 矩形圈选（虚线框=上下文边界）+ 底部条「圈定 N 项 · 改边界 · 提交给 Agent · 钉住摆位 · 清空摆位」。
+- 委派真链路：圈选项 → POST /api/agent/propose（ChunkSuggestion）→ 逐条落 POST /api/proposals（semantic_name/classification，source=agent）→ 紫框提案卡落目标卡旁（按目标堆叠），三键复用 V3。
+- Q-E 两档：scratch=gsc.spatial.v1（localStorage）；kept=spatial_layouts 表（0012 迁移，逐行坐标，owner+page 主键）+ GET/PUT /api/spatial-layout（PUT idem）。「钉住摆位」scratch→kept 升档。
+- 零副本：摆位/圈选/切换仅 localStorage+GET（探针 12 切 0 写）；分类提案接受仅落定不自动改类（如实）。
+- 验证：tsc=0 lint=0 vitest 167/167（+server/spatial.test.ts：round-trip/replace/owner 隔离/契约守卫）；截图 v4-spatial.png（圈定 20 项 + 上下文条 + 提案卡）。
