@@ -19,8 +19,8 @@ const SOURCE_BRANDS: { kind: SourceKind; brand: BrandKind; descKey: string }[] =
   { kind: 'file', brand: 'file', descKey: 'sync.cardFile' },
 ];
 
-const BRAND_OF: Record<SourceKind, BrandKind> = { github: 'github', notion: 'notion', drive: 'googledrive', x: 'x', web: 'web', rss: 'rss', file: 'file' };
-const BRAND_LABEL_OF: Record<SourceKind, string> = { github: 'GitHub', notion: 'Notion', drive: 'Google Drive', x: 'X', web: 'Web', rss: 'RSS', file: 'File' };
+const BRAND_OF: Record<SourceKind, BrandKind> = { github: 'github', notion: 'notion', drive: 'googledrive', x: 'x', web: 'web', rss: 'rss', file: 'file', agent: 'file' };
+const BRAND_LABEL_OF: Record<SourceKind, string> = { github: 'GitHub', notion: 'Notion', drive: 'Google Drive', x: 'X', web: 'Web', rss: 'RSS', file: 'File', agent: 'Agent' };
 
 export function SyncView({
   sources,
