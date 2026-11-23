@@ -86,9 +86,11 @@ export function savePrefs(prefs: UiPrefs): void {
   }
 }
 
-/* Per-page view mode (list ⇄ grid) — persisted separately so each page
-   remembers its own choice. (网格视角) */
-export type ViewMode = 'list' | 'grid';
+/* Per-page view mode — persisted separately so each page remembers its own
+   choice. V2 (M2): list/grid are render modes; relations/timeline are read-only
+   projections over the same rows; spatial is the V4 placeholder. (网格视角 → 多投影) */
+export type ViewMode = 'list' | 'grid' | 'relations' | 'timeline' | 'spatial';
+const VIEW_MODES: readonly ViewMode[] = ['list', 'grid', 'relations', 'timeline', 'spatial'];
 
 const VIEW_MODE_KEY = 'gsc.ui.viewmode.v1';
 
@@ -98,7 +100,7 @@ export function loadViewMode(page: string): ViewMode {
     const raw = localStorage.getItem(VIEW_MODE_KEY);
     if (!raw) return 'list';
     const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed[page] === 'grid' ? 'grid' : 'list';
+    return (VIEW_MODES as readonly string[]).includes(parsed[page]) ? (parsed[page] as ViewMode) : 'list';
   } catch {
     return 'list';
   }
@@ -111,6 +113,39 @@ export function saveViewMode(page: string, mode: ViewMode): void {
     const parsed = raw ? (JSON.parse(raw) as Record<string, string>) : {};
     parsed[page] = mode;
     localStorage.setItem(VIEW_MODE_KEY, JSON.stringify(parsed));
+  } catch {
+    /* in-memory for this session */
+  }
+}
+
+/* V2 (M2) saved views: named filter+view combinations, local only (no storage table —
+   a view is a projection recipe, not data). */
+export type SavedView = {
+  id: string;
+  name: string;
+  page: string;
+  view: ViewMode;
+  filters: { type?: string; domain?: string; q?: string; dim?: string };
+};
+
+const SAVED_VIEWS_KEY = 'gsc.savedViews.v1';
+
+export function loadSavedViews(): SavedView[] {
+  if (!hasStorage()) return [];
+  try {
+    const raw = localStorage.getItem(SAVED_VIEWS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as SavedView[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSavedViews(views: SavedView[]): void {
+  if (!hasStorage()) return;
+  try {
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
   } catch {
     /* in-memory for this session */
   }

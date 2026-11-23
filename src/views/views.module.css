@@ -164,6 +164,21 @@
 .footprint b{font-weight:500}
 .footU{color:#0F6E56}
 .footA{color:#534AB7}
+/* V2 (M2) timeline projection */
+.tlEmpty{font-size:12px;color:var(--ink-2);padding:18px 10px;text-align:center}
+.timeline{padding:4px 2px}
+.tlDay{font-size:11px;font-weight:500;color:var(--ink-2);margin:12px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+.tlRow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 8px;border:0;background:transparent;border-radius:8px;font-size:12px;color:var(--ink);cursor:pointer}
+.tlRow:hover{background:var(--bg-2)}
+.tlDotU{width:8px;height:8px;border-radius:50%;background:#85B7EB;flex:none}
+.tlDotA{width:8px;height:8px;border-radius:50%;background:#EF9F27;flex:none}
+.tlAction{flex:none;color:var(--ink-2);width:64px}
+.tlTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tlDetail{flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2);font-size:11px}
+.tlTime{flex:none;color:var(--ink-2);font-size:11px}
+/* V2 (M2) relations projection */
+.relWrap{padding:8px 4px}
+.relNode text{pointer-events:none}
 .pairChip:hover{color:var(--ink)}
 .rowBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
 

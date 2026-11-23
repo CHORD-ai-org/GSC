@@ -8,7 +8,11 @@ import type { ClusterIndexEntry } from './detail.tsx';
 import { MemberBadge } from '../components/SemTag.tsx';
 import { EmptyState } from '../components/ui.tsx';
 import { useToast } from '../components/Toast.tsx';
-import { useViewMode, ViewToggle } from '../lib/viewMode.tsx';
+import { useViewMode, ViewToggle, ViewSwitcher } from '../lib/viewMode.tsx';
+import type { ViewMode, SavedView } from '../lib/prefs.ts';
+import { loadSavedViews, saveSavedViews } from '../lib/prefs.ts';
+import { TimelineView } from './timeline.tsx';
+import { RelationsView } from './relations.tsx';
 import { useWindowed } from '../lib/useWindowed.ts';
 import { Glyph } from '../components/Glyph.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
@@ -129,6 +133,63 @@ function RowBadges({ badges }: { badges?: { kind: 'cluster' | 'context'; title: 
     <div className={styles.rowBadges}>
       {(badges ?? []).slice(0, 2).map((b) => <MemberBadge key={`${b.kind}-${b.title}`} kind={b.kind} title={b.title} />)}
     </div>
+  );
+}
+
+/* V2 (M2) saved views: named filter+view recipes, local only. */
+function SavedViewsMenu({
+  page, view, filters, onApply,
+}: {
+  page: string;
+  view: ViewMode;
+  filters: { type?: string; domain?: string; q?: string; dim?: string };
+  onApply: (v: SavedView) => void;
+}) {
+  const t = useT();
+  const [views, setViews] = useState<SavedView[]>(() => loadSavedViews());
+  const [sel, setSel] = useState('');
+  return (
+    <>
+      <select
+        className={styles.select}
+        value={sel}
+        onChange={(e) => {
+          setSel(e.target.value);
+          const v = views.find((x) => x.id === e.target.value);
+          if (v) onApply(v);
+        }}
+      >
+        <option value="">{t('cols.viewLib')}</option>
+        {views.filter((v) => v.page === page).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+      </select>
+      <button
+        type="button"
+        className={styles.linkButton}
+        onClick={() => {
+          const name = window.prompt(t('cols.viewNamePrompt'));
+          if (!name) return;
+          const next = [...views, { id: Date.now().toString(36), name, page, view, filters }];
+          setViews(next);
+          saveSavedViews(next);
+        }}
+      >
+        {t('cols.saveView')}
+      </button>
+      {sel ? (
+        <button
+          type="button"
+          className={styles.linkButton}
+          onClick={() => {
+            const next = views.filter((v) => v.id !== sel);
+            setViews(next);
+            saveSavedViews(next);
+            setSel('');
+          }}
+        >
+          {t('cols.deleteView')}
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -253,7 +314,13 @@ export function RawCollection({
         >
           {t('cols.selectMode')}
         </button>
-        <ViewToggle mode={view} onChange={setView} />
+        <ViewSwitcher mode={view} onChange={setView} />
+        <SavedViewsMenu
+          page="raw"
+          view={view}
+          filters={{ type, q, dim }}
+          onApply={(v) => { setQ(v.filters.q ?? ''); setType(v.filters.type ?? 'all'); setDim(v.filters.dim ?? 'all'); setView(v.view); }}
+        />
       </div>
       {pickMode && picked.size > 0 && tagDefs && onBulkTag ? (
         <BulkTagBar
@@ -266,7 +333,11 @@ export function RawCollection({
           onClear={() => setPicked(new Set())}
         />
       ) : null}
-      {view === 'grid' ? (
+      {view === 'relations' ? (
+        <RelationsView rows={rows} allItems={items} onOpenItem={onSelect} />
+      ) : view === 'timeline' ? (
+        <TimelineView rows={rows} onOpenItem={onSelect} />
+      ) : view === 'grid' ? (
         rows.length === 0 ? (
           <EmptyState title={t('raw.empty')} hint={t('raw.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
         ) : (
@@ -392,7 +463,13 @@ export function ObjectCollection({
         >
           {t('cols.selectMode')}
         </button>
-        <ViewToggle mode={view} onChange={setView} />
+        <ViewSwitcher mode={view} onChange={setView} />
+        <SavedViewsMenu
+          page="objects"
+          view={view}
+          filters={{ type: tab, q, dim }}
+          onApply={(v) => { setQ(v.filters.q ?? ''); setTab(v.filters.type ?? 'all'); setDim(v.filters.dim ?? 'all'); setView(v.view); }}
+        />
       </div>
       {pickMode && picked.size > 0 && tagDefs && onBulkTag ? (
         <BulkTagBar
@@ -412,7 +489,11 @@ export function ObjectCollection({
           </button>
         ))}
       </div>
-      {view === 'grid' ? (
+      {view === 'relations' ? (
+        <RelationsView rows={rows} allItems={items} onOpenItem={onSelect} />
+      ) : view === 'timeline' ? (
+        <TimelineView rows={rows} onOpenItem={onSelect} />
+      ) : view === 'grid' ? (
         rows.length === 0 ? (
           <EmptyState title={t('obj.empty')} hint={t('obj.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('cols.add')}</button>} />
         ) : (
