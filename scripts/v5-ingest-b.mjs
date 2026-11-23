@@ -27,7 +27,7 @@ for (const url of URLS) {
 }
 console.log('enqueued:', tasks.length);
 
-let done = 0;
+let done;
 for (let i = 0; i < 60; i += 1) {
   await new Promise((r) => setTimeout(r, 3000));
   const list = await fetch(`${API}/api/capture`).then((x) => x.json());
