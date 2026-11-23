@@ -574,4 +574,4 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - 实测（WorkBuddy 真链）：push imported=1 / 重推 skipped=1（幂等）/ 命名+分类提案落卡 / 归块 block_proposals=1。
 - 实测修 2 bug：LLM 包壳数组契约容忍 · 归块幻觉 id 守卫（详见 KNOWN_ISSUES）。
 - G3 兼容矩阵补全（component-list.md）：三端采集 ✅、codex 上下文注入 ❌、MCP 读 🔜。
-- 待补验收：opencode/codex 各真跑一轮会话推送（集成件已备）。
+- 验收补充（D-104）：codex 链全通（notify 链式派发器保 Desktop 原钩子 + 真实 rollout 收割入库）；opencode 插件双加载器适配（V1 server()/V2 id+setup，加载验证干净）；WorkBuddy 全通。真轮末触发待用户日常使用验证（无头 exec/run 在本机环境挂死，见 KNOWN_ISSUES）。
