@@ -48,6 +48,7 @@ export function SpatialView({
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [proposals, setProposals] = useState<ProposalDTO[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [expandedTargets, setExpandedTargets] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const dragRef = useRef<{ id: string; ox: number; oy: number; moved: boolean } | null>(null);
   const marqueeRef = useRef<{ sx: number; sy: number } | null>(null);
@@ -275,26 +276,52 @@ export function SpatialView({
             </div>
           );
         })}
-        {visibleProps.map((p) => {
-          const base = layout[p.target_id];
+        {/* P1 hygiene: one proposal card per target with +N badge (was one card per proposal). */}
+        {[...visibleProps.reduce((m, p) => {
+          const l = m.get(p.target_id) ?? [];
+          l.push(p);
+          m.set(p.target_id, l);
+          return m;
+        }, new Map<string, ProposalDTO[]>())].map(([targetId, list]) => {
+          const base = layout[targetId];
           if (!base) return null;
-          /* stack per target: each extra proposal on the same card shifts 18px down */
-          const stackIndex = visibleProps.filter((q) => q.target_id === p.target_id && q.id <= p.id).length - 1;
+          const [newest, ...rest] = list;
+          const open = expandedTargets.has(targetId);
+          const kindLabel = (kind: string) => t((KIND_KEY[kind] ?? 'prop.metadata') as Parameters<typeof t>[0]);
           return (
-            <div
-              key={p.id}
-              className={styles.spatProp}
-              style={{ left: base.x + 12, top: base.y + CARD_H + 8 + stackIndex * 18 }}
-            >
+            <div key={targetId} className={styles.spatProp} style={{ left: base.x + 12, top: base.y + CARD_H + 8 }}>
               <div className={styles.spatPropHead}>
-                <span className={styles.propChip}>{t((KIND_KEY[p.kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
-                <span className={styles.spatPropValue}>{p.proposed_value}</span>
+                <span className={styles.propChip}>{kindLabel(newest.kind)}</span>
+                <span className={styles.spatPropValue}>{newest.proposed_value}</span>
+                {rest.length > 0 ? (
+                  <button
+                    type="button"
+                    className={styles.propBtn}
+                    onClick={() => setExpandedTargets((s) => {
+                      const next = new Set(s);
+                      if (open) next.delete(targetId);
+                      else next.add(targetId);
+                      return next;
+                    })}
+                  >
+                    +{rest.length}
+                  </button>
+                ) : null}
               </div>
               <div className={styles.spatPropBtns}>
-                <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(p.id, 'accepted')}>{t('detail.adopt')}</button>
-                <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(p.id, 'rejected')}>{t('detail.reject')}</button>
-                <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(p.id))}>{t('detail.defer')}</button>
+                <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(newest.id, 'accepted')}>{t('detail.adopt')}</button>
+                <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(newest.id, 'rejected')}>{t('detail.reject')}</button>
+                <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(newest.id))}>{t('detail.defer')}</button>
               </div>
+              {open ? rest.map((p) => (
+                <div key={p.id} className={styles.spatPropExtra}>
+                  <span className={styles.propChip}>{kindLabel(p.kind)}</span>
+                  <span className={styles.spatPropValue}>{p.proposed_value}</span>
+                  <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(p.id, 'accepted')}>{t('detail.adopt')}</button>
+                  <button type="button" className={styles.propBtn} onClick={() => void actOnProposal(p.id, 'rejected')}>{t('detail.reject')}</button>
+                  <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(p.id))}>{t('detail.defer')}</button>
+                </div>
+              )) : null}
             </div>
           );
         })}
