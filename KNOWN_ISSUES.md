@@ -172,3 +172,12 @@ Abort 拒启）。已保全残骸 `.data/pglite.corrupt-20261123`（**未删**�
 ① 停 API 用温和方式（让进程自然退出/关 stdin），别 kill -F；② PGlite 是单写者，进程被并行
 脚本（如 ui-checks.mjs）同时打开也会冲突——**这正是 LOCAL_SIM 走 Docker PG 的直接理由**，
 compose 起套后开发/模拟都不再碰 PGlite。
+
+## 2026-11-23 — G2 采集闭环实测发现（已修 2，记录 1）
+
+1. **LLM 契约偶发包壳**（已修）：suggestForChunks 期望数组，mimo 偶回 `{suggestions:[…]}`
+   致「Agent reply is not an array」→ 提案静默跳过。已改为容忍对象包壳数组。
+2. **归块幻觉 id 违反外键**（已修）：proposeBlockAssignment 的 LLM 偶回非库内 item id，
+   createProposal 插入 FK 失败。已加未知 id 守卫 + prompt 明示"完整复制 [] 内 id"。
+3. **codex rollout JSONL 非稳定 API**（记录）：`~/.codex/sessions/**/rollout-*.jsonl` 字段
+   可能随版本漂移——收割器尽力解析，漂移时该轮静默跳过（不炸会话）；升级 codex 后需回归。
