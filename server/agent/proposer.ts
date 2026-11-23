@@ -36,7 +36,14 @@ export async function suggestForChunks(
     content: JSON.stringify(chunks.map((c, index) => ({ index, text: c.content.slice(0, 2000) }))),
   };
   const { content } = await chatComplete(config, [{ role: 'system', content: SYSTEM_PROMPT }, user], fetchImpl);
-  const parsed = extractJson(content);
+  /* Contract tolerance: some models wrap the array in an object ({suggestions:[…]})
+     — unwrap the first array value before failing. */
+  const rawParsed = extractJson(content);
+  const parsed = Array.isArray(rawParsed)
+    ? rawParsed
+    : (rawParsed && typeof rawParsed === 'object'
+        ? Object.values(rawParsed).find((v) => Array.isArray(v)) ?? null
+        : null);
   if (!Array.isArray(parsed)) throw new Error('Agent reply is not an array');
   return parsed
     .filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null)
