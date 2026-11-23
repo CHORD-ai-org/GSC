@@ -90,7 +90,13 @@ import {
   validateUpdateSourceBody,
 } from '../src/lib/sources.ts';
 import { runGithubSync } from './sync/github.ts';
-import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
+import { runSourceSync, processCaptureTask, processSnapshot } from './intel/pipeline.ts';
+import { upsertSnapshot } from './repo/snapshots.ts';
+import { contentHash } from './intel/extract.ts';
+import { proposeBlockAssignment } from './agent/organizer.ts';
+import { validateIngestBatchBody } from '../src/lib/ingest.ts';
+import type { IngestBatchBody } from '../src/lib/ingest.ts';
+import type { FetchedDoc } from './intel/adapters/types.ts';
 import { createTask, getTask, listTasks, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
@@ -362,6 +368,81 @@ async function hScheduleRun(ctx: RouteCtx): Promise<RouteResult> {
   const { db, config, params } = ctx;
   const result = await runScheduleNow(db, config, params[0]);
   return result.ok ? ok({ ok: true, detail: result.detail }) : fail('contract', result.detail);
+}
+
+async function hIngestBatch(ctx: RouteCtx): Promise<RouteResult> {
+  /* G2 batch intake: group (client×project) → source anchor, docs through the
+     Light Up pipeline (snapshot-idempotent), then a best-effort block-assignment
+     pass that only ever creates `cluster` proposals (D-042). */
+  const { db, config, body, viewerId } = ctx;
+  const batch = body as IngestBatchBody;
+  const label = `agent:${batch.group.client}:${batch.group.project}`;
+  const existing = await listSources(db, viewerId);
+  let source = existing.find((s) => s.kind === 'agent' && s.label === label);
+  if (!source) {
+    source = await createSource(db, {
+      kind: 'agent',
+      label,
+      scope: `client=${batch.group.client};project=${batch.group.project}`,
+    }, viewerId);
+  }
+  let imported = 0;
+  let skipped = 0;
+  const newItems: { id: string; title: string; content: string }[] = [];
+  for (const [i, doc] of batch.docs.entries()) {
+    const rawHash = contentHash(doc.content_text);
+    const fetched: FetchedDoc = {
+      externalId: `agent:${batch.group.client}:${batch.group.project}:${batch.group.session_id}:${i}`,
+      url: doc.url ?? `agent://${batch.group.client}/${batch.group.project}/${batch.group.session_id}`,
+      title: doc.title || `session ${batch.group.session_id}`,
+      contentText: doc.content_text,
+      author: doc.author ?? batch.group.client,
+      publishedAt: doc.captured_at,
+      rawHash,
+      metadata: {
+        client: batch.group.client,
+        project: batch.group.project,
+        session_id: batch.group.session_id,
+        captured_at: doc.captured_at ?? new Date().toISOString(),
+      },
+    };
+    const snap = await upsertSnapshot(db, source.id, fetched);
+    if (!snap.created) {
+      skipped += 1;
+      continue;
+    }
+    const result = await processSnapshot(db, config, fetched, { kind: 'agent', ownerId: viewerId });
+    newItems.push({ id: result.itemId, title: fetched.title, content: doc.content_text });
+    imported += 1;
+  }
+
+  // Block assignment (best-effort): cluster proposals only — never a direct write.
+  let blockProposals = 0;
+  if (newItems.length > 0) {
+    try {
+      const known = (await listClusters(db)).map((c) => c.title);
+      const assignments = await proposeBlockAssignment(config, newItems, known);
+      for (const a of assignments) {
+        await createProposal(db, {
+          kind: 'cluster',
+          target_id: a.item_id,
+          proposed_value: a.cluster_name,
+          rationale: a.rationale || `block assignment (${batch.group.client})`,
+          source: 'agent',
+        });
+        blockProposals += 1;
+      }
+    } catch (e) {
+      console.error('[ingest] block assignment skipped:', e instanceof Error ? e.message : e);
+    }
+  }
+  return ok({
+    ok: true,
+    source_id: source.id,
+    imported,
+    skipped,
+    block_proposals: blockProposals,
+  }, 201);
 }
 
 async function hRelationsGet(ctx: RouteCtx): Promise<RouteResult> {
@@ -1033,6 +1114,17 @@ export const ROUTES: RouteSpec[] = [
     ],
   },
   { pattern: /^\/api\/schedules\/([^/]+)\/run$/, ops: [{ method: 'POST', handler: hScheduleRun, idem: true }] },
+  {
+    pattern: /^\/api\/ingest\/batch$/,
+    ops: [{
+      method: 'POST',
+      handler: hIngestBatch,
+      body: true,
+      validate: validateIngestBatchBody,
+      validateMessage: 'Invalid ingest batch body',
+      idem: true,
+    }],
+  },
   {
     pattern: /^\/api\/relations$/,
     ops: [
