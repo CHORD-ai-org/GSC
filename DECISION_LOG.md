@@ -1077,3 +1077,35 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Status:** `DECIDED` — 2026-11-23. Verified: tsc=0, eslint=0, vitest 178 passed + 1 skipped
   (2 new: F-1 group, F-4 gate). Claims that survived review: 10k list p50 686→167ms (-76%),
   p95 867→190ms (archived before/after), index audit zero-change verdict.
+
+## D-099 — P1 proposal hygiene: executed (DECIDED)
+
+- **Decision:** Execute PROPOSAL_HYGIENE_PLAN.md (user confirmed 2026-11-23, defaults taken:
+  collapse duplicates keeping earliest, per target+kind cap=3, bulk-adjudication UI deferred).
+- **Root cause fixed:** detector dedupe keys were mismatched (`metadata:id:null` built vs
+  `metadata:id:` tested) so the dedupe never hit and every detection run re-proposed — the
+  pending flood (149→497) source. Unified one key function; added per target+kind pending cap.
+- **Also delivered:** capture-pipeline naming aggregation (12 proposals/target → ≤2, rationale
+  rolled up, pure fn unit-tested); capture auto-retry (retryable transport failures requeued with
+  exponential backoff via updated_at gate — 0/60/120/180s — hard-fail past 3, retry_count column
+  was already there but unread); UI folding (detail: same-kind groups with chevron, 12 rows → 3
+  groups; spatial: one card per target with +N expander); batched legacy cleanup
+  (`dedupe-proposals.mjs`: 157+97 identical collapsed, 187+157 over-cap trimmed, paced+retried
+  to survive rate limiting — first silent-429 pass found and fixed).
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 182+1 skip/183
+  (37 files, +4 hygiene tests incl. detector double-run-zero-increment regression), live hygiene
+  PASS (497→255 pending, 0 identical duplicates, stacks ≤3), screenshots `p1-detail-folded.png`
+  / `p1-spatial-cards.png`.
+
+## D-100 — Founder goals 2026-11-23 accepted as roadmap input (DECIDED)
+
+- **Decision:** Accept the founder's 2026-11-23 notes as DECIDED goals (G1-G6 in
+  `GOALS_2026-11-23.md`): component split with living `component-list.md` (highest priority),
+  three-client capture loop (opencode/codex/workbuddy → grouped upload → agent block assignment)
+  + per-software partial-compatibility plugin matrix in two days, then raw-info zoom levels with
+  semantic titles, Meta-tag v1.0 MVP, Information Model v1.0 MVP this week.
+- **Constraints honored:** block assignment stays on the proposal path (D-042); plugin matrix
+  records structural limits honestly (codex model-call context injection = impossible); per-goal
+  execution plans will be `PROPOSED` separately before coding.
+- **Status:** `DECIDED` — 2026-11-23 (goals). Deliverables so far: `GOALS_2026-11-23.md` +
+  `component-list.md` v1 (management view; technical specs stay in COMPONENT_REGISTRY.md).
