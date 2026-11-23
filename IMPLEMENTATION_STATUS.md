@@ -537,3 +537,21 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - Q-E 两档：scratch=gsc.spatial.v1（localStorage）；kept=spatial_layouts 表（0012 迁移，逐行坐标，owner+page 主键）+ GET/PUT /api/spatial-layout（PUT idem）。「钉住摆位」scratch→kept 升档。
 - 零副本：摆位/圈选/切换仅 localStorage+GET（探针 12 切 0 写）；分类提案接受仅落定不自动改类（如实）。
 - 验证：tsc=0 lint=0 vitest 167/167（+server/spatial.test.ts：round-trip/replace/owner 隔离/契约守卫）；截图 v4-spatial.png（圈定 20 项 + 上下文条 + 提案卡）。
+
+## Phase 07 — V5 场景闭环（M5）：COMPLETE；Phase 07 全部完成（2026-11-23）
+
+- 双场景闭环：A（20 材料 file source 入料）/ B（10 URL 采集，2 重试后 10/10）→ 圈定 → LLM 委派 → 提案卡 → 裁决 3采/3拒/1缓 → 归因溯源。
+- 归因对账：scripts/verify-attribution.mjs + data/v5-ledger.json → 7/7 PASS（via proposal 紫迹、拒绝零编辑、web 基线全对）。
+- 写账本：32 入料 + 80 提案 + 6 裁决，背景写 0（探针实证）。
+- 发现（P1 待修）：提案堆积（detector 噪声+管线按 chunk 产命名，单目标 12 条）· 采集无自动重试 · 管线命名粒度。
+- 结论与三感觉核对：docs/research/malleable-context-space/PHASE_07_M5_结论.md。
+- **Phase 07 COMPLETE**：M1 痕迹（D-089）· M2 多投影（D-090）· M3 归因提案（D-091）· M4 空间（D-095 并行线 + D-097 集成验收）· M5 闭环（D-098）。验证基线：tsc=0 lint=0 vitest 167/167。
+
+## P1 提案面治理：COMPLETE（2026-11-23，D-099）
+
+- 根因修复：detector 去重键错配（metadata:id:null vs metadata:id:）→ 统一 relKey + 同目标同类 pending 上限 3。
+- 管线命名聚合：12 条/目标 → ≤2（semantic_name+classification 各一，rationale 汇总，纯函数单测）。
+- 采集自动重试：retryable 失败退避重排（updated_at 闸 0/60/120/180s），3 次后终态 failed（retry_count 字段启用）。
+- UI 折叠：详情同 kind 折叠组（12 行→3 组）+ 空间每目标一卡「+N」展开。
+- 存量清理：dedupe-proposals.mjs 两刀（identical 去重 + 超 cap 收尾），带限流重试；pending 497→255、0 重复、堆叠≤3（verify-proposal-hygiene PASS）。
+- 验证：tsc=0 lint=0 vitest 182+1skip/183（+server/hygiene.test.ts 4 测：双跑零增量回归/上限/聚合/重试退避）。
