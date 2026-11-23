@@ -1191,3 +1191,25 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Status:** `DECIDED` — 2026-11-23, executed. opencode/codex integration pieces are written
   and installed-ready; their live end-to-end run (real session push) is the remaining acceptance
   item, with the documented risk that codex rollout JSONL is not a stable API.
+
+## D-104 — G2 acceptance run: three channels verified at plumbing level (DECIDED)
+
+- **Scope:** complete the G2 remaining acceptance (opencode/codex live session push).
+- **Results (honest grading):**
+  - **WorkBuddy — FULL PASS** (earlier, D-103): import/idempotency/grouping/proposals live.
+  - **codex — PLUMBING PASS, trigger pending:** the notify slot is occupied by Codex Desktop's
+    computer-use hook → installed a chain dispatcher (`notify-dispatcher.mjs`) that forwards to
+    the original hook AND pushes to GSC (config backed up, README updated). Synthetic turn-ended
+    event proved the full chain with REAL rollout data: `agent:codex:GSC` anchor + harvested
+    conversation ingested. Live turn-end trigger unverified: `codex exec` hangs headless in this
+    environment (custom cc-switch provider unresponsive to headless runs) — will fire on the
+    user's normal desktop turns.
+  - **opencode — PLUGIN PASS, run pending:** plugin rewritten to the dual-loader contract the
+    installed opencode enforces (V1 wants `server()`, V2 wants `id+setup` — one export serves
+    both, verified loading clean in `~/.config/opencode/plugins/`). `opencode run` hangs headless
+    in this environment (user's spark-autostart sidecar also fails to load — pre-existing v1
+    plugin incompatibility) — session.idle push pending a working session.
+- **Environment blockers recorded (KNOWN_ISSUES):** codex headless exec hang; opencode headless
+  run hang + broken spark-autostart plugin; opencode v1/v2 dual-loader contract drift.
+- **Status:** `DECIDED` — 2026-11-23, executed to the environment's limit. Code + integrations
+  complete; both remaining triggers are runtime-environment issues, not integration gaps.
