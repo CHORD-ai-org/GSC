@@ -6,6 +6,7 @@ import type { ApiError } from '../lib/api.ts';
 import type { ContextDTO, ContextDetailDTO } from '../lib/contexts.ts';
 import type { ClusterDetailDTO } from '../lib/clusters.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
+import type { CreateScheduleBody, ScheduleDTO, UpdateScheduleBody } from '../lib/schedules.ts';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { SourceDTO, SyncResult } from '../lib/sources.ts';
 
@@ -14,6 +15,12 @@ export type ItemListResponse = {
   items: ItemDTO[];
   activity?: Record<string, { user: number; agent: number }>;
 };
+
+/* LOCAL_SIM: scheduler registry (cloud-isomorphic collection schedules). */
+export type ScheduleListResponse = { ok: true; schedules: ScheduleDTO[] };
+export type ScheduleDetailResponse = { ok: true; schedule: ScheduleDTO };
+export type ScheduleRunResponse = { ok: true; detail: string };
+export type ScheduleDeleteResponse = { ok: true; deleted: boolean };
 export type ItemDetailResponse = {
   ok: true;
   item: ItemDTO;
@@ -59,6 +66,10 @@ export type ApiResponse =
   | ClusterDetailResponse
   | DeleteClusterResponse
   | ProposalListResponse
+  | ScheduleListResponse
+  | ScheduleDetailResponse
+  | ScheduleRunResponse
+  | ScheduleDeleteResponse
   | ProposalDetailResponse
   | UrlIngestResponse
   | SourceListResponse
@@ -349,6 +360,27 @@ export function removeClusterMember(id: string, itemId: string): Promise<Cluster
     method: 'DELETE',
     body: JSON.stringify({ item_id: itemId }),
   });
+}
+
+/* LOCAL_SIM: schedules CRUD + run-now. */
+export function listSchedules(): Promise<ScheduleListResponse> {
+  return request('/api/schedules');
+}
+
+export function createSchedule(body: CreateScheduleBody): Promise<ScheduleDetailResponse> {
+  return request('/api/schedules', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function updateSchedule(id: string, body: UpdateScheduleBody): Promise<ScheduleDetailResponse> {
+  return request(`/api/schedules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export function deleteSchedule(id: string): Promise<ScheduleDeleteResponse> {
+  return request(`/api/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function runSchedule(id: string): Promise<ScheduleRunResponse> {
+  return request(`/api/schedules/${encodeURIComponent(id)}/run`, { method: 'POST' });
 }
 
 export function listProposals(status?: string): Promise<ProposalListResponse> {
