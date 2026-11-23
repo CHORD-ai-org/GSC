@@ -1,6 +1,8 @@
 # MCP_CONFIG_UI_PLAN.md — Settings › MCP 配置页（前后端同步）
 
-Status: `PROPOSED` — 2026-11-23，待确认后执行。
+Status: `EXECUTED` — 2026-11-23「开始执行」批准（两项待决策取默认：4 客户端目标、token 明文沿
+T301 一次性先例，见 D-101）。批次 A（6422def）+ 批次 B（279ae43）完成，验收实拍
+`ui-prototype/shots/mcp-settings.png`（探针：卡片/片段/9 工具/0 JS 错误）。
 背景：MCP server 已存在（`server/mcp/index.ts`，stdio JSON-RPC，9 个 `gsc_*` 工具，D-059/INTEGRATION_HARDENING），
 但配置全靠环境变量（`GSC_API_URL` + `GSC_API_TOKEN`），UI 零入口——G2 三端采集闭环
 （opencode/codex/workbuddy 经 `gsc_propose` 分块入提案）每个接入端都要手填命令行。
@@ -68,3 +70,15 @@ Status: `PROPOSED` — 2026-11-23，待确认后执行。
 ## 6. 不做
 
 MCP client 反向接入、HTTP/SSE transport、MCP server 常驻化、token 体系改动、工具面增删（G2 功能）。
+
+## 7. 执行记录（2026-11-23，D-101）
+
+| 批次 | 状态 | 证据 |
+|---|---|---|
+| A 后端（M-1/2/3） | ✅ | `server/mcp/tools.ts` 共享注册表；`GET /api/meta/mcp` 契约测试锁 endpoint==registry；API_CONTRACT + OpenAPI McpMetaResponse |
+| B 前端（U-1…4） | ✅ | `src/lib/mcpSnippets.ts` 4 目标纯函数（5 测含 JSON 校验）；Settings › 连接 MCP 卡片（命令/输入/下拉/复制/9 工具清单）；mcp.* 词表进覆盖测试 |
+
+验收实拍：`scripts/shot-mcp.mjs` CDP 探针（卡片 ✓、片段含占位符 ✓、9 个 gsc_* ✓、0 JS 错误）+
+`ui-prototype/shots/mcp-settings.png`。视觉复审抓到一处真瑕疵：片段 GSC_API_URL 误取浏览器
+origin（dev 下是 vite 口）→ 改为优先取 /api/meta/mcp 报告的 API base，复测绿。
+验证：tsc=0 · eslint=0 · vitest 188 passed + 1 skipped。

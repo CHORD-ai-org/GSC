@@ -1109,3 +1109,26 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   execution plans will be `PROPOSED` separately before coding.
 - **Status:** `DECIDED` — 2026-11-23 (goals). Deliverables so far: `GOALS_2026-11-23.md` +
   `component-list.md` v1 (management view; technical specs stay in COMPONENT_REGISTRY.md).
+
+## D-101 — Settings › MCP onboarding page: executed (DECIDED)
+
+- **Decision:** Execute `MCP_CONFIG_UI_PLAN.md` (user "开始执行" 2026-11-23). Two plan defaults
+  taken: (1) snippet targets = G2 three ends (opencode/codex/workbuddy) + Claude Code (4 total);
+  (2) token plaintext follows the T301 one-time precedent — embedded only when just minted,
+  otherwise `<GSC_API_TOKEN>` placeholder (secrets are hash-stored and cannot be re-fetched —
+  correct behaviour, not a limitation to work around).
+- **Batch A (M-1/M-2/M-3):** tool registry single-sourced in `server/mcp/tools.ts` (stdio
+  tools/list and HTTP share it); `GET /api/meta/mcp` (read scope) serves server info + connect
+  command + env entries + full registry with annotations, no secrets; API_CONTRACT + OpenAPI
+  schema registered; contract test pins endpoint==registry (anti-drift).
+- **Batch B (U-1…U-4):** `src/lib/mcpSnippets.ts` pure generator (4 targets, JSON/TOML shapes,
+  5 unit tests incl. JSON-parse validation); Settings › 连接 gains the MCP card (command,
+  repo-root/token inputs, client picker, copy button, 9-tool list from the endpoint); mcp.*
+  i18n keys under the zh/en coverage test.
+- **Acceptance (real render, not claims):** `scripts/shot-mcp.mjs` CDP probe against the live
+  app — card found, snippet well-formed with placeholders, all 9 gsc_* tools listed, zero JS
+  errors; screenshot `ui-prototype/shots/mcp-settings.png`. Visual review caught one real wart:
+  the snippet's GSC_API_URL took the browser origin (dev = vite port) instead of the API base —
+  fixed to prefer the base reported by /api/meta/mcp, re-probed green.
+- **Status:** `DECIDED` — 2026-11-23, executed (commits 6422def batch A, 279ae43 batch B).
+  Verified: tsc=0, eslint=0, vitest 188 passed + 1 skipped.

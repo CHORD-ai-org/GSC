@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **创始人目标已拆解（D-100，GOALS_2026-11-23.md）**：G1 组件拆分+component-list.md（最高，已出 v1）→ G2 三端采集闭环（opencode/codex/workbuddy 分组上传→Agent 分块，这两天）→ G3 插件兼容矩阵（这两天）→ G4 原始信息缩放+语义标题 / G5 Meta-tag v1.0 / G6 信息模型 v1.0（本周）。提案制不变，分块=提案。
+> Status: **创始人目标已拆解（D-100，GOALS_2026-11-23.md）**：G1 组件拆分+component-list.md（最高，已出 v1）→ G2 三端采集闭环（opencode/codex/workbuddy 分组上传→Agent 分块，这两天）→ G3 插件兼容矩阵（这两天）→ G4 原始信息缩放+语义标题 / G5 Meta-tag v1.0 / G6 信息模型 v1.0（本周）。提案制不变，分块=提案。已落地（D-101）：Settings › 连接 MCP 接入卡片（4 客户端配置片段 + 9 工具清单 + /api/meta/mcp），G2 三端接入配置面就绪。
 > Prior: P1 提案面治理完成（D-099，2026-11-23）**：detector 去重键错配根修（洪峰主因）+ 命名聚合（12→2）+ 采集自动重试（退避 3 次）+ UI 折叠（12 行→3 组）+ 存量清理（pending 497→255、0 重复），vitest 182+1skip/183。遗留 P2：批量裁决 UI（后置）。并行线：U2 collections 合并待执行；BACKEND_OPTIMIZATION 批次推进中（D-096 已拍部署/错误格式/SLO）。
 > Prior: Phase 07 COMPLETE（2026-11-23，D-089..091/095/097/098）**：M1 痕迹 → M2 多投影 → M3 归因提案 → M4 空间工作台 → M5 双场景闭环（归因对账 7/7 PASS、写账本 32+80+6 笔可数、零副本实证）；三感觉落点齐（Ream 痕迹/Huabu 圈定/CLEO 归因）。遗留 P1：提案堆积（detector 噪声+管线按 chunk 命名单目标 12 条）、采集无自动重试。并行线：UI/后端优化计划（D-092…D-094/096）批次 C U1/U3 已落地（79fb666），U2 collections 合并待执行；新计划 `BACKEND_OPTIMIZATION_PLAN.md`（jeffallan/claude-skills 四视角）：批次 A 地基（DB-1 适配器验收挂起 docker、DB-2 版本表、SEC-2 生产门，D-096 三默认裁决）+ 批次 B 基线（D-097：1k/10k 压测 + EXPLAIN 入 docs/，DB-4 改写 listItemsPaged 全表内容加载与 q 页内过滤 → 10k list p50 686→167ms 回 SLO）已执行完（0501d86）；剩批次 C/D（API 分页/契约 + SRE/SEC），search 端点全表扫描超 SLO 待与 GAP-14 一并裁。
 
