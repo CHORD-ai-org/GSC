@@ -5,7 +5,7 @@ import { proposals } from '../persistence/schema.ts';
 import { updateItem } from './items.ts';
 import { appendEvent } from './events.ts';
 import { createRelation } from './relations.ts';
-import { addClusterMember, createCluster } from './clusters.ts';
+import { addClusterMember, createCluster, listClusters } from './clusters.ts';
 import type {
   CreateProposalBody,
   ProposalDTO,
@@ -103,7 +103,11 @@ export async function resolveProposalApplying(
         created_by: 'agent',
       });
     } else if (existing.kind === 'cluster') {
-      const cluster = await createCluster(t, {
+      /* G2 merge semantics: a same-title cluster already exists → join it as a
+         member instead of creating a duplicate block. */
+      const known = await listClusters(t);
+      const same = known.find((c) => c.title === existing.proposed_value);
+      const cluster = same ?? await createCluster(t, {
         title: existing.proposed_value,
         description: `From proposal ${existing.id}`,
       });
