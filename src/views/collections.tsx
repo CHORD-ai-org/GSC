@@ -13,6 +13,7 @@ import type { ViewMode, SavedView } from '../lib/prefs.ts';
 import { loadSavedViews, saveSavedViews } from '../lib/prefs.ts';
 import { TimelineView } from './timeline.tsx';
 import { RelationsView } from './relations.tsx';
+import { SpatialView } from './spatial.tsx';
 import { useWindowed } from '../lib/useWindowed.ts';
 import { Glyph } from '../components/Glyph.tsx';
 import { useRelativeTime, useT } from '../lib/i18n.tsx';
@@ -333,7 +334,9 @@ export function RawCollection({
           onClear={() => setPicked(new Set())}
         />
       ) : null}
-      {view === 'relations' ? (
+      {view === 'spatial' ? (
+        <SpatialView page="raw" rows={rows} onOpenItem={onSelect} />
+      ) : view === 'relations' ? (
         <RelationsView rows={rows} allItems={items} onOpenItem={onSelect} />
       ) : view === 'timeline' ? (
         <TimelineView rows={rows} onOpenItem={onSelect} />
@@ -489,7 +492,9 @@ export function ObjectCollection({
           </button>
         ))}
       </div>
-      {view === 'relations' ? (
+      {view === 'spatial' ? (
+        <SpatialView page="objects" rows={rows} onOpenItem={onSelect} />
+      ) : view === 'relations' ? (
         <RelationsView rows={rows} allItems={items} onOpenItem={onSelect} />
       ) : view === 'timeline' ? (
         <TimelineView rows={rows} onOpenItem={onSelect} />
