@@ -27,6 +27,7 @@ import { createItem, deleteItem, getItem, listDeletedItems, listItemsPaged, purg
 import { searchAll } from './repo/search.ts';
 import { createRelation, listRelations, listRelationsForItems } from './repo/relations.ts';
 import { listEvents, listEventsForItems, appendEvent, activityCountsByItem } from './repo/events.ts';
+import { getSpatialLayout, putSpatialLayout } from './repo/spatial.ts';
 import { computeAttribution } from '../src/lib/events.ts';
 import {
   addContextMember,
@@ -283,6 +284,35 @@ async function hEventsGet(ctx: RouteCtx): Promise<RouteResult> {
     limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
   });
   return ok({ ok: true, events: stream });
+}
+
+async function hSpatialGet(ctx: RouteCtx): Promise<RouteResult> {
+  /* V4 (M4) kept-tier spatial layout read (owner + page scoped). */
+  const { db, url, viewerId } = ctx;
+  const page = url.searchParams.get('page') ?? '';
+  if (!page || page.length > 40) return fail('contract', 'page required');
+  return ok({ ok: true, positions: await getSpatialLayout(db, viewerId, page) });
+}
+
+async function hSpatialPut(ctx: RouteCtx): Promise<RouteResult> {
+  /* V4 (M4) kept-tier spatial layout write — per-row coordinates, no item mutation. */
+  const { db, url, body, viewerId } = ctx;
+  const page = url.searchParams.get('page') ?? '';
+  const entries = (body as Record<string, unknown>)?.items;
+  if (!page || page.length > 40 || !Array.isArray(entries) || entries.length > 500
+    || entries.some((e) => typeof (e as Record<string, unknown>)?.item_id !== 'string'
+      || typeof (e as Record<string, unknown>)?.x !== 'number'
+      || typeof (e as Record<string, unknown>)?.y !== 'number')) {
+    return fail('contract', 'Invalid spatial layout body');
+  }
+  const saved = await putSpatialLayout(
+    db,
+    viewerId,
+    page,
+    entries as { item_id: string; x: number; y: number }[],
+    Boolean((body as Record<string, unknown>).replace),
+  );
+  return ok({ ok: true, saved });
 }
 
 async function hRelationsGet(ctx: RouteCtx): Promise<RouteResult> {
@@ -937,6 +967,7 @@ export const ROUTES: RouteSpec[] = [
     ],
   },
   { pattern: /^\/api\/events$/, ops: [{ method: 'GET', handler: hEventsGet }] },
+  { pattern: /^\/api\/spatial-layout$/, ops: [{ method: 'GET', handler: hSpatialGet }, { method: 'PUT', handler: hSpatialPut, body: true, idem: true }] },
   {
     pattern: /^\/api\/relations$/,
     ops: [
