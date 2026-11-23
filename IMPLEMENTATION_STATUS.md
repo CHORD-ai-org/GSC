@@ -565,3 +565,13 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - 实测（裸模式）：文件夹 run-now scanned1/imported1；网页 run-now fetched2/imported2 + 留档 4 文件；控制台截图 local-console.png。
 - ⏳ 待办：docker compose up 起套 + down/up 卷持久演练（需用户启动 Docker Desktop）。
 - 验证：tsc=0 lint=0 vitest 191+1skip/192（+server/schedules.test.ts 3 测）。
+
+## G2 三端采集闭环：COMPLETE（opencode/codex 真跑一轮待补）（2026-11-23，D-103）
+
+- `/api/ingest/batch`：分组（client×project×session）→ agent source 锚点 + 快照幂等 + Light Up 管道 + 归块 cluster 提案（best-effort）。
+- `integrations/gsc-push.mjs` 共享 CLI（--codex-event notify 入口 + rollout 收割）；opencode 插件（session.idle）；codex notify 配置件；WorkBuddy skill（用户级 `~/.workbuddy/skills/gsc-push/`，能力表+核对清单）。
+- cluster accept 归并语义：同名 cluster 加入成员而非新建（D-042 延伸）。
+- 实测（WorkBuddy 真链）：push imported=1 / 重推 skipped=1（幂等）/ 命名+分类提案落卡 / 归块 block_proposals=1。
+- 实测修 2 bug：LLM 包壳数组契约容忍 · 归块幻觉 id 守卫（详见 KNOWN_ISSUES）。
+- G3 兼容矩阵补全（component-list.md）：三端采集 ✅、codex 上下文注入 ❌、MCP 读 🔜。
+- 待补验收：opencode/codex 各真跑一轮会话推送（集成件已备）。
