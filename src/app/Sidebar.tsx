@@ -6,7 +6,7 @@ export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
   | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user';
 
-type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user';
+type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user' | 'terminal';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -35,6 +35,8 @@ function Icon({ name }: { name: IconName }) {
       return <svg {...common}><path d="M2.5 3.2c1.8-.8 3.6-.8 5.5.4v9.2c-1.9-1.2-3.7-1.2-5.5-.4z" /><path d="M13.5 3.2c-1.8-.8-3.6-.8-5.5.4v9.2c1.9-1.2 3.7-1.2 5.5-.4z" /></svg>;
     case 'user':
       return <svg {...common}><circle cx="8" cy="5.5" r="2.5" /><path d="M3 13.5c0-2.2 2.2-3.5 5-3.5s5 1.3 5 3.5" /></svg>;
+    case 'terminal':
+      return <svg {...common}><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M5 6.5l2 1.8-2 1.8M8.5 10.5h3" /></svg>;
   }
 }
 
