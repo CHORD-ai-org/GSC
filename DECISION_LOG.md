@@ -925,3 +925,57 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, eslint=0, vitest 149/149
   (31 files, +7 pipeline/authz tests), `api-checks.mjs` 12/12. sharing.test.ts assertions updated
   400→403 per the policy change (recorded here so the diff reads as intentional).
+
+## D-094 — U1 client data layer + U3 field vocabulary: executed; U2 deferred (DECIDED)
+
+- **Decision:** Execute batch C of `UI_BACKEND_OPTIMIZATION_PLAN.md`. U1 and U3 landed (commit
+  `79fb666`); **U2 (collections.tsx 300-line merge + filters into URL) is `DEFERRED`** because a
+  parallel working session is actively writing Phase 07 V4 (spatial view) into the same working
+  tree — `collections.tsx` is in its live edit set. Two snapshot-writebacks already hit `App.tsx`
+  during this batch (import block reverted once, re-applied). Per AGENTS.md change discipline we
+  do not run a wholesale refactor through an actively-shared file; U2 resumes after V4 settles.
+- **U1:** `src/services/dataLayer.ts` — invalidation rules table + mutation runner + error-kind →
+  i18n key mapping. 25 hand-copied try/catch call sites in App.tsx collapsed onto the runner;
+  the rules table pins the stale-badge regression (item.delete must refresh clusters+contexts).
+  relationIndex now batched via `listRelationsFor` (was one `getItem` per object item — also
+  polluted engagement counts); context/cluster lists carry `member_ids` (repo one batched query,
+  kills the detail-fetch fan-out); `opened` trace is explicit (`?trace=1` from the detail-open
+  action only) so plain reads and export are side-effect-free; errors are partitioned per
+  panel/view scope. Tests prove: one create + reload = 2 requests (≤3), plain getItem writes no
+  events, delete rule includes clusters.
+- **U3:** `src/lib/itemFields.ts` single-sources the ItemFields vocabulary (replaces 4 drifting
+  copies: `repo/items.ts` fieldColumns, `App.tsx` + `detail.tsx` fieldLabels, the multiline set);
+  bilingual field labels; all form panel copy moved to `strings.ts` (form.*/confirm.* keys);
+  coverage tests make a missing zh/en copy or an out-of-vocabulary template key fail the suite.
+- **Alternatives rejected:** doing U2 first and asking V4 to pause (V4 was already mid-flight);
+  adding jsdom for orchestration tests (pure runner + fetch stub covers all three U1 acceptance
+  items with zero new dependencies — plan-text drift recorded in the plan §6.2).
+- **Status:** `DECIDED` — 2026-11-23. Verified: tsc=0, eslint=0, vitest 167/167 (34 files, +17
+  new). Working-tree caution: a parallel session writes this repo concurrently; commit `79fb666`
+  carries a few of its in-flight V4 lines in api.ts/strings.ts (shared files, noted in the commit
+  message).
+
+## D-095 — Phase 07 V4 spatial workbench: executed (DECIDED)
+
+> 编号修正（2026-11-23）：本条目原写 D-092，与上文批次 A 的 D-092 撞号（同一日两个并行会话各自
+> 取号）；现顺延为 D-095。THINKING.md / memory 日志中的引用已同步。
+
+- **Decision:** Execute V4 per PHASE_07_V4_PLAN.md (user confirmed 2026-11-23; Q-E default
+  adopted: scratch/kept 两档先行, canonical stays on Context/Cluster). Result: SpatialView
+  (drag-to-arrange cards, marquee selection = context boundary, explicit delegation via
+  agent/propose → naming/classification proposals fall back as purple cards with 采纳/拒绝/暂缓),
+  scratch tier in localStorage, kept tier in `spatial_layouts` (per-row coordinates, no JSONB —
+  migration 0012) behind GET/PUT /api/spatial-layout (owner-scoped, idem on PUT).
+- **Parallel-work reconciliation (recorded for honesty):** parts of the V4 frontend
+  (`src/views/spatial.tsx`, api client fns, prefs block, collections wiring) were found
+  pre-implemented in the working tree by a parallel workstream (alongside an unrelated U1
+  dataLayer refactor, still uncommitted). This run completed the integration gaps: strings,
+  CSS, the entire kept-tier server (migration/schema/repo/router), policy fixes (PUT idem,
+  invalid eslint directive, unused imports), per-target proposal stacking, tests and
+  acceptance verification. No parallel work was reverted.
+- **Proposal semantics (per plan):** delegation results are naming/classification proposals
+  (existing proposer capability); `classification` resolves as review-marked only (no auto-apply
+  — matches resolveProposalApplying contract, stated honestly in UI/plan).
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: tsc=0, lint=0, vitest 167/167
+  (34 files, +spatial.test.ts), zero-copy probe PASS incl. spatial (12 switches, 0 writes),
+  acceptance shot `v4-spatial.png` (20-card marquee selection + context bar + proposal cards).
