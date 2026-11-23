@@ -4,7 +4,7 @@ import { createDatabase } from '../persistence/client.ts';
 import type { Database, DatabaseHandle } from '../persistence/client.ts';
 import { migrationSql } from '../persistence/migrate.ts';
 import { events, itemContent, items } from '../persistence/schema.ts';
-import { createItem, getItem, updateItem } from './items.ts';
+import { createItem, getItem, listItemsPaged, updateItem } from './items.ts';
 
 let handle: DatabaseHandle;
 
@@ -84,5 +84,38 @@ describe('write atomicity (O1-4/B3 injection tests — the O1-4 acceptance that 
     expect(after?.fields.content_text).toBe('original body');
     const itemEvents = await handle.db.select().from(events).where(eq(events.item_id, created.id));
     expect(itemEvents).toHaveLength(1); // only the 'created' event
+  });
+});
+
+describe('F-1 keyword filter escaping (q pushdown keeps substring semantics)', () => {
+  it('treats %, _ and backslash in q as literals, not LIKE wildcards', async () => {
+    await createItem(handle.db, {
+      type: 'raw.document', title: '100% coverage report', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'percent literal' },
+    });
+    await createItem(handle.db, {
+      type: 'raw.document', title: 'alpha beta notes', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'plain' },
+    });
+    // counter-examples that an UNESCAPED LIKE would wrongly match:
+    // '%100%%' matches "1000 items list"; '%a_c%' matches "a-c probe".
+    await createItem(handle.db, {
+      type: 'raw.document', title: '1000 items list', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'wildcard bait one' },
+    });
+    await createItem(handle.db, {
+      type: 'raw.document', title: 'a-c probe', domain: 'knowledge', origin: 'user',
+      fields: { content_text: 'wildcard bait two' },
+    });
+    const pct = await listItemsPaged(handle.db, { q: '100%', limit: 200 });
+    expect(pct.items.map((i) => i.title)).toEqual(['100% coverage report']);
+    const underscore = await listItemsPaged(handle.db, { q: 'a_c', limit: 200 });
+    expect(underscore.items).toHaveLength(0);
+    // literal dash variant still matches its own title (substring, not wildcard)
+    const dash = await listItemsPaged(handle.db, { q: 'a-c', limit: 200 });
+    expect(dash.items.map((i) => i.title)).toEqual(['a-c probe']);
+    // plain substring behaviour preserved (D-020)
+    const plain = await listItemsPaged(handle.db, { q: 'alpha', limit: 200 });
+    expect(plain.items.map((i) => i.title)).toEqual(['alpha beta notes']);
   });
 });

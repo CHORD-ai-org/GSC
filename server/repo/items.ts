@@ -88,7 +88,9 @@ export async function listItemsPaged(
     // page in JS *after* pagination — it could only ever match within one page
     // of rows and made `total` a lie. Substring, case-insensitive, over title,
     // source label and typed text (content_text).
-    const needle = `%${filters.q.toLowerCase()}%`;
+    // F-1 (strict re-audit): escape LIKE metacharacters — the JS filter was a
+    // plain substring match, so raw LIKE would turn `%`/`_` into wildcards.
+    const needle = `%${filters.q.toLowerCase().replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     baseConditions.push(or(
       sql`lower(${items.title}) like ${needle}`,
       sql`lower(${items.source_label}) like ${needle}`,

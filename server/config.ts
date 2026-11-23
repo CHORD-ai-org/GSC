@@ -38,9 +38,14 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     throw new Error('DB_ADAPTER=postgres requires DATABASE_URL (e.g. postgres://user:pass@host:5432/gsc).');
   }
   const runtimeEnv: Config['env'] = env.GSC_ENV === 'production' ? 'production' : 'development';
-  // SEC-2: fail fast — the private-ingest escape hatch must never ship to prod.
+  // SEC-2: fail fast — dev/test escape hatches must never ship to prod.
   if (runtimeEnv === 'production' && env.GSC_INGEST_ALLOW_PRIVATE === '1') {
     throw new Error('GSC_INGEST_ALLOW_PRIVATE=1 is refused with GSC_ENV=production (dev/test escape hatch only).');
+  }
+  // F-4 (strict re-audit): a "production" profile with the API unauthenticated
+  // is a misconfiguration — refuse instead of serving an open API.
+  if (runtimeEnv === 'production' && env.GSC_AUTH_REQUIRED !== '1') {
+    throw new Error('GSC_AUTH_REQUIRED=1 is required with GSC_ENV=production (the API would otherwise be unauthenticated).');
   }
   return {
     port: portValue,

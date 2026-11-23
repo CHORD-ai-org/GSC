@@ -1047,3 +1047,33 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   moved ±10ms from machine load only (parallel session running on the same box).
 - **Status:** `DECIDED` — 2026-11-23. Verified: tsc=0, vitest 176 passed + 1 skipped after the
   rewrite (q-semantics tests all green); before/after numbers archived in the baseline reports §4.
+
+## D-098 — Strict re-audit of batch A/B: 1 P0 + 3 P1 found and fixed (DECIDED)
+
+- **Decision:** Re-evaluate D-096/D-097 work under adversarial review (strictest standard:
+  every claim re-proven, own tests mutation-checked). Result: the headline perf claim and the
+  index verdict stand, but the review found one P0 regression introduced by the DB-4 rewrite and
+  three P1 hardening gaps in batch A.
+- **F-1 (P0, fixed):** the q pushdown used raw LIKE — `%`/`_` in the query became wildcards
+  (`q=100%` matched everything), a semantics regression vs the old substring filter. Fixed with
+  backslash escaping; regression test seeds counter-examples ("1000 items list", "a-c probe")
+  that an unescaped LIKE matches — **mutation-verified** (escaping removed → test red → restored).
+- **F-2 (P1, fixed):** migration apply + version stamp were two execs — a crash between them
+  left a file applied but unrecorded and it would replay. Now one exec (simple-query implicit
+  transaction). F-6: filename quote-escaped in the stamp SQL.
+- **F-3 (P1, fixed):** `pg.Pool` had no 'error' listener — an idle-client error is an unhandled
+  event and kills the process. Now logged via server/log.ts.
+- **F-4 (P1, fixed, tightens D-096):** the production gate only blocked the private-ingest
+  escape hatch — `GSC_ENV=production` without `GSC_AUTH_REQUIRED=1` served an unauthenticated
+  API. Now refused at startup too.
+- **Correction to D-097:** "q-semantics tests all green" was inaccurate — q had ZERO tests at
+  rewrite time (the suite was green, just not because of q coverage). Corrected in the baseline
+  report §4 and here; the F-1 group is the first q coverage the filter ever had.
+- **Open K items (recorded, not fixed):** F-5 same-pattern full-content loads remain in
+  `agent/detector.ts` (batch job) and `listDeletedItems` (trash) — bounded contexts, and
+  `search.ts` (the measured SLO gap, with GAP-14). F-7: node-postgres multi-statement exec
+  result shape unverified (adapter acceptance checklist). F-8: `db:reset` only removes the
+  PGlite dir — meaningless on postgres (adapter acceptance checklist).
+- **Status:** `DECIDED` — 2026-11-23. Verified: tsc=0, eslint=0, vitest 178 passed + 1 skipped
+  (2 new: F-1 group, F-4 gate). Claims that survived review: 10k list p50 686→167ms (-76%),
+  p95 867→190ms (archived before/after), index audit zero-change verdict.

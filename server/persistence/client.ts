@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
+import { log } from '../log.ts';
 import { schema } from './schema.ts';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 
@@ -45,6 +46,11 @@ function wrapPglite(client: PGlite): DatabaseHandle {
 }
 
 function wrapPg(pool: pg.Pool): DatabaseHandle {
+  // F-3 (strict re-audit): an idle-client error without a listener is an
+  // unhandled 'error' event and kills the process.
+  pool.on('error', (err: Error) => {
+    log('warn', 'postgres pool error', { error: err?.message ?? String(err) });
+  });
   const db = drizzlePg(pool, { schema }) as unknown as Database;
   return {
     kind: 'postgres',

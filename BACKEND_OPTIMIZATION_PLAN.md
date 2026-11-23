@@ -107,3 +107,23 @@ Status: `PROPOSED` — 2026-11-23，待确认后按批执行。
 |---|---|---|
 | DB-3 + SRE-2 基线 | ✅ | `scripts/bench-backend.mjs`（零新依赖）：HTTP 端到端 7 组工作负载 + 8 组 EXPLAIN (ANALYZE, BUFFERS) + 索引清单；`docs/BACKEND_PERF_BASELINE.md`（N=1k）+ `_10K.md`（N=10k）。基线事实：写限流 60/min 是吞吐策略上限（429 实证）；PGlite 单连接串行化并发读 |
 | DB-4 证据驱动改写 | ✅ | 证据链：10k 下 SQL 全部 ≤20ms 而端点 686ms p50 ⇒ Node 侧。定位 `listItemsPaged` ① `item_content` 全表拉内存 ② `q` 页内 JS 过滤（分页语义坏）。改写后 **10k list p50 686→167ms（-76%）、p95 867→190ms 回 SLO 内**；keyword p95 879→270ms。索引审计零改动（排序键与 `items_updated_id_idx` 匹配，不建冗余索引）。遗留：`search` 端点全表扫描 p95 752ms @10k 超 SLO，与 P3 GAP-14 一并裁 |
+
+### 9.3 严格复审（2026-11-23，D-098）
+
+对抗性重审批次 A/B 全部产出与断言。**结论骨架站得住**（10k list 686→167ms 的 before/after、
+索引零改动裁决、基线数字均复核无误），但抓到：
+
+| # | 级别 | 发现 | 处置 |
+|---|---|---|---|
+| F-1 | P0 | q 下推 LIKE 未转义 `%`/`_` —— 通配符语义回归（`q=100%` 匹配一切），DB-4 改写引入 | ✅ 已修（转义）+ 反例种子回归测试 + **变异验证**（撤转义即红） |
+| F-2 | P1 | 迁移 apply+stamp 两步 exec，崩溃窗口 → 已应用未记录 → 重跑 | ✅ 已修（单次 exec 隐式事务） |
+| F-3 | P1 | `pg.Pool` 无 error 监听 → 空闲连接错误崩进程 | ✅ 已修（log('warn')） |
+| F-4 | P1 | 生产门漏无鉴权场景（production + 裸 API） | ✅ 已修（拒启），并收紧 D-096 语义 |
+| F-5 | K | 同型全表 content 加载残留：detector（批任务）/listDeletedItems（回收站）/search（SLO gap） | 📋 记录；search 与 GAP-14 一并裁 |
+| F-6 | K | stamp SQL 文件名插值未转义 | ✅ 随 F-2 顺手修 |
+| F-7 | K | node-postgres 多语句 exec 返回形状未实测 | 📋 DB-1 验收清单 |
+| F-8 | K | `db:reset` 只删 pgliteDir，postgres 下无效 | 📋 DB-1 验收清单 |
+
+**一处不实陈述更正**：D-097/基线报告曾写「q 语义测试全绿」——复审发现 q 过滤当时**零测试**，
+该句不成立；已在基线报告 §4 与 D-098 勘误。F-1 测试是该过滤器有史以来第一张回归网。
+验证：tsc=0 · eslint=0 · vitest 178 passed + 1 skipped。

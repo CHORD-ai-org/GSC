@@ -19,14 +19,20 @@ describe('DB-1 adapter + SEC-2 production gate (config)', () => {
   });
 
   it('refuses the private-ingest escape hatch in production', () => {
-    expect(() => readConfig({ GSC_ENV: 'production', GSC_INGEST_ALLOW_PRIVATE: '1' }))
+    expect(() => readConfig({ GSC_ENV: 'production', GSC_AUTH_REQUIRED: '1', GSC_INGEST_ALLOW_PRIVATE: '1' }))
       .toThrow(/GSC_INGEST_ALLOW_PRIVATE/);
   });
 
-  it('allows the escape hatch in development and production without it', () => {
+  it('F-4: refuses an unauthenticated production profile', () => {
+    expect(() => readConfig({ GSC_ENV: 'production' })).toThrow(/GSC_AUTH_REQUIRED/);
+  });
+
+  it('allows the escape hatch in development; production needs auth', () => {
     expect(readConfig({ GSC_INGEST_ALLOW_PRIVATE: '1' }).env).toBe('development');
-    expect(readConfig({ GSC_ENV: 'production' }).env).toBe('production');
-    expect(readConfig({ GSC_ENV: 'production' }).allowPrivateIngest).toBe(false);
+    const prod = readConfig({ GSC_ENV: 'production', GSC_AUTH_REQUIRED: '1' });
+    expect(prod.env).toBe('production');
+    expect(prod.allowPrivateIngest).toBe(false);
+    expect(prod.authRequired).toBe(true);
   });
 });
 

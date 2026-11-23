@@ -31,5 +31,8 @@
 1. DNS-rebinding TOCTOU（SSRF resolve-then-fetch）——已在 KNOWN_ISSUES。
 2. 单进程限流/幂等存储——多实例需共享存储。
 3. keyfile 与密文同机（非 HSM）。
-4. 本机开放模式（默认关鉴权）适合单机使用，**部署到多用户环境必须 `GSC_AUTH_REQUIRED=1`**。
+4. 本机开放模式（默认关鉴权）适合单机使用，**部署到多用户环境必须 `GSC_AUTH_REQUIRED=1`**——
+   现已由 SEC-2 生产门强制（`GSC_ENV=production` 下未开鉴权即拒启，D-098 F-4）。
 5. 无速率限制的 401 路径（未认证洪泛只耗认证检查）。
+6. SEC-2 生产门（D-096/D-098）：`GSC_ENV=production` 拒绝 `GSC_INGEST_ALLOW_PRIVATE` 逃生舱与
+   未鉴权配置，启动 fail-fast 报因。

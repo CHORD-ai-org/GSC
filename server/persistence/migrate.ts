@@ -43,7 +43,7 @@ export async function applyPendingMigrations(handle: DatabaseHandle): Promise<st
     const legacyDatabase = Boolean(probe[0]?.rows[0]?.reg);
     if (legacyDatabase) {
       for (const name of files) {
-        await handle.exec(`INSERT INTO schema_migrations (filename) VALUES ('${name}') ON CONFLICT DO NOTHING`);
+        await handle.exec(`INSERT INTO schema_migrations (filename) VALUES ('${name.replace(/'/g, "''")}') ON CONFLICT DO NOTHING`);
       }
       return [];
     }
@@ -52,8 +52,13 @@ export async function applyPendingMigrations(handle: DatabaseHandle): Promise<st
   const ran: string[] = [];
   for (const name of files) {
     if (applied.has(name)) continue;
-    await handle.exec(readFileSync(join(migrationsDir, name), 'utf8'));
-    await handle.exec(`INSERT INTO schema_migrations (filename) VALUES ('${name}') ON CONFLICT DO NOTHING`);
+    // F-2 (strict re-audit): file + version stamp in ONE exec — the simple
+    // query protocol runs multi-statement strings as a single implicit
+    // transaction, so a crash between apply and record can't leave a file
+    // applied but unrecorded (which would replay it on the next start).
+    // F-6: quote-escape the filename before it goes into SQL.
+    const stamp = `INSERT INTO schema_migrations (filename) VALUES ('${name.replace(/'/g, "''")}') ON CONFLICT DO NOTHING;`;
+    await handle.exec(`${readFileSync(join(migrationsDir, name), 'utf8')}\n${stamp}`);
     ran.push(name);
   }
   return ran;
