@@ -7,11 +7,15 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 
 export type Config = {
   port: number;
+  /** LOCAL_SIM: bind host — '127.0.0.1' (bare dev) or '0.0.0.0' (container/cloud). */
+  host: string;
   /** DB-1: 'pglite' (embedded default) or 'postgres' (deployment adapter). */
   dbAdapter: 'pglite' | 'postgres';
   pgliteDir: string;
   /** DB-1: DSN for the postgres adapter (DATABASE_URL). */
   pgDsn: string;
+  /** LOCAL_SIM: web-crawl provenance archive root (data/crawl volume). */
+  crawlDir: string;
   /** SEC-2: production profile gates dev/test escape hatches at startup. */
   env: 'development' | 'production';
   storageDir: string;
@@ -49,9 +53,11 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
   }
   return {
     port: portValue,
+    host: env.HOST ?? '127.0.0.1',
     dbAdapter: adapter,
     pgliteDir: resolve(env.PGLITE_DIR ?? './.data/pglite'),
     pgDsn,
+    crawlDir: resolve(env.CRAWL_DIR ?? './data/crawl'),
     env: runtimeEnv,
     storageDir: resolve(env.STORAGE_DIR ?? './data/files'),
     // Xiaomi MiMo Token Plan (OpenAI-compatible, tp- keys) — CN cluster by default.
