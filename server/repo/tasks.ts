@@ -4,7 +4,7 @@
  * reclaimed so an interrupted worker recovers cleanly.
  */
 import { randomUUID } from 'node:crypto';
-import { and, eq, lte } from 'drizzle-orm';
+import { and, asc, eq, lte, sql } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { captureTasks } from '../persistence/schema.ts';
 
@@ -45,10 +45,16 @@ export async function listTasks(db: Database, limit = 50): Promise<TaskRow[]> {
 
 /** Atomically claim the oldest pending task (guarded flip: only if still pending). */
 export async function claimNextTask(db: Database): Promise<TaskRow | undefined> {
+  /* P1 hygiene: exponential backoff gate using retry_count (0s/60s/120s/180s) —
+     retried tasks sit out their window before being claimed again. */
   const [pending] = await db
     .select()
     .from(captureTasks)
-    .where(eq(captureTasks.status, 'pending'))
+    .where(and(
+      eq(captureTasks.status, 'pending'),
+      sql`${captureTasks.updated_at} <= now() - ${captureTasks.retry_count} * interval '1 second' * 60`,
+    ))
+    .orderBy(asc(captureTasks.updated_at))
     .limit(1);
   if (!pending) return undefined;
   const now = new Date();
@@ -62,7 +68,7 @@ export async function claimNextTask(db: Database): Promise<TaskRow | undefined> 
 export async function updateTask(
   db: Database,
   id: string,
-  patch: { status?: TaskStatus; stage?: string; error?: string; completed?: boolean },
+  patch: { status?: TaskStatus; stage?: string; error?: string; completed?: boolean; retry_count?: number },
 ): Promise<void> {
   const now = new Date();
   await db
@@ -72,6 +78,7 @@ export async function updateTask(
       ...(patch.stage ? { stage: patch.stage } : {}),
       ...(patch.error !== undefined ? { last_error: patch.error } : {}),
       ...(patch.completed ? { completed_at: now } : {}),
+      ...(patch.retry_count !== undefined ? { retry_count: patch.retry_count } : {}),
       updated_at: now,
     })
     .where(eq(captureTasks.id, id));
