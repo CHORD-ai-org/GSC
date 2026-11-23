@@ -2,7 +2,7 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **Phase 07 V3 归因与提案面完成（M3，D-091）**：actor 穿线（提案接受=agent+via 标注）、computeAttribution、详情归因条/字段圆点/内嵌提案三键行，vitest 140/140。下一步 V4 空间工作台（⚠️ 待 Q-E 档位拍板）→ V5 闭环留证。
+> Status: **Phase 07 V4 空间工作台完成（M4，D-095）**：摆位/圈选/委派/提案卡回落全链路 + Q-E 两档（scratch localStorage / kept spatial_layouts 表）+ 零副本探针 12 切 0 写，vitest 167/167。下一步 V5 场景闭环（M5：采集→对象→圈定委派→提案→确认→溯源 双场景 + 归因校验 + 零副本断言）。并行线：UI/后端优化计划（D-092…D-094）批次 C U1/U3 已落地（79fb666），U2 collections 合并待 V4 提交后执行；新计划 `BACKEND_OPTIMIZATION_PLAN.md`（PROPOSED，2026-11-23）：jeffallan/claude-skills 四视角（DB 基线/API 契约/SLO/安全收尾），批次 A 地基→B 基线→C 证据驱动→D 可靠性，3 个待裁（部署形态/错误格式/SLO 数字）。
 
 ## User approvals received 2026-11-16
 
