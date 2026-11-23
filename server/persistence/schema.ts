@@ -1,4 +1,4 @@
-import { integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { doublePrecision, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const items = pgTable('items', {
   id: text('id').primaryKey(),
@@ -211,4 +211,16 @@ export const captureTasks = pgTable('capture_tasks', {
   completed_at: timestamp('completed_at', { withTimezone: true }),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks };
+/* V4 (M4) kept-tier spatial layout — per-row coordinates (Q-E scratch/kept;
+   no JSONB blob, scratch tier stays in localStorage). */
+export const spatialLayouts = pgTable('spatial_layouts', {
+  item_id: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  page: text('page').notNull(),
+  owner_id: text('owner_id').notNull().default('usr_local'),
+  x: doublePrecision('x').notNull(),
+  y: doublePrecision('y').notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.item_id, table.page, table.owner_id] }),
+}));
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts };
