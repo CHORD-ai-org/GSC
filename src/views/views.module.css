@@ -191,6 +191,12 @@
 .propWhy{font-size:11px;color:var(--ink-2)}
 .propBtn{font-size:11px;padding:3px 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--bg-card);color:var(--ink);cursor:pointer}
 .propBtn:hover{background:var(--tint-hover)}
+/* P1 hygiene: folded proposal groups */
+.propGroup{margin:0 0 8px}
+.propGroupHead{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg-card);font-size:12px;cursor:pointer;text-align:left}
+.propGroupHead:hover{background:var(--bg-2)}
+.propChevron{flex:none;color:var(--ink-2)}
+.spatPropExtra{display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed #C9C4EE;font-size:11px}
 .dotU{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5DCAA5;margin-left:8px;vertical-align:1px}
 .dotA{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7F77DD;margin-left:8px;vertical-align:1px}
 /* V4 (M4) spatial workbench */
