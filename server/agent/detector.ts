@@ -69,7 +69,18 @@ export type DetectionReport = { dedupe: number; metadata: number; association: n
 export async function runDetection(db: Database): Promise<DetectionReport> {
   const all: ItemDTO[] = await listItems(db);
   const pending = await listProposals(db, 'pending');
-  const seen = new Set(pending.map((p) => `${p.kind}:${p.target_id}:${p.related_id}`));
+  /* P1 hygiene: one key function for both sides of the dedupe check. The old code
+     built `metadata:id:null` here but tested `metadata:id:` later — the mismatch made
+     the dedupe miss every time and flooded pending on each run. */
+  const relKey = (kind: string, target: string, related: string | null | undefined) => `${kind}:${target}:${related ?? ''}`;
+  const seen = new Set(pending.map((p) => relKey(p.kind, p.target_id, p.related_id)));
+  /* P1 hygiene: per target+kind cap on pending proposals (default 3). */
+  const pendingCount = new Map<string, number>();
+  for (const p of pending) {
+    const k = `${p.kind}:${p.target_id}`;
+    pendingCount.set(k, (pendingCount.get(k) ?? 0) + 1);
+  }
+  const underCap = (kind: string, target: string, cap = 3) => (pendingCount.get(`${kind}:${target}`) ?? 0) < cap;
   const report: DetectionReport = { dedupe: 0, metadata: 0, association: 0 };
 
   const texts = new Map<string, string>();
@@ -84,8 +95,8 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
     const b = byId.get(idB);
     if (!a || !b) continue;
     const score = similarity(texts.get(a.id) ?? '', texts.get(b.id) ?? '');
-    const key = (kind: string) => [kind, a.id, b.id].join(':');
-    if (score >= DEDUPE_THRESHOLD && !seen.has(key('dedupe')) && !seen.has(`dedupe:${b.id}:${a.id}`)) {
+    const key = (kind: string) => relKey(kind, a.id, b.id);
+    if (score >= DEDUPE_THRESHOLD && !seen.has(key('dedupe')) && !seen.has(relKey('dedupe', b.id, a.id)) && underCap('dedupe', a.id)) {
       await createProposal(db, {
         kind: 'dedupe',
         target_id: a.id,
@@ -96,7 +107,7 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
       });
       seen.add(key('dedupe'));
       report.dedupe += 1;
-    } else if (score >= 0.4 && score < DEDUPE_THRESHOLD && !seen.has(key('association')) && !seen.has(`association:${b.id}:${a.id}`)) {
+    } else if (score >= 0.4 && score < DEDUPE_THRESHOLD && !seen.has(key('association')) && !seen.has(relKey('association', b.id, a.id)) && underCap('association', a.id)) {
       await createProposal(db, {
         kind: 'association',
         target_id: a.id,
@@ -111,8 +122,8 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
   }
 
   for (const item of all) {
-    const key = `metadata:${item.id}:`;
-    if (!item.source_label && !seen.has(key)) {
+    const key = relKey('metadata', item.id, '');
+    if (!item.source_label && !seen.has(key) && underCap('metadata', item.id)) {
       await createProposal(db, {
         kind: 'metadata',
         target_id: item.id,
