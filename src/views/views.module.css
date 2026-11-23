@@ -193,6 +193,19 @@
 .propBtn:hover{background:var(--tint-hover)}
 .dotU{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5DCAA5;margin-left:8px;vertical-align:1px}
 .dotA{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7F77DD;margin-left:8px;vertical-align:1px}
+/* V4 (M4) spatial workbench */
+.spatWrap{position:relative;width:100%;min-height:420px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;overflow:auto}
+.spatCard{position:absolute;display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--line);border-radius:10px;cursor:grab;user-select:none;touch-action:none;overflow:hidden}
+.spatCard:hover{border-color:var(--line-strong)}
+.spatPicked{border-color:#AFA9EC;box-shadow:0 0 0 3px rgba(175,169,236,.35)}
+.spatKind{font-size:10px;color:var(--ink-2)}
+.spatTitle{font-size:12px;font-weight:500;color:var(--ink);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.spatMarquee{position:absolute;border:1.5px dashed #AFA9EC;background:rgba(175,169,236,.12);border-radius:6px;pointer-events:none}
+.spatProp{position:absolute;width:216px;padding:8px 10px;background:#F3F1FE;border:1px solid #AFA9EC;border-radius:10px;font-size:11px;z-index:2}
+.spatPropHead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.spatPropValue{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3C3489}
+.spatPropBtns{display:flex;align-items:center;gap:8px}
+.ctxBar{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--ink)}
 .pairChip:hover{color:var(--ink)}
 .rowBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
 
