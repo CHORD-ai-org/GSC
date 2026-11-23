@@ -4,7 +4,7 @@ import type { NewsItem, NewsText } from '../lib/news.ts';
 import type { RelationDTO } from '../lib/relations.ts';
 import type { ApiError } from '../lib/api.ts';
 import type { ContextDTO, ContextDetailDTO } from '../lib/contexts.ts';
-import type { ClusterDTO, ClusterDetailDTO } from '../lib/clusters.ts';
+import type { ClusterDetailDTO } from '../lib/clusters.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { SourceDTO, SyncResult } from '../lib/sources.ts';
@@ -25,10 +25,12 @@ export type MutationResponse =
   | { ok: true; item: ItemDTO; relation?: undefined; context?: undefined }
   | { ok: true; relation: RelationDTO; item?: undefined; context?: undefined }
   | { ok: true; context: ContextDTO | ContextDetailDTO; item?: undefined; relation?: undefined };
-export type ContextListResponse = { ok: true; contexts: ContextDTO[] };
+/* U1: list responses carry member_ids (one batched server query) — the client
+   index no longer fans out per-row detail fetches. */
+export type ContextListResponse = { ok: true; contexts: ContextDetailDTO[] };
 export type ContextDetailResponse = { ok: true; context: ContextDetailDTO };
 export type DeleteItemResponse = { ok: true; deleted: true };
-export type ClusterListResponse = { ok: true; clusters: ClusterDTO[] };
+export type ClusterListResponse = { ok: true; clusters: ClusterDetailDTO[] };
 export type ClusterDetailResponse = { ok: true; cluster: ClusterDetailDTO };
 export type DeleteClusterResponse = { ok: true; deleted: true };
 export type ProposalListResponse = { ok: true; proposals: ProposalDTO[] };
@@ -48,6 +50,7 @@ export type ApiResponse =
   | ItemDetailResponse
   | EventListResponse
   | RelationListResponse
+  | SpatialLayoutResponse
   | MutationResponse
   | ContextListResponse
   | ContextDetailResponse
@@ -88,6 +91,8 @@ export type ApiResponse =
   | CaptureTaskListResponse
   | TokenListResponse
   | TokenCreateResponse
+  | SpatialLayoutResponse
+  | { ok: true; saved: number }
   | { ok: true; deleted: true }
   | ApiError;
 
@@ -212,6 +217,23 @@ export async function listItems(params: { type?: string; domain?: string; q?: st
 /* V2 (M2) read-only projections: batched event stream + relation edges. */
 export type EventListResponse = { ok: true; events: EventDTO[] };
 export type RelationListResponse = { ok: true; relations: RelationDTO[] };
+/* V4 (M4) kept-tier spatial layout (scratch lives in localStorage). */
+export type SpatialLayoutResponse = { ok: true; positions: { item_id: string; x: number; y: number }[] };
+
+export function getSpatialLayout(page: string): Promise<SpatialLayoutResponse> {
+  return request(`/api/spatial-layout?page=${encodeURIComponent(page)}`);
+}
+
+export function putSpatialLayout(
+  page: string,
+  items: { item_id: string; x: number; y: number }[],
+  replace: boolean,
+): Promise<{ ok: true; saved: number }> {
+  return request(`/api/spatial-layout?page=${encodeURIComponent(page)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ items, replace }),
+  });
+}
 
 export function listEventsFor(
   ids: string[],

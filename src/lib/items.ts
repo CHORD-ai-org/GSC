@@ -146,7 +146,7 @@ export function editableFieldsFor(type: ItemType): readonly (keyof ItemFields)[]
     : [];
 }
 
-function fieldsForType(type: ItemType): ItemFields {
+export function fieldsForType(type: ItemType): ItemFields {
   const groups: Record<ItemType, ItemFields> = {
     'raw.document': { content_text: '', author: '' },
     'raw.message': { content_text: '', author: '', captured_at: '' },

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, count, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { events, itemContent, items } from '../persistence/schema.ts';
+import { FIELD_KEYS } from '../../src/lib/itemFields.ts';
 import type {
   CreateItemBody,
   Domain,
@@ -17,12 +18,7 @@ import { defaultStatus, fieldKeysFor, itemTextForFilter } from '../../src/lib/it
 type ItemRow = typeof items.$inferSelect;
 type ContentRow = typeof itemContent.$inferSelect;
 
-const fieldColumns = [
-  'content_text', 'author', 'locator', 'filename', 'storage_ref', 'mime_type',
-  'captured_at', 'measured_at', 'definition', 'notes', 'claim', 'reasoning',
-  'name', 'steps', 'intended_use', 'statement', 'alternatives', 'consequences',
-  'source_item_id',
-] as const satisfies readonly (keyof ItemFields)[];
+/* U3: field vocabulary is single-sourced in src/lib/itemFields.ts (FIELD_KEYS). */
 
 /** Single source for the soft-delete predicate (B3): items alive = deleted_at IS NULL. */
 function notDeleted() {
@@ -32,7 +28,7 @@ function notDeleted() {
 export function toDTO(row: ItemRow, content?: ContentRow): ItemDTO {
   const fields: ItemFields = {};
   if (content) {
-    for (const key of fieldColumns) {
+    for (const key of FIELD_KEYS) {
       const value = content[key];
       if (typeof value === 'string') fields[key] = value;
     }

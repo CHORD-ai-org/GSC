@@ -17,10 +17,12 @@ import type { ContextIndexEntry } from '../views/pages.tsx';
 import { ContextCollection, ObjectCollection, RawCollection, ClusterCollection } from '../views/collections.tsx';
 import { ContextDetailView, ObjectDetailView, RawDetailView, ClusterDetailView } from '../views/detail.tsx';
 import { TagEditor } from '../components/TagEditor.tsx';
-import { useT } from '../lib/i18n.tsx';
+import { useI18n, useT } from '../lib/i18n.tsx';
 import { useToast } from '../components/Toast.tsx';
 import type { TagDefinitionDTO, TagValueDTO } from '../lib/tags.ts';
 import type { LlmPublicConfig } from '../services/api.ts';
+import { createMutationRunner, errorMessageKey, type DataKey } from '../services/dataLayer.ts';
+import { fieldLabel, isMultiline } from '../lib/itemFields.ts';
 import type { ClusterIndexEntry } from '../views/detail.tsx';
 import { LightUpStudio } from '../views/lightup.tsx';
 import type { PersistResult } from '../views/lightup.tsx';
@@ -55,17 +57,7 @@ import type { ItemDetailResponse } from '../services/api.ts';
 import styles from './app.module.css';
 
 type Panel = 'none' | 'new' | 'edit' | 'link' | 'new-context' | 'edit-context' | 'new-cluster' | 'edit-cluster';
-
-const fieldLabels: Record<string, string> = {
-  content_text: 'Content', author: 'Author', locator: 'Locator', filename: 'Filename',
-  storage_ref: 'Storage ref', mime_type: 'MIME type', captured_at: 'Captured at',
-  measured_at: 'Measured at', definition: 'Definition', notes: 'Notes', claim: 'Claim',
-  reasoning: 'Reasoning', name: 'Name', steps: 'Steps', intended_use: 'Intended use',
-  statement: 'Statement', alternatives: 'Alternatives', consequences: 'Consequences',
-  source_item_id: 'Source item',
-};
-
-const multiline = new Set(['content_text', 'definition', 'notes', 'claim', 'reasoning', 'steps', 'intended_use', 'statement', 'alternatives', 'consequences']);
+/* U3: field vocabulary single-sourced in lib/itemFields.ts (was fieldLabels + multiline here). */
 
 function metaFrom(item?: ItemDTO) {
   return {
@@ -100,7 +92,9 @@ export default function App() {
   const [panel, setPanel] = useState<Panel>('none');
   const [newType, setNewType] = useState<ItemType>('raw.document');
   const [form, setForm] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
+  /* U1: errors are partitioned by scope (panel or view) — a failure on one
+     page no longer stomps the message another page is showing. */
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [canvasQuery, setCanvasQuery] = useState('');
   const [canvasPreviewing, setCanvasPreviewing] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -115,6 +109,12 @@ export default function App() {
   const [llmConfig, setLlmConfig] = useState<LlmPublicConfig | null>(null);
   const [userList, setUserList] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeScope = panel !== 'none' ? `panel:${panel}` : `view:${view}`;
+  const error = errors[activeScope] ?? '';
+  useEffect(() => {
+    // entering a scope starts clean (matches the old clear-on-panel-change)
+    setErrors((prev) => (prev[activeScope] ? { ...prev, [activeScope]: '' } : prev));
+  }, [activeScope]);
 
   /* D-078: URL routing — bidirectional sync. State is seeded from the URL on load
      (deep links). Back/forward (popstate) re-derives state via `location`. State
@@ -155,15 +155,14 @@ export default function App() {
   }, []);
 
   const loadContextIndex = useCallback(async () => {
+    // U1: list carries member_ids (batched server-side) — no per-row fetch.
     const list = await api.listContexts();
-    const entries = await Promise.all(list.contexts.map(async (c) => (await api.getContext(c.id)).context));
-    setContexts(entries);
+    setContexts(list.contexts);
   }, []);
 
   const loadClusterIndex = useCallback(async () => {
     const list = await api.listClusters();
-    const entries = await Promise.all(list.clusters.map(async (c) => (await api.getCluster(c.id)).cluster));
-    setClusters(entries);
+    setClusters(list.clusters);
   }, []);
 
   const loadSources = useCallback(async () => {
@@ -201,10 +200,41 @@ export default function App() {
     setTagValues(values.values);
   }, []);
 
-  const loadDetail = useCallback(async (id: string) => {
-    const result = await api.getItem(id);
+  const loadDetail = useCallback(async (id: string, trace = false) => {
+    // `trace` marks the explicit "user opened the detail" action (V1 engagement).
+    // Refetches stay pure reads (U1): export and indexing never write events.
+    const result = await api.getItem(id, trace ? { trace: true } : {});
     setDetail(result);
   }, []);
+
+  /* U1: one mutation runner — clear → write → reload per the dataLayer rules
+     table → error routed to the scope the user is looking at. Replaces 25
+     hand-copied try/catch blocks that each picked their own refetches. */
+  const reload = useCallback(async (keys: readonly DataKey[]) => {
+    await Promise.all(keys.map((key) => {
+      switch (key) {
+        case 'items': return refresh();
+        case 'detail': return selectedId ? loadDetail(selectedId) : Promise.resolve();
+        case 'contexts': return loadContextIndex();
+        case 'clusters': return loadClusterIndex();
+        case 'sources': return loadSources();
+        case 'proposals': return loadProposals();
+        case 'tags': return loadTags();
+        case 'shares': return clusterId ? loadShareState(clusterId) : Promise.resolve();
+      }
+    }));
+  }, [refresh, loadDetail, loadContextIndex, loadClusterIndex, loadSources, loadProposals, loadTags, loadShareState, selectedId, clusterId]);
+
+  const run = useMemo(() => createMutationRunner({
+    scope: () => activeScope,
+    clearError: (scope) => setErrors((prev) => ({ ...prev, [scope]: '' })),
+    showError: (scope, message) => setErrors((prev) => ({ ...prev, [scope]: message })),
+    reload,
+    describeError: (e) => {
+      const key = errorMessageKey(e);
+      return key ? t(key) : e instanceof Error ? e.message : t('error.unexpected');
+    },
+  }), [activeScope, reload, t]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => { void loadContextIndex(); }, [loadContextIndex]);
@@ -219,9 +249,8 @@ export default function App() {
   }, [clusterId, loadShareState]);
   useEffect(() => {
     if (!selectedId) { setDetail(undefined); return; }
-    void loadDetail(selectedId);
+    void loadDetail(selectedId, true);
   }, [selectedId, loadDetail]);
-  useEffect(() => { setError(''); }, [panel]);
   useEffect(() => {
     document.documentElement.dataset.theme = prefs.theme;
     document.documentElement.dataset.density = prefs.density;
@@ -231,11 +260,20 @@ export default function App() {
     let alive = true;
     void (async () => {
       const objectItems = items.filter((i) => i.type.startsWith('object.'));
-      const entries = await Promise.all(objectItems.map(async (i) => {
-        const d = await api.getItem(i.id);
-        return [i.id, d.relations] as const;
-      }));
-      if (alive) setRelationIndex(Object.fromEntries(entries));
+      if (objectItems.length === 0) {
+        if (alive) setRelationIndex({});
+        return;
+      }
+      // U1: one batched projection read. Was one getItem per object item (N+1),
+      // and those detail fetches polluted engagement counts with fake opens.
+      const { relations } = await api.listRelationsFor(objectItems.map((i) => i.id));
+      const index: Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }> = {};
+      for (const item of objectItems) index[item.id] = { outgoing: [], incoming: [] };
+      for (const r of relations) {
+        if (index[r.from_id]) index[r.from_id].outgoing.push({ to_id: r.to_id, kind: r.kind });
+        if (index[r.to_id]) index[r.to_id].incoming.push({ from_id: r.from_id, kind: r.kind });
+      }
+      if (alive) setRelationIndex(index);
     })();
     return () => { alive = false; };
   }, [items]);
@@ -423,8 +461,7 @@ export default function App() {
   }
 
   async function saveNew() {
-    try {
-      setError('');
+    const created = await run('item.create', async () => {
       const fields: ItemFields = {};
       for (const key of fieldKeysFor(newType)) if (form[key]) fields[key] = form[key];
       const result = await api.createItem({
@@ -436,18 +473,16 @@ export default function App() {
         fields,
       });
       if (!result.item) throw new Error('Unexpected create response');
-      await refresh();
-      selectItem(result.item.id);
-      go(result.item.type.startsWith('raw.') ? 'raw' : 'objects');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
-    }
+      return result.item;
+    });
+    if (!created) return;
+    selectItem(created.id);
+    go(created.type.startsWith('raw.') ? 'raw' : 'objects');
   }
 
   async function saveEdit() {
     if (!selected) return;
-    try {
-      setError('');
+    const ok = await run('item.update', async () => {
       const fields: ItemFields = {};
       if (isObjectType(selected.type)) {
         for (const key of fieldKeysFor(selected.type)) if (key in form) fields[key] = form[key] ?? '';
@@ -461,18 +496,14 @@ export default function App() {
         fields,
       });
       if (!('item' in result)) throw new Error('Unexpected update response');
-      setPanel('none');
-      await loadDetail(selected.id);
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Update failed');
-    }
+      return true;
+    });
+    if (ok) setPanel('none');
   }
 
   async function saveLink() {
     if (!selected) return;
-    try {
-      setError('');
+    const ok = await run('relation.create', async () => {
       const result = await api.createRelation({
         kind: form.kind,
         from_id: selected.id,
@@ -480,35 +511,29 @@ export default function App() {
         note: form.note,
       });
       if (!('relation' in result)) throw new Error('Unexpected relation response');
-      setPanel('none');
-      await loadDetail(selected.id);
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Link failed');
-    }
+      return true;
+    });
+    if (ok) setPanel('none');
   }
 
   async function deleteSelected() {
     if (!selected) return;
-    if (!window.confirm('Delete this item? It goes to the trash and can be restored.')) return;
-    try {
-      setError('');
-      const deletedId = selected.id;
+    if (!window.confirm(t('confirm.deleteItem'))) return;
+    const deletedId = selected.id;
+    const ok = await run('item.delete', async () => {
       await api.deleteItem(deletedId);
-      setSelectedId('');
-      setPanel('none');
-      await refresh();
-      await loadContextIndex();
-      /* T203: 6-second undo window */
-      toast(t('trash.deleted'), 'ok', {
-        label: t('trash.undo'),
-        run: () => {
-          void api.restoreItem(deletedId).then(() => refresh());
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delete failed');
-    }
+      return true;
+    });
+    if (!ok) return;
+    setSelectedId('');
+    setPanel('none');
+    /* T203: 6-second undo window */
+    toast(t('trash.deleted'), 'ok', {
+      label: t('trash.undo'),
+      run: () => {
+        void run('item.restore', () => api.restoreItem(deletedId));
+      },
+    });
   }
 
   function openNewContext() {
@@ -529,46 +554,34 @@ export default function App() {
   }
 
   async function saveCluster() {
-    try {
-      setError('');
+    const saved = await run(panel === 'edit-cluster' ? 'cluster.update' : 'cluster.create', async () => {
       const body = { title: form.title, description: form.description };
       const result = panel === 'edit-cluster' && clusterId
         ? await api.updateCluster(clusterId, body)
         : await api.createCluster(body);
       if (!result.cluster) throw new Error('Unexpected cluster response');
-      const saved = result.cluster;
-      setPanel('none');
-      setClusterId(saved.id);
-      await loadClusterIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Cluster save failed');
-    }
+      return result.cluster;
+    });
+    if (!saved) return;
+    setPanel('none');
+    setClusterId(saved.id);
   }
 
   async function changeClusterMember(action: 'add' | 'remove', itemId: string) {
     if (!clusterId) return;
-    try {
-      setError('');
-      await (action === 'add'
-        ? api.addClusterMember(clusterId, itemId)
-        : api.removeClusterMember(clusterId, itemId));
-      await loadClusterIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Member update failed');
-    }
+    await run('cluster.members', () => (action === 'add'
+      ? api.addClusterMember(clusterId, itemId)
+      : api.removeClusterMember(clusterId, itemId)));
   }
 
   async function deleteSelectedCluster() {
     if (!selectedCluster) return;
-    if (!window.confirm('Delete this cluster? Members keep their own content.')) return;
-    try {
-      setError('');
+    if (!window.confirm(t('confirm.deleteCluster'))) return;
+    const ok = await run('cluster.delete', async () => {
       await api.deleteCluster(selectedCluster.id);
-      setClusterId('');
-      await loadClusterIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delete failed');
-    }
+      return true;
+    });
+    if (ok) setClusterId('');
   }
 
   function openEditContext() {
@@ -579,8 +592,7 @@ export default function App() {
   }
 
   async function saveContext() {
-    try {
-      setError('');
+    const saved = await run(panel === 'edit-context' ? 'context.update' : 'context.create', async () => {
       const body = {
         title: form.title,
         subject: form.subject,
@@ -591,27 +603,22 @@ export default function App() {
         ? await api.updateContext(contextId, body)
         : await api.createContext(body);
       if (!result.context) throw new Error('Unexpected context response');
-      const saved = result.context;
-      setPanel('none');
-      setContextId(saved.id);
-      await loadContextIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Context save failed');
-    }
+      return result.context;
+    });
+    if (!saved) return;
+    setPanel('none');
+    setContextId(saved.id);
   }
 
   async function changeMember(action: 'add' | 'remove', itemId: string) {
     if (!contextId) return;
-    try {
-      setError('');
+    await run('context.members', async () => {
       const result = action === 'add'
         ? await api.addContextMember(contextId, itemId)
         : await api.removeContextMember(contextId, itemId);
       if (!result.context) throw new Error('Unexpected member response');
-      await loadContextIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Member update failed');
-    }
+      return true;
+    });
   }
 
   async function onFile(file?: File) {
@@ -621,8 +628,7 @@ export default function App() {
   }
 
   async function importFileObject(file: File) {
-    try {
-      setError('');
+    const created = await run('item.create', async () => {
       const content = await file.text();
       const result = await api.createItem({
         type: 'raw.filecontent',
@@ -632,20 +638,16 @@ export default function App() {
         source_label: 'file-import',
         fields: { filename: file.name, content_text: content },
       });
-      await refresh();
-      if (result.item) {
-        setSelectedId(result.item.id);
-        setCanvasPreviewing(true);
-      }
-      if (view !== 'canvas') go('canvas');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed');
-    }
+      return result.item;
+    });
+    if (!created) return;
+    setSelectedId(created.id);
+    setCanvasPreviewing(true);
+    if (view !== 'canvas') go('canvas');
   }
 
   async function submitComposer(payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) {
-    try {
-      setError('');
+    const created = await run('item.create', async () => {
       const title = payload.text.split('\n')[0].slice(0, 80);
       const result = await api.createItem({
         type: 'raw.document',
@@ -656,11 +658,9 @@ export default function App() {
         fields: { content_text: payload.text },
       });
       if (!result.item) throw new Error('Unexpected create response');
-      await refresh();
-      go('recently');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Capture failed');
-    }
+      return result.item;
+    });
+    if (created) go('recently');
   }
 
   async function collectExport(): Promise<ExportSource> {
@@ -673,36 +673,37 @@ export default function App() {
     const created: PersistResult['created'] = [];
     const failed: PersistResult['failed'] = [];
     try {
-      setError('');
-      for (const sheet of sheets) {
-        const fields: ItemFields = { content_text: sheet.content };
-        if (sheet.type === 'raw.message') fields.author = sheet.author || 'extracted';
-        if (sheet.type === 'raw.evidence') fields.locator = sheet.locator || sourceLabel;
-        if (sheet.type === 'raw.filecontent') fields.filename = sheet.title;
-        try {
-          const result = await api.createItem({
-            type: sheet.type,
-            title: sheet.title || 'Untitled',
-            domain: 'knowledge',
-            origin: 'user',
-            source_label: sourceLabel,
-            fields,
-          });
-          if (result.item) {
-            created.push({ id: result.item.id, title: result.item.title, type: result.item.type, source_label: result.item.source_label });
-            // Pending tags become real tag values through the existing contract (PLAN-8).
-            for (const tag of sheet.tags) {
-              const def = tagDefinitions.find((d) => d.name === tag.dim);
-              if (def) {
-                await api.createTagValue({ definition_id: def.id, item_id: result.item.id, value: tag.value, confirmed: true });
+      await run('lightup.persist', async () => {
+        for (const sheet of sheets) {
+          const fields: ItemFields = { content_text: sheet.content };
+          if (sheet.type === 'raw.message') fields.author = sheet.author || 'extracted';
+          if (sheet.type === 'raw.evidence') fields.locator = sheet.locator || sourceLabel;
+          if (sheet.type === 'raw.filecontent') fields.filename = sheet.title;
+          try {
+            const result = await api.createItem({
+              type: sheet.type,
+              title: sheet.title || 'Untitled',
+              domain: 'knowledge',
+              origin: 'user',
+              source_label: sourceLabel,
+              fields,
+            });
+            if (result.item) {
+              created.push({ id: result.item.id, title: result.item.title, type: result.item.type, source_label: result.item.source_label });
+              // Pending tags become real tag values through the existing contract (PLAN-8).
+              for (const tag of sheet.tags) {
+                const def = tagDefinitions.find((d) => d.name === tag.dim);
+                if (def) {
+                  await api.createTagValue({ definition_id: def.id, item_id: result.item.id, value: tag.value, confirmed: true });
+                }
               }
             }
+          } catch (e) {
+            failed.push({ key: sheet.key, message: e instanceof Error ? e.message : 'create failed' });
           }
-        } catch (e) {
-          failed.push({ key: sheet.key, message: e instanceof Error ? e.message : 'create failed' });
         }
-      }
-      await refresh();
+        return true;
+      });
     } finally {
       setLightupBusy(false);
     }
@@ -712,37 +713,30 @@ export default function App() {
   async function proposeForSegments(rows: { title: string; content: string }[]): Promise<{ index: number; semantic_name: string }[]> {
     setLightupBusy(true);
     try {
-      setError('');
-      const result = await api.proposeSuggestions(rows.map((r) => ({ title: r.title, content: r.content })));
-      return result.suggestions.map((s) => ({ index: s.index, semantic_name: s.semantic_name }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('lu.agentUnavailable'));
-      return [];
+      const result = await run('agent.propose', async () => {
+        const r = await api.proposeSuggestions(rows.map((row) => ({ title: row.title, content: row.content })));
+        return r.suggestions.map((s) => ({ index: s.index, semantic_name: s.semantic_name }));
+      });
+      return result ?? [];
     } finally {
       setLightupBusy(false);
     }
   }
 
   async function resolveProposalEntry(proposal: ProposalDTO, status: 'accepted' | 'rejected') {
-    try {
-      setError('');
+    await run('proposal.resolve', async () => {
       await api.resolveProposal(proposal.id, status);
-      await loadProposals();
-      await refresh();
-      await loadClusterIndex();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Resolve failed');
-    }
+      return true;
+    });
   }
 
   async function detectNow() {
     setLightupBusy(true);
     try {
-      setError('');
-      await api.runDetect();
-      await loadProposals();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Detection failed');
+      await run('proposal.detect', async () => {
+        await api.runDetect();
+        return true;
+      });
     } finally {
       setLightupBusy(false);
     }
@@ -751,10 +745,11 @@ export default function App() {
   async function runExport(build: (source: ExportSource) => { filename: string; mime: string; content: string }) {
     setSyncBusy(true);
     try {
-      const source = await collectExport();
-      downloadArtifact(build(source));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Export failed');
+      await run('export.run', async () => {
+        const source = await collectExport();
+        downloadArtifact(build(source));
+        return true;
+      });
     } finally {
       setSyncBusy(false);
     }
@@ -763,81 +758,65 @@ export default function App() {
   async function createSourceEntry(body: { kind: SourceKind; label: string; scope: string; frequency: SourceFrequency; token: string }) {
     setSourceBusy(true);
     try {
-      setError('');
-      await api.createSource(body);
-      await loadSources();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Connect failed');
+      await run('source.create', async () => {
+        await api.createSource(body);
+        return true;
+      });
     } finally {
       setSourceBusy(false);
     }
   }
 
   async function toggleSourcePause(source: SourceDTO) {
-    try {
-      setError('');
+    await run('source.update', async () => {
       await api.updateSource(source.id, { status: source.status === 'paused' ? 'connected' : 'paused' });
-      await loadSources();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Update failed');
-    }
+      return true;
+    });
   }
 
   async function removeSourceEntry(source: SourceDTO) {
     if (!window.confirm(t('sync.disconnectConfirm', { label: source.label }))) return;
-    try {
-      setError('');
+    await run('source.delete', async () => {
       await api.deleteSource(source.id);
-      await loadSources();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Disconnect failed');
-    }
+      return true;
+    });
   }
 
   async function syncSourceEntry(source: SourceDTO) {
     setSourceBusy(true);
     try {
-      setError('');
-      await api.syncSource(source.id);
-      await loadSources();
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sync failed');
-      await loadSources();
+      const ok = await run('source.sync', async () => {
+        await api.syncSource(source.id);
+        return true;
+      });
+      // A failed sync may still have touched upstream state — resync the card.
+      if (!ok) await loadSources();
     } finally {
       setSourceBusy(false);
     }
   }
 
   async function setSourceFrequency(source: SourceDTO, frequency: SourceFrequency) {
-    try {
+    await run('source.update', async () => {
       await api.updateSource(source.id, { frequency });
-      await loadSources();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Update failed');
-    }
+      return true;
+    });
   }
 
   async function shareClusterEntry(name: string, role: 'view' | 'add') {
     if (!clusterId) return;
-    try {
-      setError('');
+    await run('share.create', async () => {
       await api.shareCluster(clusterId, { name, role });
-      await loadShareState(clusterId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Share failed');
-    }
+      return true;
+    });
   }
 
   async function revokeShareEntry(userId: string) {
     if (!clusterId) return;
-    try {
-      setError('');
+    await run('share.revoke', async () => {
       await api.revokeClusterShare(clusterId, userId);
-      await loadShareState(clusterId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Revoke failed');
-    }
+      return true;
+    });
   }
 
   const linkTargets = useMemo(() => {
@@ -857,49 +836,40 @@ export default function App() {
   }
 
   async function addTagValue(body: { definition_id: string; value: string; scope: string }, attachToItem = true) {
-    try {
-      setError('');
+    await run('tag.value.create', async () => {
       await api.createTagValue(attachToItem && selectedId ? { ...body, item_id: selectedId } : body);
-      await loadTags();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Tagging failed');
-    }
+      return true;
+    });
   }
 
   /* GAP-10: bulk tagging — assign one tag value to every picked item. */
   async function bulkTag(ids: string[], definitionId: string, value: string) {
-    try {
+    const ok = await run('tag.value.create', async () => {
       for (const id of ids) {
         await api.createTagValue({ definition_id: definitionId, item_id: id, value, scope: 'global' });
       }
-      toast(t('cols.bulkDone', { n: ids.length }));
-      await loadTags();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
-    }
+      return true;
+    });
+    if (ok) toast(t('cols.bulkDone', { n: ids.length }));
   }
 
   async function confirmTagValue(id: string, confirmed: boolean) {
-    try {
+    await run('tag.value.update', async () => {
       await api.setTagValueConfirmed(id, confirmed);
-      await loadTags();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Confirm failed');
-    }
+      return true;
+    });
   }
 
   async function removeTagValue(id: string) {
-    try {
+    await run('tag.value.delete', async () => {
       await api.deleteTagValue(id);
-      await loadTags();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Remove failed');
-    }
+      return true;
+    });
   }
 
   async function saveLlmConfig(patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) {
-    const result = await api.updateLlmConfig(patch);
-    setLlmConfig(result.config);
+    const result = await run('llm.update', () => api.updateLlmConfig(patch));
+    if (result) setLlmConfig(result.config);
   }
 
   async function checkLlm() {
@@ -907,12 +877,10 @@ export default function App() {
   }
 
   async function createTagDef(name: string, description: string) {
-    try {
+    await run('tag.def.create', async () => {
       await api.createTagDefinition({ name, description });
-      await loadTags();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create dimension failed');
-    }
+      return true;
+    });
   }
 
   function renderItemPage(kind: 'raw' | 'objects') {
@@ -961,13 +929,11 @@ export default function App() {
         onOpenItem: openItemInPage,
         onOpenContext: openContextInPage,
         onAddToContext: async (contextId: string) => {
-          try {
+          const ok = await run('context.members', async () => {
             await api.addContextMember(contextId, selectedId);
-            toast(t('detail.addedToContext'));
-            await loadContextIndex();
-          } catch (e) {
-            toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
-          }
+            return true;
+          });
+          if (ok) toast(t('detail.addedToContext'));
         },
         onRefresh: () => {
           if (selectedId) void loadDetail(selectedId);
@@ -1334,23 +1300,24 @@ export default function App() {
 function MetadataInputs({
   form, type, onField,
 }: { form: Record<string, string>; type: ItemType; onField: (key: string, value: string) => void }) {
+  const t = useT();
   return (
     <>
-      <Field label="Title"><input value={form.title ?? ''} onChange={(e) => onField('title', e.target.value)} /></Field>
+      <Field label={t('form.title')}><input value={form.title ?? ''} onChange={(e) => onField('title', e.target.value)} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Domain">
+        <Field label={t('form.domain')}>
           <select value={form.domain ?? 'knowledge'} onChange={(e) => onField('domain', e.target.value)}>
             {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </Field>
-        <Field label="Origin">
+        <Field label={t('detail.origin')}>
           <select value={form.origin ?? 'user'} onChange={(e) => onField('origin', e.target.value)}>
             {['user', 'import', 'agent'].map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </Field>
       </div>
-      <Field label="Source label (optional)"><input value={form.source_label ?? ''} onChange={(e) => onField('source_label', e.target.value)} /></Field>
-      <Field label="Status">
+      <Field label={t('form.sourceLabel')}><input value={form.source_label ?? ''} onChange={(e) => onField('source_label', e.target.value)} /></Field>
+      <Field label={t('form.status')}>
         <select value={form.status ?? statusesFor(type)[0]} onChange={(e) => onField('status', e.target.value)}>
           {statusesFor(type).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -1368,19 +1335,20 @@ function TypedInputs({
   onField: (key: string, value: string) => void;
   onFile?: (file?: File) => void;
 }) {
+  const { t, lang } = useI18n();
   return (
     <>
       {type === 'raw.filecontent' && onFile ? (
-        <Field label="Import text file"><input type="file" accept=".txt,.md,text/*" onChange={(e) => void onFile(e.target.files?.[0])} /></Field>
+        <Field label={t('form.importFile')}><input type="file" accept=".txt,.md,text/*" onChange={(e) => void onFile(e.target.files?.[0])} /></Field>
       ) : null}
       {fieldKeysFor(type).filter((key) => key !== 'storage_ref' && key !== 'mime_type').map((key) => (
-        <Field key={key} label={`${fieldLabels[key] ?? key}${key === 'source_item_id' ? ' · required' : ''}`}>
+        <Field key={key} label={`${fieldLabel(key, lang)}${key === 'source_item_id' ? ` · ${t('form.required')}` : ''}`}>
           {key === 'source_item_id' ? (
             <select value={form[key] ?? ''} onChange={(e) => onField(key, e.target.value)}>
-              <option value="">— select raw item —</option>
+              <option value="">{t('form.selectRaw')}</option>
               {items.filter((x) => !isObjectType(x.type)).map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
             </select>
-          ) : multiline.has(key) ? (
+          ) : isMultiline(key) ? (
             <textarea value={form[key] ?? ''} onChange={(e) => onField(key, e.target.value)} rows={key === 'content_text' ? 5 : 3} />
           ) : (
             <input value={form[key] ?? ''} onChange={(e) => onField(key, e.target.value)} />
@@ -1404,15 +1372,16 @@ function NewForm({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
-      <SectionLabel title="New item" />
-      <Field label="Type">
+      <SectionLabel title={t('form.newItem')} />
+      <Field label={t('form.type')}>
         <select value={type} onChange={(e) => onType(e.target.value as ItemType)}>
-          <optgroup label="Raw information">
+          <optgroup label={t('form.rawGroup')}>
             {ITEM_TYPES.filter((t) => !OBJECT_TYPES.includes(t as never)).map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
           </optgroup>
-          <optgroup label="Structured objects">
+          <optgroup label={t('form.objectGroup')}>
             {OBJECT_TYPES.map((t) => <option key={t} value={t}>{ITEM_LABELS[t]}</option>)}
           </optgroup>
         </select>
@@ -1421,8 +1390,8 @@ function NewForm({
       <MetadataInputs form={form} type={type} onField={onField} />
       <TypedInputs type={type} form={form} items={items} onField={onField} onFile={onFile} />
       <div className={styles.formActions}>
-        <Button primary onClick={onSave}>Save</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button primary onClick={onSave}>{t('common.save')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
       </div>
     </>
   );
@@ -1437,17 +1406,18 @@ function Editor({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
-      <div className={styles.panelKicker}>EDIT · {item.id}</div>
+      <div className={styles.panelKicker}>{t('form.kickerEdit')} · {item.id}</div>
       <div className={styles.panelTitle}>{item.title}</div>
       <MetadataInputs form={form} type={item.type} onField={onField} />
       {isObjectType(item.type) ? <TypedInputs type={item.type} form={form} items={[]} onField={onField} /> : (
-        <div className={styles.note}>Raw item content is immutable. Title, source label and status are editable.</div>
+        <div className={styles.note}>{t('form.rawImmutable')}</div>
       )}
       <div className={styles.formActions}>
-        <Button primary onClick={onSave}>Save</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button primary onClick={onSave}>{t('common.save')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
       </div>
     </>
   );
@@ -1462,26 +1432,27 @@ function Linker({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
-      <div className={styles.panelKicker}>LINK</div>
-      <div className={styles.panelTitle}>Add relation</div>
-      <Field label="Kind">
+      <div className={styles.panelKicker}>{t('form.kickerLink')}</div>
+      <div className={styles.panelTitle}>{t('form.addRelation')}</div>
+      <Field label={t('form.kind')}>
         <select value={form.kind} onChange={(e) => onField('kind', e.target.value)}>
           {RELATION_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
       </Field>
-      <Field label="Target">
+      <Field label={t('form.target')}>
         <select value={form.target} onChange={(e) => onField('target', e.target.value)}>
-          <option value="">— select —</option>
+          <option value="">{t('form.select')}</option>
           {targets.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
         </select>
       </Field>
-      <Field label="Note (optional)"><input value={form.note ?? ''} onChange={(e) => onField('note', e.target.value)} /></Field>
-      <div className={styles.note}>Stance labels are text only. They do not change status or verify a claim.</div>
+      <Field label={t('form.noteOptional')}><input value={form.note ?? ''} onChange={(e) => onField('note', e.target.value)} /></Field>
+      <div className={styles.note}>{t('form.stanceNote')}</div>
       <div className={styles.formActions}>
-        <Button primary onClick={onSave}>Save relation</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button primary onClick={onSave}>{t('form.saveRelation')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
       </div>
     </>
   );
@@ -1497,17 +1468,18 @@ function ClusterForm({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
-      <SectionLabel title={editing ? 'Edit cluster' : 'New cluster'} />
+      <SectionLabel title={editing ? t('form.editCluster') : t('form.newCluster')} />
       {error ? <div className={styles.error}>{error}</div> : null}
-      <Field label="Title"><input value={form.title ?? ''} onChange={(e) => onField('title', e.target.value)} /></Field>
-      <Field label="Description"><textarea value={form.description ?? ''} onChange={(e) => onField('description', e.target.value)} rows={3} /></Field>
+      <Field label={t('form.title')}><input value={form.title ?? ''} onChange={(e) => onField('title', e.target.value)} /></Field>
+      <Field label={t('form.description')}><textarea value={form.description ?? ''} onChange={(e) => onField('description', e.target.value)} rows={3} /></Field>
       <div className={styles.formActions}>
-        <Button primary onClick={onSave}>Save</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button primary onClick={onSave}>{t('common.save')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
       </div>
-      <div className={styles.note}>A Cluster groups related Chunks. Members are added after creation; a Chunk may belong to multiple Clusters.</div>
+      <div className={styles.note}>{t('form.clusterNote')}</div>
     </>
   );
 }
@@ -1522,12 +1494,13 @@ function ContextForm({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
-      <SectionLabel title={editing ? 'Edit context' : 'New context'} />
+      <SectionLabel title={editing ? t('form.editContext') : t('form.newContext')} />
       {error ? <div className={styles.error}>{error}</div> : null}
       {(['title', 'subject', 'scope', 'purpose'] as const).map((key) => (
-        <Field key={key} label={key}>
+        <Field key={key} label={t(`form.${key}`)}>
           {key === 'purpose' ? (
             <textarea value={form[key] ?? ''} onChange={(e) => onField(key, e.target.value)} rows={3} />
           ) : (
@@ -1536,10 +1509,10 @@ function ContextForm({
         </Field>
       ))}
       <div className={styles.formActions}>
-        <Button primary onClick={onSave}>Save</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button primary onClick={onSave}>{t('common.save')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
       </div>
-      <div className={styles.note}>Context membership is edited after the context is created.</div>
+      <div className={styles.note}>{t('form.contextNote')}</div>
     </>
   );
 }

@@ -29,11 +29,26 @@ export async function sharedClusterIds(db: Database, userId: string): Promise<st
   return rows.map((r) => r.cluster_id);
 }
 
-export async function listClusters(db: Database, viewerId?: string): Promise<ClusterDTO[]> {
+/* U1: list carries member_ids via one batched query (kills the client-side
+   getCluster-per-row fan-out the index used to do). */
+async function withMembers(db: Database, rows: ClusterRow[]): Promise<ClusterDetailDTO[]> {
+  const membersById = new Map<string, string[]>(rows.map((r) => [r.id, []]));
+  if (rows.length > 0) {
+    const members = await db
+      .select({ cluster_id: clusterMembers.cluster_id, item_id: clusterMembers.item_id })
+      .from(clusterMembers)
+      .where(inArray(clusterMembers.cluster_id, rows.map((r) => r.id)))
+      .orderBy(asc(clusterMembers.added_at));
+    for (const m of members) membersById.get(m.cluster_id)?.push(m.item_id);
+  }
+  return rows.map((r) => ({ ...toDTO(r), member_ids: membersById.get(r.id) ?? [] }));
+}
+
+export async function listClusters(db: Database, viewerId?: string): Promise<ClusterDetailDTO[]> {
   // B2: scoped list — viewerId filters at the query seam (owner OR shared).
   if (!viewerId) {
     const rows = await db.select().from(clusters).orderBy(asc(clusters.created_at));
-    return rows.map(toDTO);
+    return withMembers(db, rows);
   }
   const shared = await sharedClusterIds(db, viewerId);
   const rows = await db
@@ -41,7 +56,7 @@ export async function listClusters(db: Database, viewerId?: string): Promise<Clu
     .from(clusters)
     .where(shared.length > 0 ? or(eq(clusters.owner_id, viewerId), inArray(clusters.id, shared)) : eq(clusters.owner_id, viewerId))
     .orderBy(asc(clusters.created_at));
-  return rows.map(toDTO);
+  return withMembers(db, rows);
 }
 
 export async function getCluster(db: Database, id: string): Promise<ClusterDetailDTO | undefined> {

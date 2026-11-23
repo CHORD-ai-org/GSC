@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { contextMembers, contexts } from '../persistence/schema.ts';
 import type {
@@ -29,12 +29,27 @@ function toDTO(row: ContextRow): ContextDTO {
   };
 }
 
-export async function listContexts(db: Database, ownerId?: string): Promise<ContextDTO[]> {
+/* U1: list carries member_ids via one batched query — the client index used to
+   fan out one getContext per row just to read memberships (N+1). */
+async function withMembers(db: Database, rows: ContextRow[]): Promise<ContextDetailDTO[]> {
+  const membersById = new Map<string, string[]>(rows.map((r) => [r.id, []]));
+  if (rows.length > 0) {
+    const members = await db
+      .select({ context_id: contextMembers.context_id, item_id: contextMembers.item_id })
+      .from(contextMembers)
+      .where(inArray(contextMembers.context_id, rows.map((r) => r.id)))
+      .orderBy(asc(contextMembers.position), asc(contextMembers.added_at));
+    for (const m of members) membersById.get(m.context_id)?.push(m.item_id);
+  }
+  return rows.map((r) => ({ ...toDTO(r), member_ids: membersById.get(r.id) ?? [] }));
+}
+
+export async function listContexts(db: Database, ownerId?: string): Promise<ContextDetailDTO[]> {
   // B2: scoped list — ownerId filters at the query seam (owner-only visibility).
   const rows = ownerId
     ? await db.select().from(contexts).where(eq(contexts.owner_id, ownerId)).orderBy(asc(contexts.created_at))
     : await db.select().from(contexts).orderBy(asc(contexts.created_at));
-  return rows.map(toDTO);
+  return withMembers(db, rows);
 }
 
 export async function getContext(db: Database, id: string): Promise<ContextDetailDTO | undefined> {

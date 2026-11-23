@@ -54,10 +54,15 @@ describe('V1 engagement traces (Phase 07 M1)', () => {
       }, token.token);
       const itemId = created.json.item.id;
 
-      // 'opened' recorded once (throttled within 10 min)
-      await call('GET', `/api/items/${itemId}`, undefined, token.token);
+      // U1: plain GET is side-effect-free — no 'opened' without explicit ?trace=1
       await call('GET', `/api/items/${itemId}`, undefined, token.token);
       let detail = await call('GET', `/api/items/${itemId}`, undefined, token.token);
+      expect(detail.json.events.filter((e: { action: string }) => e.action === 'opened')).toHaveLength(0);
+
+      // 'opened' recorded once via ?trace=1 (throttled within 10 min)
+      await call('GET', `/api/items/${itemId}?trace=1`, undefined, token.token);
+      await call('GET', `/api/items/${itemId}?trace=1`, undefined, token.token);
+      detail = await call('GET', `/api/items/${itemId}`, undefined, token.token);
       const opened = detail.json.events.filter((e: { action: string }) => e.action === 'opened');
       expect(opened).toHaveLength(1);
       expect(opened[0].actor).toBe('user');
