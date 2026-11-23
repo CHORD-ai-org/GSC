@@ -1,0 +1,3 @@
+雨课堂笔记-强化学习基础
+
+MDP 五元组。值迭代与策略迭代的区别。Q-learning 是 off-policy，SARSA 是 on-policy。
