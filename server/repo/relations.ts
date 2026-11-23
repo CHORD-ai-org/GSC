@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { relations } from '../persistence/schema.ts';
 import type { CreateRelationBody, RelationDTO, RelationKind } from '../../src/lib/relations.ts';
@@ -27,6 +27,17 @@ export async function listRelations(
   const outgoing = await db.select().from(relations).where(eq(relations.from_id, itemId)).orderBy(asc(relations.created_at));
   const incoming = await db.select().from(relations).where(eq(relations.to_id, itemId)).orderBy(asc(relations.created_at));
   return { outgoing: outgoing.map(toDTO), incoming: incoming.map(toDTO) };
+}
+
+/** V2 (M2) relations projection: all edges touching a set of items (one batched query). */
+export async function listRelationsForItems(db: Database, ids: string[]): Promise<RelationDTO[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(relations)
+    .where(or(inArray(relations.from_id, ids), inArray(relations.to_id, ids)))
+    .orderBy(asc(relations.created_at));
+  return rows.map(toDTO);
 }
 
 export type CreateRelationResult =

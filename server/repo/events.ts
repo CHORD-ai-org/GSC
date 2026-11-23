@@ -54,3 +54,30 @@ export async function activityCountsByItem(
   }
   return out;
 }
+
+/** V2 (M2) timeline projection: batched event stream for a set of items. */
+export async function listEventsForItems(
+  db: Database,
+  ids: string[],
+  opts: { since?: string; limit?: number } = {},
+): Promise<EventDTO[]> {
+  if (ids.length === 0) return [];
+  const limit = Math.min(Math.max(opts.limit ?? 500, 1), 1000);
+  const since = opts.since ? new Date(opts.since) : undefined;
+  const rows = await db
+    .select()
+    .from(events)
+    .where(inArray(events.item_id, ids))
+    .orderBy(desc(events.at))
+    .limit(limit);
+  return rows
+    .filter((row) => !since || row.at > since)
+    .map((row) => ({
+      id: row.id,
+      item_id: row.item_id,
+      at: row.at.toISOString(),
+      actor: row.actor as EventDTO['actor'],
+      action: row.action as EventAction,
+      detail: row.detail,
+    }));
+}

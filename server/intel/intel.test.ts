@@ -1,4 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+
+/* Hermetic DNS: the SSRF pre-check resolves hostnames via node:dns/promises;
+   stub it so the capture journey never depends on live DNS (sandbox-safe). */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}));
 import { createDatabase } from '../persistence/client.ts';
 import type { DatabaseHandle } from '../persistence/client.ts';
 import { migrationSql } from '../persistence/migrate.ts';

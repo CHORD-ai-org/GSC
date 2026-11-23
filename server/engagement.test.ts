@@ -80,10 +80,10 @@ describe('V1 engagement traces (Phase 07 M1)', () => {
       expect(proposed).toBeTruthy();
       expect(proposed.actor).toBe('agent');
 
-      // batched activity map on list
+      // batched activity map on list: created + opened + updated = 3 user events
       const list = await call('GET', '/api/items', undefined, token.token);
       expect(list.json.activity).toBeTruthy();
-      expect(list.json.activity[itemId].user).toBe(2); // opened + updated
+      expect(list.json.activity[itemId].user).toBe(3); // created + opened + updated
       expect(list.json.activity[itemId].agent).toBe(1); // proposed
     } finally {
       rmSync(dir, { recursive: true, force: true });

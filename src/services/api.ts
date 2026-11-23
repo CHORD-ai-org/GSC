@@ -45,6 +45,8 @@ export type AgentDetectResponse = { ok: true; report: { dedupe: number; metadata
 export type ApiResponse =
   | ItemListResponse
   | ItemDetailResponse
+  | EventListResponse
+  | RelationListResponse
   | MutationResponse
   | ContextListResponse
   | ContextDetailResponse
@@ -153,7 +155,13 @@ export function search(q: string): Promise<SearchResponse> {
   return request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`);
 }
 
-export type ItemPageResponse = { ok: true; items: ItemDTO[]; next_cursor?: string; total: number };
+export type ItemPageResponse = {
+  ok: true;
+  items: ItemDTO[];
+  next_cursor?: string;
+  total: number;
+  activity?: Record<string, { user: number; agent: number }>;
+};
 
 export function listItemsPage(params: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number }): Promise<ItemPageResponse> {
   const search = new URLSearchParams();
@@ -169,14 +177,35 @@ export function listItemsPage(params: { type?: string; domain?: string; q?: stri
 /* Full list: follows next_cursor (T202 server pagination) transparently. */
 export async function listItems(params: { type?: string; domain?: string; q?: string }): Promise<ItemListResponse> {
   const items: ItemDTO[] = [];
+  const activity: Record<string, { user: number; agent: number }> = {};
   let cursor: string | undefined;
   for (let i = 0; i < 50; i += 1) {
     const page = await listItemsPage({ ...params, cursor });
     items.push(...page.items);
+    if (page.activity) Object.assign(activity, page.activity);
     if (!page.next_cursor) break;
     cursor = page.next_cursor;
   }
-  return { ok: true, items };
+  return { ok: true, items, activity };
+}
+
+/* V2 (M2) read-only projections: batched event stream + relation edges. */
+export type EventListResponse = { ok: true; events: EventDTO[] };
+export type RelationListResponse = { ok: true; relations: RelationDTO[] };
+
+export function listEventsFor(
+  ids: string[],
+  opts: { since?: string; limit?: number } = {},
+): Promise<EventListResponse> {
+  const search = new URLSearchParams({ item_ids: ids.join(',') });
+  if (opts.since) search.set('since', opts.since);
+  if (opts.limit) search.set('limit', String(opts.limit));
+  return request(`/api/events?${search.toString()}`);
+}
+
+export function listRelationsFor(ids: string[]): Promise<RelationListResponse> {
+  const search = new URLSearchParams({ item_ids: ids.join(',') });
+  return request(`/api/relations?${search.toString()}`);
 }
 
 export function getItem(id: string): Promise<ItemDetailResponse> {

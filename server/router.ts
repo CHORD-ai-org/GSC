@@ -25,8 +25,8 @@ import { buildOpenApi } from './openapi.ts';
 import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
 import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
-import { createRelation, listRelations } from './repo/relations.ts';
-import { listEvents, appendEvent, activityCountsByItem } from './repo/events.ts';
+import { createRelation, listRelations, listRelationsForItems } from './repo/relations.ts';
+import { listEvents, listEventsForItems, appendEvent, activityCountsByItem } from './repo/events.ts';
 import {
   addContextMember,
   contextOwner,
@@ -128,6 +128,8 @@ export const KNOWN_ROUTES: { pattern: RegExp; methods: string[] }[] = [
   { pattern: /^\/api\/items\/[^/]+\/purge$/, methods: ['POST'] },
   { pattern: /^\/api\/items\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
   { pattern: /^\/api\/items\/[^/]+\/relations$/, methods: ['POST', 'DELETE'] },
+  { pattern: /^\/api\/relations$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/events$/, methods: ['GET'] },
   { pattern: /^\/api\/contexts$/, methods: ['GET', 'POST'] },
   { pattern: /^\/api\/contexts\/[^/]+$/, methods: ['GET', 'PATCH', 'DELETE'] },
   { pattern: /^\/api\/contexts\/[^/]+\/members$/, methods: ['POST', 'DELETE'] },
@@ -465,10 +467,6 @@ export function createApiRouter(config: Config, db: Database) {
           sendApiError(res, apiError('not_found', 'Item not found'));
           return;
         }
-        /* V1/V3: edit trace with changed keys (field-level attribution input). */
-        const changed = Object.entries(body as Record<string, unknown>).flatMap(([k, v]) =>
-          k === 'fields' && v && typeof v === 'object' ? Object.keys(v as object).map((fk) => `fields.${fk}`) : [k]);
-        await appendEvent(db, { item_id: item.id, actor: 'user', action: 'updated', detail: changed.join(',') });
         sendJson(res, 200, { ok: true, item });
         return;
       }
@@ -484,6 +482,38 @@ export function createApiRouter(config: Config, db: Database) {
           return;
         }
         sendJson(res, 200, { ok: true, deleted: true });
+        return;
+      }
+
+      if (path === '/api/events' && req.method === 'GET') {
+        /* V2 (M2) timeline projection: batched read-only event stream. */
+        const ids = (url.searchParams.get('item_ids') ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200);
+        if (ids.length === 0) {
+          sendApiError(res, apiError('contract', 'item_ids required'));
+          return;
+        }
+        const allowed = await visibleItemIds();
+        const scoped = allowed ? ids.filter((id) => allowed.has(id)) : ids;
+        const stream = await listEventsForItems(db, scoped, {
+          since: url.searchParams.get('since') ?? undefined,
+          limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+        });
+        sendJson(res, 200, { ok: true, events: stream });
+        return;
+      }
+
+      if (path === '/api/relations' && req.method === 'GET') {
+        /* V2 (M2) relations projection: batched read-only edge listing. */
+        const ids = (url.searchParams.get('item_ids') ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200);
+        if (ids.length === 0) {
+          sendApiError(res, apiError('contract', 'item_ids required'));
+          return;
+        }
+        const allowed = await visibleItemIds();
+        const scoped = allowed ? ids.filter((id) => allowed.has(id)) : ids;
+        const edges = await listRelationsForItems(db, scoped);
+        const out = allowed ? edges.filter((r) => allowed.has(r.from_id) && allowed.has(r.to_id)) : edges;
+        sendJson(res, 200, { ok: true, relations: out });
         return;
       }
 

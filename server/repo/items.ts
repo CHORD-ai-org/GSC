@@ -212,7 +212,11 @@ export async function updateItem(
     at: now,
     actor: 'user',
     action: body.status && body.status !== current.status ? 'status_changed' : 'updated',
-    detail: Object.keys(body).length > 0 ? `${Object.keys(body).join(', ')} updated` : 'updated',
+    detail: Object.keys(body).length > 0
+      ? Object.entries(body).flatMap(([k, v]) =>
+          k === 'fields' && v && typeof v === 'object' ? Object.keys(v as object).map((fk) => `fields.${fk}`) : [k],
+        ).join(', ')
+      : 'updated',
   });
   return getItem(db, id);
 }
