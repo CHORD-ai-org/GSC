@@ -1,6 +1,7 @@
 # UI_BACKEND_OPTIMIZATION_PLAN.md — UI 与后端优化计划（架构深化）
 
-Status: `PROPOSED` — 2026-11-23，待确认后按批执行。
+Status: `EXECUTING` — 2026-11-23「开始执行」批准（三项待决策取默认：先本计划后 V4 / hide=404 / 软删除 items-only，见 D-092）。
+批次 A（D-092）、B（D-093）已完成；批次 C：U1/U3 完成（D-094），U2 因并行 V4 写入冲突挂起待确认。
 方法：mattpocock/skills `improve-codebase-architecture` + `codebase-design`（深模块口径）。
 证据：git 热区（`App.tsx` 3 个月 20 改、`router.ts` 18 改）+ 2026-11-23 全仓走查，关键指控已逐条抽查到行号。
 与既有计划关系：`GLOBAL_OPTIMIZATION_PLAN.md`（M1/M2 加固）已执行完，本计划是其后的**结构**优化。
@@ -117,9 +118,9 @@ Phase 07 V3（归因与提案面）已于 2026-11-23 执行完（D-091），B1 �
 
 ## 5. 待决策（3 个，`PROPOSED` → 确认后转 `DECIDED`）
 
-1. **与 Phase 07 V4 的先后**：V3 已完成（D-091），无冲突。V4 空间（待 Q-E）与本计划 C 批都动
-   `App.tsx`/`collections.tsx`。建议先 C 批 U1（数据层收拢让 V4 少写样板）再 V4；或 V4 先行、
-   C 批随后收编。不擅自重排，请裁。
+1. **与 Phase 07 V4 的先后**：`RESOLVED（实况）`——V4 与本计划 C 批实际并行开工（同一工作区两个
+   会话）。U1/U3 已避开完成；U2（collections.tsx 300 行合并）与 V4 的 spatial 视图接线正面相撞，
+   按变更纪律挂起，待 V4 收尾/提交后再执行。
 2. **hide vs forbid**：无权访问统一「404 藏存在性」还是「403 明示」？影响 B2 与 API_CONTRACT。
 3. **软删除扩面**：contexts/clusters/sources/tags 是否也上 `deleted_at`（回收站覆盖全对象），
    还是维持 items-only？
@@ -142,6 +143,19 @@ Phase 07 V3（归因与提案面）已于 2026-11-23 执行完（D-091），B1 �
 
 意外收获（B1 抓到的实锤漂移）：`/api/items/:id/relations` POST|DELETE 在旧 KNOWN_ROUTES + openapi 有档、**无任何 handler**（打了必 405）——幻影路由已随派生表消失，META 同步删除。
 验证：tsc=0 · eslint=0 · vitest **149/149**（31 文件，+7：pipeline 结构/幂等重放/多用户作用域/三态策略）· `api-checks.mjs` 12/12 · sharing 测试断言按 D-092 从 400 改 403。
+
+## 6.2 执行记录（2026-11-23，批次 C）
+
+| 任务 | 状态 | 证据 |
+|---|---|---|
+| U1 客户端数据层 | ✅ | `src/services/dataLayer.ts`（失效规则表 + mutation runner + 错误 kind→i18n key）；App 25 个 try/catch 收编（含 deleteSelected 漏刷 clusterIndex 的回归钉）；relationIndex 改 `listRelationsFor`（消 N+1）；contexts/clusters 列表带 member_ids（消加载器 N+1，repo 单批查询）；opened 显式化 `?trace=1`（纯读/导出零副作用）；错误按 panel/view 分区显示。11 新测试：新建 2 请求 ≤3、纯读无 opened、删除必刷 clusters |
+| U3 ItemFields 词汇表 | ✅ | `src/lib/itemFields.ts` 单一 module（收编 4 份拷贝：repo fieldColumns、App/detail fieldLabels、multiline）；字段标签双语；表单硬编码英文全走 `t()`（form.*/confirm.* 37 键）；覆盖测试：zh/en 缺一即红、模板键越出词表即红。grep 界面英文残留=0（余 aria-label 与收据 demo 文案，属设计本意） |
+| U2 collections 合并 + 过滤进 URL | ⛔ `DEFERRED` | 并行 V4 会话正在写 `collections.tsx`（spatial 视图接线）；300 行重构与其快照写回互相冲毁的风险实测已发生两次（App.tsx import 区被回写一次，已重打）。按 AGENTS.md 变更纪律挂起，待 V4 收尾后执行 |
+
+U1 验收口径偏差记录：计划写的「vitest+jsdom 编排层测试」改为**纯逻辑 runner + fetch 桩**测试（同三条验收
+全过），未引 jsdom——少一个依赖，符合「不追加依赖须记理由」纪律。
+验证（U1+U3 合并）：tsc=0 · eslint=0 · vitest **167/167**（34 文件，+17）· 提交 `79fb666`（含并行 V4 在
+api.ts/strings.ts 的零星行，同工作区所致，已在提交信息注明）。
 
 ## 7. 不做（沿用 DESIGN_BOUNDARIES，不扩大）
 
