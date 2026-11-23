@@ -179,6 +179,20 @@
 /* V2 (M2) relations projection */
 .relWrap{padding:8px 4px}
 .relNode text{pointer-events:none}
+/* V3 (M3) attribution + inline proposal rows */
+.attrStrip{display:flex;align-items:center;gap:8px;margin:2px 0 10px}
+.attrU,.attrA,.attrP{font-size:11px;padding:2px 9px;border-radius:999px}
+.attrU{background:#E1F5EE;color:#0F6E56}
+.attrA{background:#EEEDFE;color:#534AB7}
+.attrP{background:#FAEEDA;color:#854F0B}
+.propRow{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:0 0 8px;border:1px solid var(--line);border-radius:10px;font-size:12px}
+.propChip{flex:none;font-size:11px;padding:2px 9px;border-radius:999px;background:#EEEDFE;color:#534AB7}
+.propBody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.propWhy{font-size:11px;color:var(--ink-2)}
+.propBtn{font-size:11px;padding:3px 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--bg-card);color:var(--ink);cursor:pointer}
+.propBtn:hover{background:var(--tint-hover)}
+.dotU{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5DCAA5;margin-left:8px;vertical-align:1px}
+.dotA{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7F77DD;margin-left:8px;vertical-align:1px}
 .pairChip:hover{color:var(--ink)}
 .rowBadges{display:flex;gap:4px;min-width:0;overflow:hidden}
 

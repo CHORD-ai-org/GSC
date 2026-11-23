@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui.tsx';
+import { useToast } from '../components/Toast.tsx';
 import { SemTag } from '../components/SemTag.tsx';
 import { Glyph } from '../components/Glyph.tsx';
 import { ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
 import type { ItemDTO, ItemType } from '../lib/items.ts';
 import type { ClusterDTO } from '../lib/clusters.ts';
+import type { ProposalDTO } from '../lib/proposals.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
+import { listProposals, resolveProposal } from '../services/api.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import { useT } from '../lib/i18n.tsx';
 import styles from './views.module.css';
@@ -85,6 +88,85 @@ function FootprintLine({ events }: { events: { actor: string; at: string }[] }) 
   );
 }
 
+/* V3 (M3): field-level attribution dot + inline proposal rows (Layout 4). */
+function OwnerDot({ owner }: { owner?: 'user' | 'agent' }) {
+  if (!owner) return null;
+  return <span className={owner === 'agent' ? styles.dotA : styles.dotU} title={owner === 'agent' ? 'Agent' : 'You'} />;
+}
+
+const PROPOSAL_KIND_KEY: Record<string, string> = {
+  semantic_name: 'prop.semantic_name',
+  classification: 'prop.classification',
+  association: 'prop.association',
+  cluster: 'prop.cluster',
+  metadata: 'prop.metadata',
+};
+
+function AttributionPanel({
+  detail, itemId, onRefresh,
+}: {
+  detail: ItemDetailResponse;
+  itemId: string;
+  onRefresh?: () => void;
+}) {
+  const t = useT();
+  const toast = useToast();
+  const [proposals, setProposals] = useState<ProposalDTO[]>([]);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    listProposals('pending')
+      .then((r) => {
+        if (!cancelled) {
+          setProposals(r.proposals.filter((p) => p.target_id === itemId || p.related_id === itemId));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId]);
+
+  const visible = proposals.filter((p) => !hidden.has(p.id));
+  const u = detail.attribution?.user_edits ?? 0;
+  const a = detail.attribution?.agent_edits ?? 0;
+  if (u + a + visible.length === 0) return null;
+
+  const act = async (id: string, status: 'accepted' | 'rejected') => {
+    try {
+      await resolveProposal(id, status);
+      toast(t('detail.proposalResolved'), 'ok');
+      setProposals((prev) => prev.filter((r) => r.id !== id));
+      onRefresh?.();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+    }
+  };
+
+  return (
+    <>
+      <div className={styles.attrStrip}>
+        {u > 0 ? <span className={styles.attrU}>{t('detail.attrYou', { n: u })}</span> : null}
+        {a > 0 ? <span className={styles.attrA}>{t('detail.attrAgent', { n: a })}</span> : null}
+        {visible.length > 0 ? <span className={styles.attrP}>{t('detail.attrProposals', { n: visible.length })}</span> : null}
+      </div>
+      {visible.map((p) => (
+        <div key={p.id} className={styles.propRow}>
+          <span className={styles.propChip}>{t((PROPOSAL_KIND_KEY[p.kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
+          <span className={styles.propBody}>
+            <b>{p.proposed_value}</b>
+            {p.related_id === itemId && p.target_id !== itemId ? <span className={styles.propWhy}>{t('prop.related')}</span> : null}
+            {p.rationale ? <span className={styles.propWhy}>{p.rationale}</span> : null}
+          </span>
+          <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'accepted')}>{t('detail.adopt')}</button>
+          <button type="button" className={styles.propBtn} onClick={() => void act(p.id, 'rejected')}>{t('detail.reject')}</button>
+          <button type="button" className={styles.linkButton} onClick={() => setHidden((s) => new Set(s).add(p.id))}>{t('detail.defer')}</button>
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* P3 INTERACTION_UX_PLAN: attribute rail — badges first, low-frequency kv folded. */
 function RailBadges({ badges }: { badges: [string, string][] }) {
   return (
@@ -132,7 +214,7 @@ function contextsContaining(index: ContextIndexEntry[], id: string): ContextInde
 }
 
 export function RawDetailView({
-  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext, onRefresh,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
@@ -144,6 +226,7 @@ export function RawDetailView({
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
   onAddToContext: (contextId: string) => Promise<void> | void;
+  onRefresh?: () => void;
 }) {
   const [pickCtx, setPickCtx] = useState('');
 
@@ -177,7 +260,7 @@ export function RawDetailView({
             <RailKvs rows={[
               [t('detail.createdUpdated'), `${item.created_at.slice(0, 16).replace('T', ' ')} · ${item.updated_at.slice(0, 16).replace('T', ' ')}`],
               [t('detail.id'), item.id],
-              ...extraFields.map(([key, value]) => [fieldLabels[key] ?? key, value as string] as [string, ReactNode]),
+              ...extraFields.map(([key, value]) => [fieldLabels[key] ?? key, <>{value}<OwnerDot owner={detail.attribution?.field_owners[`fields.${key}`]} /></>] as [string, ReactNode]),
             ]} />
           </More>
         </>
@@ -190,6 +273,8 @@ export function RawDetailView({
           </button>
         </div>
       ) : null}
+
+      <AttributionPanel detail={detail} itemId={item.id} onRefresh={onRefresh} />
 
       <Block title={t('detail.rawContent')} tag={<SemTag kind="original" />}>
         <div className={styles.rawContent}>{item.fields.content_text ?? t('detail.noText')}</div>
@@ -251,7 +336,7 @@ export function RawDetailView({
 }
 
 export function ObjectDetailView({
-  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext,
+  detail, items, contextIndex, tags, onBack, onEdit, onDelete, onOpenItem, onOpenContext, onAddToContext, onRefresh,
 }: {
   detail?: ItemDetailResponse;
   items: ItemDTO[];
@@ -263,6 +348,7 @@ export function ObjectDetailView({
   onOpenItem: (id: string) => void;
   onOpenContext: (id: string) => void;
   onAddToContext: (contextId: string) => Promise<void> | void;
+  onRefresh?: () => void;
 }) {
   const [pickCtx, setPickCtx] = useState('');
 
@@ -338,6 +424,8 @@ export function ObjectDetailView({
         </div>
       ) : null}
 
+      <AttributionPanel detail={detail} itemId={item.id} onRefresh={onRefresh} />
+
       {(item.status === 'superseded' || item.status === 'outdated') ? (
         <div className={styles.error}>
           <strong>{item.status === 'superseded' ? t('detail.superseded') : t('detail.outdated')}</strong>
@@ -351,7 +439,7 @@ export function ObjectDetailView({
         ) : coreFields.map(([key, value]) => (
           <div className={styles.fieldBlock} key={key}>
             <div className={styles.kvLabel}>{fieldLabels[key] ?? key}</div>
-            <div className={styles.fieldValue}>{value}</div>
+            <div className={styles.fieldValue}>{value}<OwnerDot owner={detail.attribution?.field_owners[`fields.${key}`]} /></div>
           </div>
         ))}
       </Block>

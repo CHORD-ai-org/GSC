@@ -969,6 +969,9 @@ export default function App() {
             toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
           }
         },
+        onRefresh: () => {
+          if (selectedId) void loadDetail(selectedId);
+        },
       };
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
