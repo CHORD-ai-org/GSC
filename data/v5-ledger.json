@@ -1,0 +1,26 @@
+[
+  {
+    "item_id": "raw_52ac77f1-8bff-4cb9-97e0-2409c9b2583b",
+    "label": "A: 雨课堂注意力机制(采纳重命名)",
+    "expect": { "user_edits": 0, "agent_edits": 1, "field_owners": { "title": "agent" } },
+    "via": "prp_e63c8a66-301c-4342-9a8b-040648c79d54"
+  },
+  {
+    "item_id": "raw_bde06b69-cde5-47ac-b318-a9b85a1c9711",
+    "label": "A: 导师周会(采纳重命名)",
+    "expect": { "user_edits": 0, "agent_edits": 1, "field_owners": { "title": "agent" } },
+    "via": "prp_61d5ee0c-982e-4499-bc23-b2591e3213ce"
+  },
+  {
+    "item_id": "raw_02513a96-bab7-4d01-8227-894f084180d8",
+    "label": "A: GPU维护(拒绝,无编辑)",
+    "expect": { "user_edits": 0, "agent_edits": 0, "field_owners": {} },
+    "noEditAfter": "prp_6c1c33a1"
+  },
+  {
+    "item_id": "raw_c3ebc5a7-424a-435e-bc9b-202a268393e3",
+    "label": "A: 读书会(拒绝,无编辑)",
+    "expect": { "user_edits": 0, "agent_edits": 0, "field_owners": {} },
+    "noEditAfter": "prp_5e3c3b5d"
+  }
+]
