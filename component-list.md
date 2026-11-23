@@ -29,10 +29,13 @@
 
 | 软件 | 数据分组上传 | 模型调用时取 GSC 上下文 | 命令操作（读/写 GSC） | 网页剪藏（浏览器扩展） |
 |---|---|---|---|---|
-| opencode | ✅ G2 | ⏸ 待查插件能力 | 🔜 | — |
-| codex | ✅ G2 | ❌ 不支持（模型调用不可注入外部上下文） | 🔜 | — |
-| WorkBuddy | ✅ G2 | 🔜 | 🔜 | — |
+| opencode | ✅ G2（插件 session.idle→gsc-push） | ⏸ 查插件 model hook 能力 | 🔜 | — |
+| codex | ✅ G2（notify 钩子→rollout 收割） | ❌ 不支持（模型调用不可注入外部上下文） | 🔜（MCP G3） | — |
+| WorkBuddy | ✅ G2（gsc-push skill，已实测） | 🔜 | 🔜 | — |
 | 浏览器扩展（Chrome/Edge） | 🔜 | — | — | 🔜 |
+
+集成件落位：`integrations/gsc-push.mjs`（共享 CLI）· `integrations/opencode/gsc-push.js`（插件）·
+`integrations/codex/README.md`（notify 配置+边界）· `~/.workbuddy/skills/gsc-push/`（WorkBuddy skill）。
 
 > 每软件的集成边界说明随矩阵同文件维护；新增软件先补矩阵行再排期。
 
