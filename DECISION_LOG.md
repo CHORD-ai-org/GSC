@@ -1132,3 +1132,38 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   fixed to prefer the base reported by /api/meta/mcp, re-probed green.
 - **Status:** `DECIDED` — 2026-11-23, executed (commits 6422def batch A, 279ae43 batch B).
   Verified: tsc=0, eslint=0, vitest 188 passed + 1 skipped.
+
+## D-101 — LOCAL_SIM cloud-isomorphic collection: executed (DECIDED)
+
+- **Decision:** Execute LOCAL_SIM_PLAN.md v2 (user confirmed 2026-11-23, "完全按照云端的模拟来").
+  Result: cloud-isomorphic topology (docker-compose.yml = the deployment file: db=PostgreSQL 16 /
+  api / worker, four volumes; D-096 consistent), schedules registry (0013), worker process
+  (capture + T402 sync + schedules tick), folder-scan adapter (read-only, hash-incremental),
+  web-crawl adapter (SSRF-guarded, polite 2s gap, raw HTML + meta archived to data/crawl),
+  `/console` "本地控制台（临时）" page (CRUD/enable/run-now), GSC_WORKERS=off split so api and
+  worker are separate processes exactly like the cloud.
+- **Verified live (bare mode):** folder run-now {scanned 1, imported 1} → demo-note ingested;
+  web run-now {fetched 2, imported 2} → 2 arXiv items + 4 provenance archives in data/crawl;
+  console page rendered with both schedules (screenshot `local-console.png`). Unit tests 3/3 +
+  full suite 191+1 skip/192 green, lint clean.
+- **Open gate:** `docker compose up` bring-up + down/up resilience — blocked on Docker Desktop
+  engine (cannot be started from the sandbox; user action required). Compose files are ready.
+- **Incident (recorded in KNOWN_ISSUES):** dev PGlite store corrupted by an earlier force-kill
+  (stale postmaster.pid + deeper damage); corrupt dir preserved at `.data/pglite.corrupt-20261123`,
+  dev DB restarted fresh at `.data/pglite-v2` (pre-17:47 dev data unrecoverable, Nov-20 backups
+  exist but stale). Strong motivation for the Docker PG path.
+- **Status:** `DECIDED` — 2026-11-23, executed (compose gate pending user-started Docker).
+
+## D-102 — Local dashboard extracted from the GSC app (DECIDED)
+
+- **Decision (founder, 2026-11-23):** the local sim console must NOT live inside the GSC web
+  app. It becomes a standalone dashboard: `dashboard/server.mjs` (own port 8790, static page +
+  /api proxy to 8788 — one origin, no CORS) + `dashboard/index.html` (self-contained vanilla JS,
+  same console surface: schedules CRUD/enable/run-now/delete). The SPA wiring (/console route,
+  sidebar entry, LocalConsolePage) is removed. Launcher `start-gsc-dashboard.bat` placed in
+  `C:/Users/chkev/Desktop/bats/` (starts API if down → dashboard → opens browser; skips
+  anything already listening).
+- **Rationale:** the ops surface for the local/cloud-isomorphic rig is infrastructure tooling,
+  not product UI — keeping it out of the GSC app keeps the product surface honest.
+- **Status:** `DECIDED` — 2026-11-23, executed. Verified: page 200 + proxy returns schedules,
+  screenshot `local-dashboard-standalone.png`, tsc=0, bat smoke (both services healthy).
