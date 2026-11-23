@@ -181,3 +181,15 @@ compose 起套后开发/模拟都不再碰 PGlite。
    createProposal 插入 FK 失败。已加未知 id 守卫 + prompt 明示"完整复制 [] 内 id"。
 3. **codex rollout JSONL 非稳定 API**（记录）：`~/.codex/sessions/**/rollout-*.jsonl` 字段
    可能随版本漂移——收割器尽力解析，漂移时该轮静默跳过（不炸会话）；升级 codex 后需回归。
+
+## 2026-11-23 — 三端真跑验收发现（环境阻塞 2 + 记录 1）
+
+1. **opencode 插件双加载器契约**（已适配）：本机 opencode 同时跑 V1/V2 加载器——V1 要求
+   `export default { server() }`，V2 要求 `{ id, setup }`，缺任一即拒载。gsc-push.js 已做
+   双导出兼容（两加载器均验证加载干净）。用户自己的 spark-autostart.js 仍是旧契约（拒载，
+   其本地 llama 侧车随之失效）——待用户决定是否升级该插件。
+2. **codex notify 槽已占用**（已适配）：Codex Desktop 的 computer-use 钩子占槽——已用
+   notify-dispatcher.mjs 链式透传（原钩子行为保留，配置已备份）。
+3. **无头会话环境阻塞**（记录）：`codex exec` 在本机无头挂死（自定义 cc-switch provider 疑不
+   响应）；`opencode run` 同样挂死（疑 spark 侧车等待循环）。链路已用合成事件+真实 rollout
+   证明；真轮末触发留待用户日常使用自然验证（notify/session.idle 均为标准机制）。
