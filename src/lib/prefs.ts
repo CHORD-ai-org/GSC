@@ -150,3 +150,55 @@ export function saveSavedViews(views: SavedView[]): void {
     /* in-memory for this session */
   }
 }
+
+/* V4 (M4) spatial scratch layout: per-page item positions. Scratch tier — closable
+   and discardable; the kept tier (pinned) lives in the spatial_layouts table. */
+export type SpatialPos = { x: number; y: number };
+export type SpatialLayout = Record<string, SpatialPos>;
+
+const SPATIAL_KEY = 'gsc.spatial.v1';
+const SPATIAL_PINNED_KEY = 'gsc.spatial.pinned.v1';
+
+export function loadSpatialLayout(page: string): SpatialLayout {
+  if (!hasStorage()) return {};
+  try {
+    const raw = localStorage.getItem(SPATIAL_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, SpatialLayout>;
+    return parsed[page] ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveSpatialLayout(page: string, layout: SpatialLayout): void {
+  if (!hasStorage()) return;
+  try {
+    const raw = localStorage.getItem(SPATIAL_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, SpatialLayout>) : {};
+    parsed[page] = layout;
+    localStorage.setItem(SPATIAL_KEY, JSON.stringify(parsed));
+  } catch {
+    /* in-memory for this session */
+  }
+}
+
+export function loadSpatialPinned(): string[] {
+  if (!hasStorage()) return [];
+  try {
+    const raw = localStorage.getItem(SPATIAL_PINNED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSpatialPinned(pages: string[]): void {
+  if (!hasStorage()) return;
+  try {
+    localStorage.setItem(SPATIAL_PINNED_KEY, JSON.stringify(pages));
+  } catch {
+    /* in-memory for this session */
+  }
+}
