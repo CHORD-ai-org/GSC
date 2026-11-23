@@ -1,7 +1,7 @@
 /* Generic fixed-viewport HTML → PNG via CDP (chrome-headless-screenshot-cdp skill).
    Usage: node scripts/shot-fig.mjs <input.html> <output.png> <width> <height> */
 import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
