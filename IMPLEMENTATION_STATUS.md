@@ -555,3 +555,13 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - UI 折叠：详情同 kind 折叠组（12 行→3 组）+ 空间每目标一卡「+N」展开。
 - 存量清理：dedupe-proposals.mjs 两刀（identical 去重 + 超 cap 收尾），带限流重试；pending 497→255、0 重复、堆叠≤3（verify-proposal-hygiene PASS）。
 - 验证：tsc=0 lint=0 vitest 182+1skip/183（+server/hygiene.test.ts 4 测：双跑零增量回归/上限/聚合/重试退避）。
+
+## LOCAL_SIM 云端同构采集模拟：COMPLETE（除 compose 起套门）（2026-11-23，D-101）
+
+- 同构拓扑：docker-compose.yml（db=PostgreSQL16/api/worker 四卷，= 云部署文件）+ Dockerfile + GSC_WORKERS 拆分；PGlite 退居单测。
+- schedules 注册表（0013 迁移，逐列）+ worker 进程调度器（到期判定/running 闩锁/僵死回收）。
+- 文件夹扫描适配器（只读、hash 增量、快照幂等、单轮上限 200）+ 爬虫适配器（SSRF、2s 间隔、data/crawl 留档 HTML+meta）。
+- 独立 dashboard（D-102）：dashboard/（8790 静态+/api 代理），不进 GSC 页面；启动器 start-gsc-dashboard.bat 在桌面 bats 文件夹。
+- 实测（裸模式）：文件夹 run-now scanned1/imported1；网页 run-now fetched2/imported2 + 留档 4 文件；控制台截图 local-console.png。
+- ⏳ 待办：docker compose up 起套 + down/up 卷持久演练（需用户启动 Docker Desktop）。
+- 验证：tsc=0 lint=0 vitest 191+1skip/192（+server/schedules.test.ts 3 测）。
