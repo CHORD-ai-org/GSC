@@ -55,3 +55,42 @@ export async function suggestForChunks(
     }))
     .filter((row) => row.index >= 0 && row.semantic_name);
 }
+
+export type MetaTagSuggestion = { item_id: string; definition_id: string; value: string; why: string };
+
+/**
+ * META_TAG_V1 suggest face: choose meta tags for items FROM the existing
+ * definition list only (inventing a new tag is out of scope — that goes through
+ * a separate pending_definition flow). Best-effort at every level.
+ */
+export async function suggestMetaTags(
+  config: Config,
+  items: { id: string; title: string; content: string }[],
+  definitions: { id: string; name: string }[],
+  fetchImpl: FetchLike = fetch,
+): Promise<MetaTagSuggestion[]> {
+  if (!definitions.length || !items.length) return [];
+  const defs = definitions.map((d) => `[${d.id}] ${d.name}`).join('、');
+  const lines = items.map((i, n) => `${n + 1}. [${i.id}] ${i.title} :: ${i.content.slice(0, 200)}`).join('\n');
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content:
+        'Assign meta tags to items. Choose ONLY from the given tag definitions (copy the complete id verbatim from [] — never invent or shorten ids). '
+        + 'Reply ONLY with JSON: {"tags":[{"item":"<id>","definition":"<tag id>","value":"<short value>","why":"<reason>"}]}. '
+        + 'Skip items that fit no tag. At most 3 tags per item.',
+    },
+    { role: 'user', content: `标签定义：${defs}\n\n待标注条目：\n${lines}` },
+  ];
+  const result = await chatComplete(config, messages, fetchImpl);
+  const parsed = extractJson(result.content) as { tags?: { item?: string; definition?: string; value?: string; why?: string }[] } | null;
+  const knownItems = new Set(items.map((i) => i.id));
+  const knownDefs = new Set(definitions.map((d) => d.id));
+  const out: MetaTagSuggestion[] = [];
+  for (const t of parsed?.tags ?? []) {
+    if (t.item && t.definition && t.value && knownItems.has(t.item) && knownDefs.has(t.definition)) {
+      out.push({ item_id: t.item, definition_id: t.definition, value: String(t.value).slice(0, 200), why: String(t.why ?? '') });
+    }
+  }
+  return out;
+}
