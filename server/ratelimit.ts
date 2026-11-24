@@ -43,5 +43,7 @@ export function rateRuleFor(path: string, method: string): { name: keyof typeof 
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return undefined; // reads are free
   if (path.startsWith('/api/ingest/')) return { name: 'ingest', rule: RATE_RULES.ingest };
   if (path.startsWith('/api/agent/')) return { name: 'agent', rule: RATE_RULES.agent };
+  // SEMANTIC_TITLE_PLAN: title generation spends LLM tokens — agent class.
+  if (path.includes('/outline/')) return { name: 'agent', rule: RATE_RULES.agent };
   return { name: 'write', rule: RATE_RULES.write };
 }

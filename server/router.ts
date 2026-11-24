@@ -17,7 +17,7 @@ import { metrics, renderMetrics } from './metrics.ts';
 import { sql } from 'drizzle-orm';
 import { RateLimiter, rateRuleFor } from './ratelimit.ts';
 import { newRequestId } from './idempotency.ts';
-import { logRequest } from './log.ts';
+import { logRequest, log } from './log.ts';
 import { chatComplete } from './agent/llm.ts';
 import { clearLocalUserId, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
 import { isProviderId, detectProvider, USD_PER_MILLION } from '../src/lib/providers.ts';
@@ -54,6 +54,8 @@ import {
   updateCluster,
 } from './repo/clusters.ts';
 import { createProposal, listProposals, resolveProposalApplying } from './repo/proposals.ts';
+import { ensureOutlineNodes, listOutline } from './repo/outline.ts';
+import { suggestTitles } from './agent/titler.ts';
 import {
   createTagDefinition,
   createTagValue,
@@ -192,6 +194,58 @@ function hMetaMcpGet(): RouteResult {
     ],
     tools: MCP_TOOLS,
   });
+}
+
+/* SEMANTIC_TITLE_PLAN (batch B): on-expand title generation. Rule-title
+   outline nodes without a pending proposal become semantic_name proposals
+   (target_path-scoped); user/agent titles are never regenerated. */
+async function hOutlineEnsureTitles(ctx: RouteCtx): Promise<RouteResult> {
+  const id = ctx.params[0];
+  const item = await getItem(ctx.db, id);
+  if (!item) return fail('not_found', 'Item not found');
+  const denied = await ctx.authz.itemWriteDenied(id);
+  if (denied === 'hidden') return fail('not_found', 'Item not found');
+  if (denied === 'forbidden') return fail('forbidden', 'Item is not editable by this token');
+  const content = item.fields.content_text ?? item.title;
+  const outline = await ensureOutlineNodes(ctx.db, id, content);
+  const pending = (await listProposals(ctx.db, 'pending'))
+    .filter((p) => p.kind === 'semantic_name' && p.target_id === id && p.target_path);
+  const claimed = new Set(pending.map((p) => p.target_path as string));
+  const candidates = outline.filter((n) => n.nameOrigin === 'rule' && !claimed.has(n.path));
+  const confirmed = outline
+    .filter((n) => n.nameOrigin !== 'rule')
+    .map((n) => ({ path: n.path, title: n.title }));
+  // siblings under one parent generate together (naming consistency)
+  const groups = new Map<string, typeof candidates>();
+  for (const node of candidates) {
+    const parentPath = node.path.includes('.') ? node.path.slice(0, node.path.lastIndexOf('.')) : '';
+    const group = groups.get(parentPath) ?? [];
+    group.push(node);
+    groups.set(parentPath, group);
+  }
+  let proposed = 0;
+  for (const [parentPath, group] of groups) {
+    const batch = group.slice(0, 5);
+    const parent = parentPath ? outline.find((n) => n.path === parentPath) : undefined;
+    const nodes = batch.map((n) => ({ path: n.path, level: n.level, text: content.slice(n.start, n.end) }));
+    try {
+      const titles = await suggestTitles(ctx.config, parent?.title ?? item.title, nodes, confirmed);
+      for (const candidate of titles) {
+        await createProposal(ctx.db, {
+          kind: 'semantic_name',
+          target_id: id,
+          target_path: candidate.path,
+          proposed_value: candidate.title,
+          rationale: candidate.rationale,
+          source: 'agent',
+        });
+        proposed += 1;
+      }
+    } catch (err) {
+      log('warn', 'outline title generation failed', { item: id, error: (err as Error)?.message ?? String(err) });
+    }
+  }
+  return ok({ ok: true, outline: await listOutline(ctx.db, id), proposed });
 }
 
 async function hItemRestore(ctx: RouteCtx): Promise<RouteResult> {
@@ -1117,6 +1171,7 @@ export const ROUTES: RouteSpec[] = [
   { pattern: /^\/api\/items\/([^/]+)\/purge$/, ops: [{ method: 'POST', handler: hItemPurge, idem: true }] },
   { pattern: /^\/api\/search$/, ops: [{ method: 'GET', handler: hSearchGet }] },
   { pattern: /^\/api\/meta\/mcp$/, ops: [{ method: 'GET', handler: hMetaMcpGet }] },
+  { pattern: /^\/api\/items\/([^/]+)\/outline\/ensure-titles$/, ops: [{ method: 'POST', handler: hOutlineEnsureTitles, body: true, idem: true }] },
   {
     pattern: /^\/api\/items$/,
     ops: [

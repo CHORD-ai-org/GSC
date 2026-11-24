@@ -3,6 +3,7 @@ import { createDatabase, type DatabaseHandle } from '../persistence/client.ts';
 import { migrationSql } from '../persistence/migrate.ts';
 import { createItem } from './items.ts';
 import { applyOutlineTitle, ensureOutlineNodes, listOutline } from './outline.ts';
+import { createProposal, resolveProposalApplying } from './proposals.ts';
 
 let handle: DatabaseHandle;
 let itemId: string;
@@ -49,5 +50,32 @@ describe('SEMANTIC_TITLE batch A — outline repo', () => {
     const rows = await listOutline(handle.db, itemId);
     expect(rows.map((n) => n.path)).toEqual(['1']);
     expect(rows[0].title).not.toBe('项目背景与目标');
+  });
+});
+
+describe('SEMANTIC_TITLE batch B — proposal apply wiring', () => {
+  it('accepting a target_path semantic_name proposal lands the node title', async () => {
+    const item = await createItem(handle.db, {
+      type: 'raw.document',
+      title: 'Proposal fixture',
+      domain: 'knowledge',
+      origin: 'user',
+      fields: { content_text: '# 背景\n\n起因。\n\n# 方案\n\n做法。' },
+    });
+    await ensureOutlineNodes(handle.db, item.id, '# 背景\n\n起因。\n\n# 方案\n\n做法。');
+    const proposal = await createProposal(handle.db, {
+      kind: 'semantic_name',
+      target_id: item.id,
+      target_path: '1',
+      proposed_value: '项目背景与起因',
+      rationale: '原文：起因',
+      source: 'agent',
+    });
+    const resolved = await resolveProposalApplying(handle.db, proposal.id, 'accepted');
+    expect(resolved?.status).toBe('accepted');
+    const rows = await listOutline(handle.db, item.id);
+    expect(rows.find((n) => n.path === '1')).toMatchObject({ title: '项目背景与起因', nameOrigin: 'agent' });
+    // path 2 untouched
+    expect(rows.find((n) => n.path === '2')?.nameOrigin).toBe('rule');
   });
 });

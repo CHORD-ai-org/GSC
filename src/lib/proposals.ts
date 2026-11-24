@@ -2,6 +2,7 @@ export const PROPOSAL_KINDS = [
   'semantic_name',
   'classification',
   'meta_tag',
+  'pending_definition',
   'association',
   'cluster',
   'dedupe',
@@ -22,6 +23,8 @@ export type ProposalDTO = {
   target_id: string;
   related_id: string;
   related_definition_id?: string;
+  /** SEMANTIC_TITLE_PLAN: outline node path for node-scoped semantic_name titles. */
+  target_path?: string;
   proposed_value: string;
   rationale: string;
   source: ProposalSource;
@@ -36,6 +39,8 @@ export type CreateProposalBody = {
   related_id?: string;
   /** META_TAG_V1: tag definition id (kind='meta_tag'). */
   related_definition_id?: string;
+  /** SEMANTIC_TITLE_PLAN: outline node path for node-scoped semantic_name titles. */
+  target_path?: string;
   proposed_value: string;
   rationale?: string;
   source?: ProposalSource;

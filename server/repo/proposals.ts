@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { proposals } from '../persistence/schema.ts';
 import { updateItem } from './items.ts';
 import { appendEvent } from './events.ts';
 import { createRelation } from './relations.ts';
+import { applyOutlineTitle } from './outline.ts';
 import { addClusterMember, createCluster, listClusters } from './clusters.ts';
-import { createTagValue } from './tags.ts';
+import { createTagValue, createTagDefinition, listTagDefinitions } from './tags.ts';
 import type {
   CreateProposalBody,
   ProposalDTO,
@@ -22,6 +23,7 @@ function toDTO(row: ProposalRow): ProposalDTO {
     target_id: row.target_id,
     related_id: row.related_id ?? '',
     related_definition_id: row.related_definition_id ?? undefined,
+    target_path: row.target_path ?? undefined,
     proposed_value: row.proposed_value,
     rationale: row.rationale,
     source: row.source as ProposalDTO['source'],
@@ -52,6 +54,7 @@ export async function createProposal(db: Database, body: CreateProposalBody): Pr
     target_id: body.target_id,
     related_id: body.related_id ?? null,
     related_definition_id: body.related_definition_id ?? null,
+    target_path: body.target_path ?? null,
     proposed_value: body.proposed_value,
     rationale: body.rationale ?? '',
     source: body.source ?? 'agent',
@@ -89,14 +92,33 @@ export async function resolveProposalApplying(
 ): Promise<ProposalDTO | undefined> {
   const existing = await getProposal(db, id);
   if (!existing) return undefined;
+  /* pending_definition flow: a meta_tag whose definition is still `new:<name>`
+     cannot be consumed — leave it PENDING (with a trace) until the definition
+     lands, so it can be accepted for real afterwards. */
+  if (status === 'accepted' && existing.kind === 'meta_tag'
+    && existing.related_definition_id?.startsWith('new:')) {
+    await appendEvent(db as unknown as Database, {
+      item_id: existing.target_id,
+      actor: 'agent',
+      action: 'updated',
+      detail: `meta_tag | blocked: definition pending (${existing.related_definition_id.slice(4)})`,
+    });
+    return existing;
+  }
   // O1-4: resolve + apply commit or roll back together (no half-applied proposals).
   return db.transaction(async (tx) => {
     const t = tx as unknown as Database;
     const resolved = await resolveProposal(t, id, status);
     if (!resolved || status !== 'accepted') return resolved;
     if (existing.kind === 'semantic_name') {
-      /* V3 (M3): machine-originated change — actor=agent, flagged with the proposal id. */
-      await updateItem(t, existing.target_id, { title: existing.proposed_value }, { actor: 'agent', via: existing.id });
+      if (existing.target_path) {
+        /* SEMANTIC_TITLE_PLAN: node-scoped title — lands on the outline node;
+           applyOutlineTitle never overwrites a user title. */
+        await applyOutlineTitle(t, existing.target_id, existing.target_path, existing.proposed_value, 'agent');
+      } else {
+        /* V3 (M3): machine-originated change — actor=agent, flagged with the proposal id. */
+        await updateItem(t, existing.target_id, { title: existing.proposed_value }, { actor: 'agent', via: existing.id });
+      }
     } else if (existing.kind === 'association' && existing.related_id) {
       await createRelation(t, {
         kind: 'related_to',
@@ -109,20 +131,50 @@ export async function resolveProposalApplying(
       /* META_TAG_V1: related_definition_id = tag definition id, proposed_value = tag value.
          Accepting IS the user confirmation (D-066) → confirmed=1. Idempotent:
          the (definition, item, value, scope) uniqueness absorbs replays.
-         Proposal-embedded params are DEFERRED (proposals carry no params channel);
-         enrich via the assignment-params API after accept. */
-      await createTagValue(t, {
-        definition_id: existing.related_definition_id,
-        item_id: existing.target_id,
-        value: existing.proposed_value,
-        scope: 'global',
-        confirmed: true,
-      }, 'usr_local');
+         `new:<name>` refs mean the definition is still pending — the assignment
+         is skipped until the pending_definition proposal is accepted (and this
+         proposal's ref upgraded). Proposal-embedded params are DEFERRED. */
+      if (existing.related_definition_id.startsWith('new:')) {
+        await appendEvent(t, {
+          item_id: existing.target_id,
+          actor: 'agent',
+          action: 'updated',
+          detail: `meta_tag | blocked: definition pending (${existing.related_definition_id.slice(4)})`,
+        });
+      } else {
+        await createTagValue(t, {
+          definition_id: existing.related_definition_id,
+          item_id: existing.target_id,
+          value: existing.proposed_value,
+          scope: 'global',
+          confirmed: true,
+        }, 'usr_local');
+        await appendEvent(t, {
+          item_id: existing.target_id,
+          actor: 'agent',
+          action: 'updated',
+          detail: `meta_tag | via proposal ${existing.id}`,
+        });
+      }
+    } else if (existing.kind === 'pending_definition' && existing.proposed_value) {
+      /* META_TAG_V1 pending_definition flow: accepting creates the tag
+         definition (by name, idempotent) and upgrades every pending meta_tag
+         proposal waiting on `new:<name>` to the real definition id. */
+      const name = existing.proposed_value.trim();
+      const defs = await listTagDefinitions(t);
+      const found = defs.find((d) => d.name === name);
+      const def = found ?? await createTagDefinition(t, { name });
+      await t.update(proposals).set({ related_definition_id: def.id })
+        .where(and(
+          eq(proposals.kind, 'meta_tag'),
+          eq(proposals.related_definition_id, `new:${name}`),
+          eq(proposals.status, 'pending'),
+        ));
       await appendEvent(t, {
         item_id: existing.target_id,
         actor: 'agent',
         action: 'updated',
-        detail: `meta_tag | via proposal ${existing.id}`,
+        detail: `pending_definition | tag "${name}" ${found ? 'existed' : 'created'} via proposal ${existing.id}`,
       });
     } else if (existing.kind === 'cluster') {
       /* G2 merge semantics: a same-title cluster already exists → join it as a
