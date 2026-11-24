@@ -70,7 +70,7 @@ function decodeCursor(cursor: string): { at: string; id: string } | undefined {
 
 export async function listItemsPaged(
   db: Database,
-  filters: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number } = {},
+  filters: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number; ids?: string[] } = {},
   // B2/F8: viewer scope applied in SQL *before* pagination so total/cursor
   // only describe rows the viewer can see. null/absent = unscoped.
   scope: { visibleIds?: Set<string> | null } = {},
@@ -83,6 +83,10 @@ export async function listItemsPaged(
   }
   if (filters.type) baseConditions.push(eq(items.type, filters.type));
   if (filters.domain) baseConditions.push(eq(items.domain, filters.domain));
+  /* META_TAG_V1 筛选: restrict to a pre-computed id set (group/tag/param filter). */
+  if (filters.ids) {
+    baseConditions.push(filters.ids.length > 0 ? inArray(items.id, filters.ids) : sql`1 = 0`);
+  }
   if (filters.q) {
     // D-020 keyword filter pushed into SQL (DB-4): the old shape filtered the
     // page in JS *after* pagination — it could only ever match within one page
