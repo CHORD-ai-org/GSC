@@ -21,6 +21,7 @@ export type ProposalDTO = {
   kind: ProposalKind;
   target_id: string;
   related_id: string;
+  related_definition_id?: string;
   proposed_value: string;
   rationale: string;
   source: ProposalSource;
@@ -33,6 +34,8 @@ export type CreateProposalBody = {
   kind: ProposalKind;
   target_id: string;
   related_id?: string;
+  /** META_TAG_V1: tag definition id (kind='meta_tag'). */
+  related_definition_id?: string;
   proposed_value: string;
   rationale?: string;
   source?: ProposalSource;
@@ -62,6 +65,7 @@ export function validateCreateProposalBody(value: unknown): value is CreatePropo
     && nonEmptyString(b.target_id)
     && nonEmptyString(b.proposed_value)
     && (b.related_id === undefined || typeof b.related_id === 'string')
+    && (b.related_definition_id === undefined || typeof b.related_definition_id === 'string')
     && (b.rationale === undefined || typeof b.rationale === 'string')
     && (b.source === undefined || (PROPOSAL_SOURCES as readonly string[]).includes(b.source as string));
 }
