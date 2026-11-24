@@ -21,6 +21,9 @@ export type ScheduleListResponse = { ok: true; schedules: ScheduleDTO[] };
 export type ScheduleDetailResponse = { ok: true; schedule: ScheduleDTO };
 export type ScheduleRunResponse = { ok: true; detail: string };
 export type ScheduleDeleteResponse = { ok: true; deleted: boolean };
+/* META_TAG_SYSTEM_V1 */
+export type MetaGroupListResponse = { ok: true; groups: { id: string; key: string; name: string; description: string; visibility_default: string }[] };
+export type MetaParamsResponse = { ok: true; params: { key: string; value: string; value_type: string }[] };
 export type ItemDetailResponse = {
   ok: true;
   item: ItemDTO;
@@ -70,6 +73,8 @@ export type ApiResponse =
   | ScheduleDetailResponse
   | ScheduleRunResponse
   | ScheduleDeleteResponse
+  | MetaGroupListResponse
+  | MetaParamsResponse
   | ProposalDetailResponse
   | UrlIngestResponse
   | SourceListResponse
@@ -198,19 +203,23 @@ export type ItemPageResponse = {
   activity?: Record<string, { user: number; agent: number }>;
 };
 
-export function listItemsPage(params: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number }): Promise<ItemPageResponse> {
+export function listItemsPage(params: { type?: string; domain?: string; q?: string; cursor?: string; limit?: number; group?: string; tag?: string; metaParams?: Record<string, string> }): Promise<ItemPageResponse> {
   const search = new URLSearchParams();
   if (params.type && params.type !== 'all') search.set('type', params.type);
   if (params.domain && params.domain !== 'all') search.set('domain', params.domain);
   if (params.q) search.set('q', params.q);
   if (params.cursor) search.set('cursor', params.cursor);
   if (params.limit) search.set('limit', String(params.limit));
+  /* META_TAG_V1 筛选 */
+  if (params.group) search.set('group', params.group);
+  if (params.tag) search.set('tag', params.tag);
+  for (const [k, v] of Object.entries(params.metaParams ?? {})) search.set(`param.${k}`, v);
   const query = search.size ? `?${search.toString()}` : '';
   return request<ItemPageResponse>(`/api/items${query}`);
 }
 
 /* Full list: follows next_cursor (T202 server pagination) transparently. */
-export async function listItems(params: { type?: string; domain?: string; q?: string }): Promise<ItemListResponse> {
+export async function listItems(params: { type?: string; domain?: string; q?: string; group?: string; tag?: string; metaParams?: Record<string, string> }): Promise<ItemListResponse> {
   const items: ItemDTO[] = [];
   const activity: Record<string, { user: number; agent: number }> = {};
   let cursor: string | undefined;
@@ -484,8 +493,17 @@ export function listTagDefinitions(): Promise<TagDefinitionListResponse> {
   return request<TagDefinitionListResponse>('/api/tags/definitions');
 }
 
-export function createTagDefinition(body: { name: string; description?: string }): Promise<TagDefinitionResponse> {
+export function createTagDefinition(body: { name: string; description?: string; group_ids?: string[] }): Promise<TagDefinitionResponse> {
   return request<TagDefinitionResponse>('/api/tags/definitions', { method: 'POST', body: JSON.stringify(body) });
+}
+
+
+export function listMetaGroups(): Promise<MetaGroupListResponse> {
+  return request<MetaGroupListResponse>('/api/meta/groups');
+}
+
+export function setItemMetaParams(itemId: string, params: { key: string; value: string; value_type?: string }[]): Promise<MetaParamsResponse> {
+  return request(`/api/items/${encodeURIComponent(itemId)}/meta-params`, { method: 'PUT', body: JSON.stringify({ params }) });
 }
 
 export function listTagValues(filter: { item_id?: string; definition_id?: string; owner_id?: string } = {}): Promise<TagValueListResponse> {
