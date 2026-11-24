@@ -124,6 +124,8 @@ export const proposals = pgTable('proposals', {
   kind: text('kind').notNull(),
   target_id: text('target_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
   related_id: text('related_id').references(() => items.id, { onDelete: 'cascade' }),
+  /* META_TAG_V1: tag definition id for kind='meta_tag' (related_id is an items FK). */
+  related_definition_id: text('related_definition_id'),
   proposed_value: text('proposed_value').notNull(),
   rationale: text('rationale').notNull().default(''),
   source: text('source').notNull().default('agent'),
@@ -163,6 +165,40 @@ export const tagValues = pgTable('tag_values', {
   owner_id: text('owner_id').notNull().default('usr_local'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
 });
+
+/* META_TAG_SYSTEM_V1 (0014): groups ←multi-parent→ tags → assignments + typed params. */
+export const metaGroups = pgTable('meta_groups', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  visibility_default: text('visibility_default').notNull().default('private'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
+export const metaTagGroups = pgTable('meta_tag_groups', {
+  tag_id: text('tag_id').notNull().references(() => tagDefinitions.id, { onDelete: 'cascade' }),
+  group_id: text('group_id').notNull().references(() => metaGroups.id, { onDelete: 'cascade' }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (t) => [primaryKey({ columns: [t.tag_id, t.group_id] })]);
+
+export const assignmentParams = pgTable('assignment_params', {
+  id: text('id').primaryKey(),
+  assignment_id: text('assignment_id').notNull().references(() => tagValues.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+  value_type: text('value_type').notNull().default('text'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (t) => [uniqueIndex('assignment_params_unique').on(t.assignment_id, t.key)]);
+
+export const itemMetaParams = pgTable('item_meta_params', {
+  id: text('id').primaryKey(),
+  item_id: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+  value_type: text('value_type').notNull().default('text'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (t) => [uniqueIndex('item_meta_params_unique').on(t.item_id, t.key)]);
 
 export const idempotencyKeys = pgTable('idempotency_keys', {
   key: text('key').notNull(),
@@ -241,4 +277,4 @@ export const schedules = pgTable('schedules', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, schedules };
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, schedules, metaGroups, metaTagGroups, assignmentParams, itemMetaParams };
