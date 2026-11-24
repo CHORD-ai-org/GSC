@@ -147,12 +147,21 @@ export default function App() {
     }
   }, [view, selectedId, contextId, clusterId, recentDay]);
 
+  /* META_TAG_V1 筛选: group/tag chips over the collections. */
+  const [metaFilter, setMetaFilter] = useState<{ group?: string; tag?: string }>({});
+  const [metaGroups, setMetaGroups] = useState<{ id: string; key: string; name: string }[]>([]);
+  useEffect(() => {
+    api.listMetaGroups()
+      .then((r) => setMetaGroups(r.groups.map((g) => ({ id: g.id, key: g.key, name: g.name }))))
+      .catch(() => undefined);
+  }, []);
+
   const refresh = useCallback(async () => {
-    const result = await api.listItems({});
+    const result = await api.listItems({ group: metaFilter.group, tag: metaFilter.tag });
     setItems(result.items);
     setItemActivity(result.activity ?? {});
     setLoadingItems(false);
-  }, []);
+  }, [metaFilter]);
 
   const loadContextIndex = useCallback(async () => {
     // U1: list carries member_ids (batched server-side) — no per-row fetch.
@@ -876,9 +885,9 @@ export default function App() {
     return api.checkLlm();
   }
 
-  async function createTagDef(name: string, description: string) {
+  async function createTagDef(name: string, description: string, groupIds?: string[]) {
     await run('tag.def.create', async () => {
-      await api.createTagDefinition({ name, description });
+      await api.createTagDefinition({ name, description, group_ids: groupIds });
       return true;
     });
   }
@@ -941,10 +950,38 @@ export default function App() {
       };
       return kind === 'raw' ? <RawDetailView {...shared} /> : <ObjectDetailView {...shared} />;
     }
-    return kind === 'raw' ? (
-      <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => go('lightup')} onSelect={selectItem} onBulkTag={bulkTag} />
-    ) : (
-      <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => openNew('object.concept')} onSelect={selectItem} onBulkTag={bulkTag} />
+    return (
+      <>
+        {metaGroups.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('filter.group')}</span>
+            <button
+              type="button"
+              className={!metaFilter.group ? styles.primaryButton : styles.search}
+              style={{ fontSize: 11, padding: '3px 10px', cursor: 'pointer' }}
+              onClick={() => setMetaFilter({})}
+            >
+              {t('filter.all')}
+            </button>
+            {metaGroups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className={metaFilter.group === g.id ? styles.primaryButton : styles.search}
+                style={{ fontSize: 11, padding: '3px 10px', cursor: 'pointer' }}
+                onClick={() => setMetaFilter((f) => ({ group: f.group === g.id ? undefined : g.id }))}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {kind === 'raw' ? (
+          <RawCollection items={items} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => go('lightup')} onSelect={selectItem} onBulkTag={bulkTag} />
+        ) : (
+          <ObjectCollection items={items} sourceCounts={sourceCounts} badges={itemBadges} tagDims={tagDimsByItem} tagDimOptions={tagDimNames} tagDefs={tagDefinitions} loading={loadingItems} activity={itemActivity} onNew={() => openNew('object.concept')} onSelect={selectItem} onBulkTag={bulkTag} />
+        )}
+      </>
     );
   }
 
