@@ -2,7 +2,8 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **G2 三端采集闭环完成（D-103，2026-11-23）**：/api/ingest/batch 分组入料 + gsc-push CLI + opencode 插件/codex notify/WorkBuddy skill（已扩写）+ 归块 cluster 提案（同名归并语义）+ G3 矩阵。WorkBuddy 真链实测通（幂等/命名/归块），实测修 2 bug（LLM 包壳契约、幻觉 id FK 守卫）。验收补跑（D-104）：codex 链全通（链式派发器+真实 rollout）· opencode 插件双加载器适配加载干净·无头 exec/run 环境挂死留真轮末触发。
+> Status: **META_TAG_SYSTEM_V1 完成（D-105，2026-11-24）**：四组预置（画像/经历/日志/项目）+tag 多父边+两层 typed 参数+提案 accept=confirmed+筛选（API 交集+UI 组 chips）；实测全链通（vitest 198+1skip/199）。设计见 META_TAG_SYSTEM_V1.md。后置：tag 层级/confidence/组管理/云同步。
+> Prior: G2 三端采集闭环完成（D-103，2026-11-23）**：/api/ingest/batch 分组入料 + gsc-push CLI + opencode 插件/codex notify/WorkBuddy skill（已扩写）+ 归块 cluster 提案（同名归并语义）+ G3 矩阵。WorkBuddy 真链实测通（幂等/命名/归块），实测修 2 bug（LLM 包壳契约、幻觉 id FK 守卫）。验收补跑（D-104）：codex 链全通（链式派发器+真实 rollout）· opencode 插件双加载器适配加载干净·无头 exec/run 环境挂死留真轮末触发。
 > Prior: LOCAL_SIM 云端同构采集模拟完成（D-101，2026-11-23，剩 compose 起套门）**：docker-compose（db/api/worker+四卷=云部署文件）+ schedules 调度器 + 文件夹/爬虫适配器 + 独立 dashboard（8790，D-102 不进 GSC 页面）+ 桌面 bats/start-gsc-dashboard.bat 启动器；实测两条采集链通（folder 1/1、web 2/2+留档）。⏳ 待用户启动 Docker Desktop 跑 compose up/down/up 门。事故：PGlite 被强杀损坏→新库 .data/pglite-v2（残骸保全，详见 KNOWN_ISSUES）。
 > Prior: 创始人目标已拆解（D-100，GOALS_2026-11-23.md）**：G1 组件拆分+component-list.md（最高，已出 v1）→ G2 三端采集闭环（opencode/codex/workbuddy 分组上传→Agent 分块，这两天）→ G3 插件兼容矩阵（这两天）→ G4 原始信息缩放+语义标题 / G5 Meta-tag v1.0 / G6 信息模型 v1.0（本周）。提案制不变，分块=提案。已落地（D-101）：Settings › 连接 MCP 接入卡片（4 客户端配置片段 + 9 工具清单 + /api/meta/mcp），G2 三端接入配置面就绪。
 > Prior: P1 提案面治理完成（D-099，2026-11-23）**：detector 去重键错配根修（洪峰主因）+ 命名聚合（12→2）+ 采集自动重试（退避 3 次）+ UI 折叠（12 行→3 组）+ 存量清理（pending 497→255、0 重复），vitest 182+1skip/183。遗留 P2：批量裁决 UI（后置）。并行线：U2 collections 合并待执行；BACKEND_OPTIMIZATION 批次推进中（D-096 已拍部署/错误格式/SLO）。
