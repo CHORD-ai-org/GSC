@@ -8,8 +8,8 @@ import { ITEM_LABELS, OBJECT_TYPES } from '../lib/items.ts';
 import type { ItemDTO, ItemType } from '../lib/items.ts';
 import type { ClusterDTO } from '../lib/clusters.ts';
 import type { ProposalDTO } from '../lib/proposals.ts';
-import type { ItemDetailResponse } from '../services/api.ts';
-import { listProposals, resolveProposal } from '../services/api.ts';
+import type { ItemDetailResponse, OutlineNodeDTO } from '../services/api.ts';
+import { listProposals, resolveProposal, listOutline, ensureOutlineTitles } from '../services/api.ts';
 import type { ContextIndexEntry } from './pages.tsx';
 import { useI18n, useT } from '../lib/i18n.tsx';
 import { fieldLabel } from '../lib/itemFields.ts';
@@ -91,6 +91,8 @@ function OwnerDot({ owner }: { owner?: 'user' | 'agent' }) {
 const PROPOSAL_KIND_KEY: Record<string, string> = {
   semantic_name: 'prop.semantic_name',
   classification: 'prop.classification',
+  meta_tag: 'prop.meta_tag',
+  pending_definition: 'prop.pending_definition',
   association: 'prop.association',
   cluster: 'prop.cluster',
   metadata: 'prop.metadata',
@@ -194,6 +196,78 @@ function AttributionPanel({
 }
 
 /* P3 INTERACTION_UX_PLAN: attribute rail — badges first, low-frequency kv folded. */
+/* SEMANTIC_TITLE_PLAN (batch C): outline with three-state title badges.
+   Generation is on-demand (G4 待定点③) — ensure-titles only proposes for
+   rule-title nodes; user/agent titles are never regenerated. */
+function OutlinePanel({ itemId }: { itemId: string }) {
+  const t = useT();
+  const [nodes, setNodes] = useState<OutlineNodeDTO[]>([]);
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void listOutline(itemId)
+      .then((r) => { setNodes(r.outline); setPending(new Set(r.pending_paths ?? [])); })
+      .catch(() => setNodes([]));
+  }, [itemId]);
+  const generate = () => {
+    if (busy) return;
+    setBusy(true);
+    void ensureOutlineTitles(itemId)
+      .then((r) => { setNodes(r.outline); setPending(new Set(r.pending_paths)); })
+      .catch(() => undefined)
+      .finally(() => setBusy(false));
+  };
+  if (nodes.length === 0) return null;
+  const childrenOf = new Map<string, OutlineNodeDTO[]>();
+  for (const node of nodes) {
+    const parent = node.path.includes('.') ? node.path.slice(0, node.path.lastIndexOf('.')) : '';
+    childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), node]);
+  }
+  const hidden = (node: OutlineNodeDTO): boolean => {
+    let p = node.path.includes('.') ? node.path.slice(0, node.path.lastIndexOf('.')) : '';
+    while (p) {
+      if (collapsed.has(p)) return true;
+      p = p.includes('.') ? p.slice(0, p.lastIndexOf('.')) : '';
+    }
+    return false;
+  };
+  const badge = (node: OutlineNodeDTO): string => {
+    if (node.nameOrigin === 'user') return t('outline.badgeUser');
+    if (node.nameOrigin === 'agent') return t('outline.badgeAgent');
+    return pending.has(node.path) ? t('outline.badgePending') : t('outline.badgeRule');
+  };
+  return (
+    <Block title={t('outline.title')}>
+      <div className={styles.list}>
+        {nodes.map((node) => (hidden(node) ? null : (
+          <div className={styles.listRow} key={node.id} style={{ paddingLeft: 4 + (node.level - 1) * 16 }}>
+            {childrenOf.has(node.path) ? (
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={() => setCollapsed((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(node.path)) next.delete(node.path);
+                  else next.add(node.path);
+                  return next;
+                })}
+              >
+                {collapsed.has(node.path) ? '[+]' : '[–]'}
+              </button>
+            ) : (
+              <span className={styles.rowType}>·</span>
+            )}
+            <span className={styles.rowTitle}>{node.title}</span>
+            <span className={styles.rowType}>{badge(node)}</span>
+          </div>
+        )))}
+      </div>
+      <Button small onClick={generate}>{busy ? t('outline.generating') : t('outline.generate')}</Button>
+    </Block>
+  );
+}
+
 function RailBadges({ badges }: { badges: [string, string][] }) {
   return (
     <div className={styles.railBadges}>
@@ -301,6 +375,8 @@ export function RawDetailView({
       ) : null}
 
       <AttributionPanel detail={detail} itemId={item.id} onRefresh={onRefresh} />
+
+      <OutlinePanel itemId={item.id} />
 
       <Block title={t('detail.rawContent')} tag={<SemTag kind="original" />}>
         <div className={styles.rawContent}>{item.fields.content_text ?? t('detail.noText')}</div>

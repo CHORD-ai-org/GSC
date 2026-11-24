@@ -196,9 +196,22 @@ function hMetaMcpGet(): RouteResult {
   });
 }
 
-/* SEMANTIC_TITLE_PLAN (batch B): on-expand title generation. Rule-title
+/* SEMANTIC_TITLE_PLAN (batch B/C): on-expand title generation. Rule-title
    outline nodes without a pending proposal become semantic_name proposals
    (target_path-scoped); user/agent titles are never regenerated. */
+async function hOutlineGet(ctx: RouteCtx): Promise<RouteResult> {
+  const id = ctx.params[0];
+  const item = await getItem(ctx.db, id);
+  if (!item) return fail('not_found', 'Item not found');
+  // derivation is pure/cheap and part of display (G4); title GENERATION stays
+  // on-demand (ensure-titles) — a fresh item must still show its outline.
+  const outline = await ensureOutlineNodes(ctx.db, id, item.fields.content_text ?? item.title);
+  const pending = (await listProposals(ctx.db, 'pending'))
+    .filter((p) => p.kind === 'semantic_name' && p.target_id === id && p.target_path)
+    .map((p) => p.target_path as string);
+  return ok({ ok: true, outline, pending_paths: pending });
+}
+
 async function hOutlineEnsureTitles(ctx: RouteCtx): Promise<RouteResult> {
   const id = ctx.params[0];
   const item = await getItem(ctx.db, id);
@@ -239,13 +252,14 @@ async function hOutlineEnsureTitles(ctx: RouteCtx): Promise<RouteResult> {
           rationale: candidate.rationale,
           source: 'agent',
         });
+        claimed.add(candidate.path); // just-created proposals count as pending
         proposed += 1;
       }
     } catch (err) {
       log('warn', 'outline title generation failed', { item: id, error: (err as Error)?.message ?? String(err) });
     }
   }
-  return ok({ ok: true, outline: await listOutline(ctx.db, id), proposed });
+  return ok({ ok: true, outline: await listOutline(ctx.db, id), proposed, pending_paths: [...claimed] });
 }
 
 async function hItemRestore(ctx: RouteCtx): Promise<RouteResult> {
@@ -1171,6 +1185,7 @@ export const ROUTES: RouteSpec[] = [
   { pattern: /^\/api\/items\/([^/]+)\/purge$/, ops: [{ method: 'POST', handler: hItemPurge, idem: true }] },
   { pattern: /^\/api\/search$/, ops: [{ method: 'GET', handler: hSearchGet }] },
   { pattern: /^\/api\/meta\/mcp$/, ops: [{ method: 'GET', handler: hMetaMcpGet }] },
+  { pattern: /^\/api\/items\/([^/]+)\/outline$/, ops: [{ method: 'GET', handler: hOutlineGet }] },
   { pattern: /^\/api\/items\/([^/]+)\/outline\/ensure-titles$/, ops: [{ method: 'POST', handler: hOutlineEnsureTitles, body: true, idem: true }] },
   {
     pattern: /^\/api\/items$/,

@@ -108,6 +108,8 @@ export type ApiResponse =
   | TokenListResponse
   | TokenCreateResponse
   | McpMetaResponse
+  | OutlineResponse
+  | OutlineEnsureResponse
   | SpatialLayoutResponse
   | { ok: true; saved: number }
   | { ok: true; deleted: true }
@@ -615,6 +617,27 @@ export type McpMetaResponse = {
 
 export function getMcpMeta(): Promise<McpMetaResponse> {
   return request<McpMetaResponse>('/api/meta/mcp');
+}
+
+// SEMANTIC_TITLE_PLAN: outline nodes + on-demand semantic titles.
+export type OutlineNodeDTO = {
+  id: string;
+  path: string;
+  level: number;
+  start: number;
+  end: number;
+  title: string;
+  nameOrigin: 'rule' | 'agent' | 'user';
+};
+export type OutlineResponse = { ok: true; outline: OutlineNodeDTO[]; pending_paths: string[] };
+export type OutlineEnsureResponse = { ok: true; outline: OutlineNodeDTO[]; proposed: number; pending_paths: string[] };
+
+export function listOutline(itemId: string): Promise<OutlineResponse> {
+  return request(`/api/items/${itemId}/outline`);
+}
+
+export function ensureOutlineTitles(itemId: string): Promise<OutlineEnsureResponse> {
+  return request(`/api/items/${itemId}/outline/ensure-titles`, { method: 'POST', body: JSON.stringify({}) });
 }
 
 export function listTokens(): Promise<TokenListResponse> {
