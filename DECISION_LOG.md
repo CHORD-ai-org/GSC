@@ -1213,3 +1213,24 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   run hang + broken spark-autostart plugin; opencode v1/v2 dual-loader contract drift.
 - **Status:** `DECIDED` — 2026-11-23, executed to the environment's limit. Code + integrations
   complete; both remaining triggers are runtime-environment issues, not integration gaps.
+
+## D-105 — META_TAG_SYSTEM_V1 executed (DECIDED)
+
+- **Decision:** Execute META_TAG_V1_PLAN.md (design META_TAG_SYSTEM_V1.md PROPOSED, founder
+  notes 2026-11-24; four design confirmations taken as recommended).
+- **Delivered:** 0014 migration (meta_groups with 4 seeded groups incl. visibility_default as a
+  cloud-domain hint; meta_tag_groups multi-parent edges; assignment_params + item_meta_params
+  typed params, no JSONB; idempotent tagging index) · repo/tags.ts extensions (groups, setTagGroups,
+  params, filterItemIds intersection) · routes (GET /api/meta/groups, PUT /api/items/:id/meta-params,
+  meta filters merged into GET /api/items: ?group=&tag=&param.k=v) · meta_tag proposal accept →
+  confirmed assignment (D-066: accept IS user confirmation) · suggestMetaTags (from existing
+  definitions only, hallucinated-id guarded) wired into processSnapshot · UI: settings tag form
+  with group multi-select + collection group filter chips.
+- **Key schema correction during execution:** `proposals.related_id` is an items FK — a tag
+  definition id cannot live there. Added `proposals.related_definition_id` column instead
+  (0014 ALTER IF NOT EXISTS).
+- **Verification:** vitest 4/4 meta tests (seed/multi-parent/idempotent+params/filter intersections/
+  accept→confirmed) + full suite 198+1skip/199 · live manual loop on :8792 (create multi-parent
+  tag → assign with evidence param → set importance=5 → group/param filters incl. intersection)
+  · UI screenshot meta-filter-chips.png (chips + item render).
+- **Status:** `DECIDED` — 2026-11-24, executed.
