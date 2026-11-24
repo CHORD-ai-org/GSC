@@ -575,3 +575,12 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 - 实测修 2 bug：LLM 包壳数组契约容忍 · 归块幻觉 id 守卫（详见 KNOWN_ISSUES）。
 - G3 兼容矩阵补全（component-list.md）：三端采集 ✅、codex 上下文注入 ❌、MCP 读 🔜。
 - 验收补充（D-104）：codex 链全通（notify 链式派发器保 Desktop 原钩子 + 真实 rollout 收割入库）；opencode 插件双加载器适配（V1 server()/V2 id+setup，加载验证干净）；WorkBuddy 全通。真轮末触发待用户日常使用验证（无头 exec/run 在本机环境挂死，见 KNOWN_ISSUES）。
+
+## META_TAG_SYSTEM_V1：COMPLETE（2026-11-24，D-105）
+
+- 0014：meta_groups（四组预置+visibility_default 云域提示）· meta_tag_groups 多父边 ·
+  assignment_params/item_meta_params 两层 typed 参数 · 幂等打标索引 · proposals.related_definition_id。
+- 闭环：定义（设置页 tag 表单多选组）→ 建议（suggestMetaTags 从现有定义选+幻觉 id 守卫）→
+  确认（accept=confirmed=1，D-066）→ 打标（带参）→ 筛选（?group=&tag=&param.k=v 交集 + UI 组 chips）。
+- 实测：vitest 4/4 + 全量 198+1skip/199；手动腿全链（多父/带参/交集筛选）；meta-filter-chips.png。
+- 待后置：tag→tag 层级 · confidence 生效 · 组管理 UI · 云同步（visibility_default 只是预留）。
