@@ -32,13 +32,15 @@ export function isValidScope(scope: unknown): scope is string {
   return SCOPE_PREFIXES.some((prefix) => scope.startsWith(prefix) && scope.length > prefix.length);
 }
 
-export type CreateTagDefinitionBody = { name: string; description?: string };
+export type TagParamDTO = { key: string; value: string; value_type?: string };
+export type CreateTagDefinitionBody = { name: string; description?: string; group_ids?: string[] };
 export type CreateTagValueBody = {
   definition_id: string;
   item_id?: string;
   value: string;
   scope?: string;
   confirmed?: boolean;
+  params?: TagParamDTO[];
 };
 
 export function validateCreateTagDefinitionBody(body: unknown): body is CreateTagDefinitionBody {
@@ -46,7 +48,8 @@ export function validateCreateTagDefinitionBody(body: unknown): body is CreateTa
   const b = body as Record<string, unknown>;
   // O1-2 limits: name ≤ 200, description ≤ 2000
   return typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 200
-    && (b.description === undefined || (typeof b.description === 'string' && b.description.length <= 2000));
+    && (b.description === undefined || (typeof b.description === 'string' && b.description.length <= 2000))
+    && (b.group_ids === undefined || (Array.isArray(b.group_ids) && b.group_ids.every((g) => typeof g === 'string' && g.length <= 64)));
 }
 
 export function validateCreateTagValueBody(body: unknown): body is CreateTagValueBody {
@@ -56,6 +59,15 @@ export function validateCreateTagValueBody(body: unknown): body is CreateTagValu
   if (typeof b.value !== 'string' || !b.value.trim() || b.value.length > 2000) return false; // O1-2
   if (b.item_id !== undefined && typeof b.item_id !== 'string') return false;
   if (b.scope !== undefined && (!isValidScope(b.scope) || b.scope.length > 200)) return false; // O1-2
+  if (b.params !== undefined) {
+    if (!Array.isArray(b.params) || b.params.length > 20) return false;
+    if (!b.params.every((p) => {
+      const q = p as Record<string, unknown>;
+      return typeof q.key === 'string' && q.key.length > 0 && q.key.length <= 64
+        && typeof q.value === 'string' && q.value.length <= 2000
+        && (q.value_type === undefined || typeof q.value_type === 'string');
+    })) return false;
+  }
   return true;
 }
 
