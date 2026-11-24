@@ -8,7 +8,7 @@ export default defineConfig({
     proxy: {
       // changeOrigin:false keeps the browser Host so the API's same-origin
       // check (O1-7) sees Origin === Host and allows the dev frontend.
-      '/api': { target: 'http://127.0.0.1:8788', changeOrigin: false },
+      '/api': { target: `http://127.0.0.1:${process.env.GSC_API_PORT ?? 8788}`, changeOrigin: false },
     },
   },
   build: {
