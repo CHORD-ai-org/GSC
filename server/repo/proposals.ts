@@ -6,6 +6,7 @@ import { updateItem } from './items.ts';
 import { appendEvent } from './events.ts';
 import { createRelation } from './relations.ts';
 import { addClusterMember, createCluster, listClusters } from './clusters.ts';
+import { createTagValue } from './tags.ts';
 import type {
   CreateProposalBody,
   ProposalDTO,
@@ -20,6 +21,7 @@ function toDTO(row: ProposalRow): ProposalDTO {
     kind: row.kind as ProposalDTO['kind'],
     target_id: row.target_id,
     related_id: row.related_id ?? '',
+    related_definition_id: row.related_definition_id ?? undefined,
     proposed_value: row.proposed_value,
     rationale: row.rationale,
     source: row.source as ProposalDTO['source'],
@@ -49,6 +51,7 @@ export async function createProposal(db: Database, body: CreateProposalBody): Pr
     kind: body.kind,
     target_id: body.target_id,
     related_id: body.related_id ?? null,
+    related_definition_id: body.related_definition_id ?? null,
     proposed_value: body.proposed_value,
     rationale: body.rationale ?? '',
     source: body.source ?? 'agent',
@@ -101,6 +104,25 @@ export async function resolveProposalApplying(
         to_id: existing.related_id,
         note: `proposal ${existing.id}`,
         created_by: 'agent',
+      });
+    } else if (existing.kind === 'meta_tag' && existing.target_id && existing.related_definition_id) {
+      /* META_TAG_V1: related_definition_id = tag definition id, proposed_value = tag value.
+         Accepting IS the user confirmation (D-066) → confirmed=1. Idempotent:
+         the (definition, item, value, scope) uniqueness absorbs replays.
+         Proposal-embedded params are DEFERRED (proposals carry no params channel);
+         enrich via the assignment-params API after accept. */
+      await createTagValue(t, {
+        definition_id: existing.related_definition_id,
+        item_id: existing.target_id,
+        value: existing.proposed_value,
+        scope: 'global',
+        confirmed: true,
+      }, 'usr_local');
+      await appendEvent(t, {
+        item_id: existing.target_id,
+        actor: 'agent',
+        action: 'updated',
+        detail: `meta_tag | via proposal ${existing.id}`,
       });
     } else if (existing.kind === 'cluster') {
       /* G2 merge semantics: a same-title cluster already exists → join it as a
