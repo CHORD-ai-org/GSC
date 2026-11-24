@@ -5,7 +5,8 @@ export type EventAction =
   | 'relation_added'
   | 'relation_removed'
   | 'opened'
-  | 'proposed';
+  | 'proposed'
+  | 'outline_title_set';
 
 export type EventDTO = {
   id: string;
