@@ -456,6 +456,8 @@ export const STRINGS: Record<string, StringPair> = {
   'spatial.hint': { zh: '拖动卡片摆位 · 空白处拖框圈定即上下文边界', en: 'Drag cards to arrange · drag on empty space to select' },
   'spatial.pin': { zh: '钉住摆位', en: 'Pin layout' },
   'spatial.pinned': { zh: '已钉住（kept）', en: 'Pinned (kept)' },
+  'filter.group': { zh: '组', en: 'Group' },
+  'filter.all': { zh: '全部', en: 'All' },
   'spatial.reset': { zh: '清空摆位', en: 'Reset layout' },
   'nav.console': { zh: '本地控制台（临时）', en: 'Local Console (temp)' },
   'console.title': { zh: '持续采集调度', en: 'Scheduled collection' },
