@@ -1,6 +1,7 @@
 # SEMANTIC_TITLE_PLAN.md — 语义标题 pipeline（G4 前半，⑤ 号管线）
 
-Status: `PROPOSED` — 2026-11-24，待确认后执行。
+Status: `EXECUTED` — 2026-11-24「可以，开始执行」批准（三项待决策取默认：4 级+自适应 / 按需生成 / C 批同批，见 D-107）。
+批次 A/B/C 全部完成（5e471ff…218fa6d），四态实拍验收 `ui-prototype/shots/outline.png`。
 口径：标题=语义总结（GOALS G4 验收：「标题由语义总结生成（走提案确认）」）。示例风格钉死：
 列表行「导师周会改期至周四 14:00」（不是 mail_01.txt）、段落小标题「时间变更」「地点 A305」
 「请带 slides」。提案制不变：机器生成永远是提案，人确认才落。

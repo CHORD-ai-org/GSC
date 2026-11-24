@@ -1234,3 +1234,50 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   tag → assign with evidence param → set importance=5 → group/param filters incl. intersection)
   · UI screenshot meta-filter-chips.png (chips + item render).
 - **Status:** `DECIDED` — 2026-11-24, executed.
+
+## D-106 — pending_definition proposal flow: executed (DECIDED, G5 收尾)
+
+- **Decision:** Execute the pending_definition flow (founder 2026-11-24). Contract:
+  `suggestMetaTags` replies `new_tags` for invented tags → one `pending_definition` proposal per
+  name (deduped on pending) + a `meta_tag` proposal carrying `related_definition_id = new:<name>`
+  and the assignment value. Accepting `pending_definition` creates the tag definition (by name,
+  idempotent) and upgrades every pending `new:<name>` meta_tag ref to the real definition id;
+  the meta_tag accept then lands the confirmed assignment (D-066).
+- **Design flaw caught by the test and fixed:** accepting a meta_tag whose ref is still `new:`
+  CONSUMED the proposal (status=accepted) while skipping the assignment — the later upgrade could
+  never match it. Now such an accept leaves the proposal PENDING with a `blocked: definition
+  pending` event trace, so it can be accepted for real after the definition lands.
+- **Verified:** 6/6 meta tests (new_tags parse; three-beat flow: blocked-early-accept → definition
+  created + ref upgraded → assignment lands confirmed) + full suite green + lint clean.
+- **Status:** `DECIDED` — 2026-11-24, executed. G5 (Meta-tag v1.0 MVP) now complete including the
+  pending_definition face; meta_tag/pending_definition proposal cards labelled in detail view.
+
+## D-107 — Semantic title pipeline (G4 front half): executed (DECIDED)
+
+- **Decision:** Execute `SEMANTIC_TITLE_PLAN.md` (user confirmed 2026-11-24; the three plan
+  defaults adopted: 4 levels + short-doc adaptive, on-demand generation without a queue, display
+  batch delivered together). Titles are event-style semantic summaries proposed per sibling group
+  (parent + confirmed titles as context = consistency) and land only via the proposal gate;
+  user renames are direct and never overwritten (nameOrigin: rule → agent → user).
+- **Batch A:** `outline_nodes` model (0015: node path/level/offsets/title/name_origin/text_head;
+  `proposals.target_path` for node-scoped semantic_name proposals — target_id stays the item,
+  items FK preserved per the G5 related_definition_id precedent). Pure derivation in
+  `src/lib/outline.ts` (heading mode ≥2 headings clamped 1–4; prose mode ≤5 paragraphs one level,
+  longer = ≤5 L1 groups + L2 paragraphs; heading-only paragraphs merge into their span).
+  Agent titles are text-bound (slice head changed → back to rule, re-generatable); vanished
+  paths drop.
+- **Batch B:** `server/agent/titler.ts` (one LLM call per sibling group; duplicate-title clusters
+  regenerate ONCE, still-duplicates stay rule/"待改"); `POST .../outline/ensure-titles` creates
+  pending semantic_name proposals idempotently (no re-proposal while pending); accept lands on
+  the node via resolveProposalApplying; /outline/ paths carry the agent rate class.
+- **Batch C:** OutlinePanel in raw detail (indent/collapse/三态徽标/on-demand generate);
+  GET outline derives at display time and returns pending_paths.
+- **Acceptance (four-state CDP probe):** 3 rule titles → generate → 3× 提案中 → accept one →
+  「本周完成设计已确认」; 0 JS errors; `ui-prototype/shots/outline.png`. Real bugs found by
+  doing: fresh items hid the panel entirely (empty outline ⇒ no generate button — GET now
+  derives), pending_paths omitted just-created proposals (badges never flipped), duplicate
+  clusters only regenerated the second member (first comer was ambiguous too).
+- **Status:** `DECIDED` — 2026-11-24, executed (5e471ff/4d0dbb8/a931190/218fa6d). Verified:
+  tsc=0, eslint=0, vitest 214 passed + 1 skipped (+15 new: derivation 5, repo 5, titler 4,
+  wiring 1). Sibling work: full G4 zoom interaction (gestures/远景列表) remains its own track —
+  shares outline_nodes, does not rebuild.
