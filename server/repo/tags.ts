@@ -1,13 +1,116 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
-import { tagDefinitions, tagValues } from '../persistence/schema.ts';
+import {
+  tagDefinitions, tagValues, metaGroups, metaTagGroups, assignmentParams, itemMetaParams,
+} from '../persistence/schema.ts';
 import type {
   CreateTagDefinitionBody,
   CreateTagValueBody,
   TagDefinitionDTO,
   TagValueDTO,
+  TagParamDTO,
 } from '../../src/lib/tags.ts';
+
+/* ── META_TAG_SYSTEM_V1 (0014) additions: groups, multi-parent, params, filter ── */
+
+export type MetaGroupDTO = { id: string; key: string; name: string; description: string; visibility_default: string };
+export type { TagParamDTO };
+
+export async function listMetaGroups(db: Database): Promise<MetaGroupDTO[]> {
+  const rows = await db.select().from(metaGroups).orderBy(metaGroups.created_at);
+  return rows.map((r) => ({
+    id: r.id, key: r.key, name: r.name, description: r.description, visibility_default: r.visibility_default,
+  }));
+}
+
+/** Attach groups (multi-parent) to a tag. */
+export async function setTagGroups(db: Database, tagId: string, groupIds: string[]): Promise<void> {
+  await db.delete(metaTagGroups).where(eq(metaTagGroups.tag_id, tagId));
+  const now = new Date();
+  for (const gid of groupIds) {
+    await db.insert(metaTagGroups).values({ tag_id: tagId, group_id: gid, created_at: now }).onConflictDoNothing();
+  }
+}
+
+export async function listTagGroupIds(db: Database): Promise<Map<string, string[]>> {
+  const edges = await db.select().from(metaTagGroups);
+  const map = new Map<string, string[]>();
+  for (const e of edges) {
+    const list = map.get(e.tag_id) ?? [];
+    list.push(e.group_id);
+    map.set(e.tag_id, list);
+  }
+  return map;
+}
+
+export async function listAssignmentParams(db: Database, assignmentId: string): Promise<TagParamDTO[]> {
+  const rows = await db.select().from(assignmentParams).where(eq(assignmentParams.assignment_id, assignmentId));
+  return rows.map((r) => ({ key: r.key, value: r.value, value_type: r.value_type }));
+}
+
+export async function setItemParams(db: Database, itemId: string, params: TagParamDTO[]): Promise<TagParamDTO[]> {
+  const now = new Date();
+  for (const p of params) {
+    await db.insert(itemMetaParams).values({
+      id: `mp_${randomUUID()}`,
+      item_id: itemId,
+      key: p.key,
+      value: p.value,
+      value_type: p.value_type || 'text',
+      created_at: now,
+    }).onConflictDoUpdate({
+      target: [itemMetaParams.item_id, itemMetaParams.key],
+      set: { value: p.value, value_type: p.value_type || 'text' },
+    });
+  }
+  return getItemParams(db, itemId);
+}
+
+export async function getItemParams(db: Database, itemId: string): Promise<TagParamDTO[]> {
+  const rows = await db.select().from(itemMetaParams).where(eq(itemMetaParams.item_id, itemId));
+  return rows.map((r) => ({ key: r.key, value: r.value, value_type: r.value_type }));
+}
+
+/**
+ * G5 筛选: item ids matching group / tag / item-level params.
+ * Returns undefined when no filter is given (caller means "no restriction").
+ */
+export async function filterItemIds(
+  db: Database,
+  filter: { groupId?: string; tagId?: string; params?: Record<string, string> },
+): Promise<string[] | undefined> {
+  let ids: string[] | undefined;
+  const intersect = (b: string[]) => {
+    if (ids === undefined) ids = b;
+    else {
+      const set = new Set(b);
+      ids = ids.filter((x) => set.has(x));
+    }
+  };
+
+  if (filter.groupId) {
+    const tagIds = (await db.select({ tag_id: metaTagGroups.tag_id }).from(metaTagGroups)
+      .where(eq(metaTagGroups.group_id, filter.groupId))).map((r) => r.tag_id);
+    const rows = tagIds.length
+      ? await db.select({ item_id: tagValues.item_id }).from(tagValues).where(inArray(tagValues.definition_id, tagIds))
+      : [];
+    intersect(rows.map((r) => r.item_id).filter((v): v is string => !!v));
+  }
+  if (filter.tagId) {
+    const rows = await db.select({ item_id: tagValues.item_id }).from(tagValues)
+      .where(eq(tagValues.definition_id, filter.tagId));
+    intersect(rows.map((r) => r.item_id).filter((v): v is string => !!v));
+  }
+  for (const [key, value] of Object.entries(filter.params ?? {})) {
+    const rows = await db.select({ item_id: itemMetaParams.item_id }).from(itemMetaParams)
+      .where(and(eq(itemMetaParams.key, key), eq(itemMetaParams.value, value)));
+    intersect(rows.map((r) => r.item_id));
+  }
+  return ids;
+}
+
+/* ── existing tag CRUD below ── */
 
 function defDTO(row: typeof tagDefinitions.$inferSelect): TagDefinitionDTO {
   return {
@@ -44,6 +147,7 @@ export async function createTagDefinition(db: Database, body: CreateTagDefinitio
     description: body.description ?? '',
     created_at: new Date(),
   });
+  if (body.group_ids?.length) await setTagGroups(db, id, body.group_ids);
   return defDTO((await db.select().from(tagDefinitions).where(eq(tagDefinitions.id, id)).limit(1))[0]);
 }
 
@@ -78,6 +182,18 @@ export async function createTagValue(
     owner_id: ownerId,
     created_at: new Date(),
   });
+  // META_TAG_V1: typed parameters on the assignment (打标参数)
+  const now = new Date();
+  for (const p of body.params ?? []) {
+    await db.insert(assignmentParams).values({
+      id: `ap_${randomUUID()}`,
+      assignment_id: id,
+      key: p.key,
+      value: p.value,
+      value_type: p.value_type || 'text',
+      created_at: now,
+    }).onConflictDoNothing();
+  }
   return { ok: true, value: valueDTO((await db.select().from(tagValues).where(eq(tagValues.id, id)).limit(1))[0]) };
 }
 
