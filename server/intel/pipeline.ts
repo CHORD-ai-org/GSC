@@ -8,7 +8,8 @@
 import type { Database } from '../persistence/client.ts';
 import type { Config } from '../config.ts';
 import { segmentText } from '../../src/lib/lightup.ts';
-import { suggestForChunks } from '../agent/proposer.ts';
+import { suggestForChunks, suggestMetaTags } from '../agent/proposer.ts';
+import { listTagDefinitions } from '../repo/tags.ts';
 import { runDetection } from '../agent/detector.ts';
 import { createProposal } from '../repo/proposals.ts';
 import { createItem } from '../repo/items.ts';
@@ -91,6 +92,30 @@ export async function processSnapshot(
     } catch (e) {
       console.error('[intel] proposal generation skipped:', e instanceof Error ? e.message : e);
     }
+  }
+
+  /* META_TAG_V1 suggest face: meta_tag proposals from existing definitions only
+     (best-effort; related_id = definition id, proposed_value = tag value). */
+  try {
+    const definitions = await listTagDefinitions(db);
+    if (definitions.length > 0) {
+      const meta = await suggestMetaTags(config, [{
+        id: item.id, title: item.title ?? '', content: doc.contentText.slice(0, 2000),
+      }], definitions.map((d) => ({ id: d.id, name: d.name })));
+      for (const m of meta) {
+        await createProposal(db, {
+          kind: 'meta_tag',
+          target_id: m.item_id,
+          related_definition_id: m.definition_id,
+          proposed_value: m.value,
+          rationale: m.why || `meta tag suggestion (${opts.kind})`,
+          source: 'agent',
+        });
+        proposals += 1;
+      }
+    }
+  } catch (e) {
+    console.error('[intel] meta tag suggestion skipped:', e instanceof Error ? e.message : e);
   }
 
   try {
