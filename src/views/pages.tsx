@@ -666,7 +666,7 @@ export function SettingsPage({
   onReplayOnboarding?: () => void;
   onClearAll?: () => Promise<void>;
   tagDefinitions: TagDefinitionDTO[];
-  onCreateTagDefinition: (name: string, description: string) => Promise<void>;
+  onCreateTagDefinition: (name: string, description: string, groupIds?: string[]) => Promise<void>;
   profileBlock?: ReactNode;
   llmConfig?: LlmPublicConfig | null;
   onSaveLlm: (patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) => Promise<void>;
@@ -677,6 +677,14 @@ export function SettingsPage({
   const [section, setSection] = useState<SettingsSection>('general');
   const [newTagName, setNewTagName] = useState('');
   const [newTagDesc, setNewTagDesc] = useState('');
+  /* META_TAG_V1: multi-parent group selection for new tags. */
+  const [newTagGroups, setNewTagGroups] = useState<string[]>([]);
+  const [metaGroups, setMetaGroups] = useState<{ id: string; key: string; name: string }[]>([]);
+  useEffect(() => {
+    api.listMetaGroups()
+      .then((r) => setMetaGroups(r.groups.map((g) => ({ id: g.id, key: g.key, name: g.name }))))
+      .catch(() => undefined);
+  }, []);
   const saveTimer = useRef<number | undefined>(undefined);
 
   /* debounced "已保存" toast — every prefs change saves instantly already (P2) */
@@ -880,6 +888,24 @@ export function SettingsPage({
                   value={newTagDesc}
                   onChange={(e) => setNewTagDesc(e.target.value)}
                 />
+                {metaGroups.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {metaGroups.map((g) => {
+                      const on = newTagGroups.includes(g.id);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          className={on ? styles.primaryButton : styles.search}
+                          style={{ fontSize: 11, padding: '3px 10px', cursor: 'pointer' }}
+                          onClick={() => setNewTagGroups((prev) => (on ? prev.filter((x) => x !== g.id) : [...prev, g.id]))}
+                        >
+                          {g.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <button
                   type="button"
                   className={styles.primaryButton}
@@ -889,7 +915,9 @@ export function SettingsPage({
                     if (!name) return;
                     setNewTagName('');
                     setNewTagDesc('');
-                    void onCreateTagDefinition(name, newTagDesc.trim());
+                    const groups = newTagGroups;
+                    setNewTagGroups([]);
+                    void onCreateTagDefinition(name, newTagDesc.trim(), groups);
                   }}
                 >
                   {t('settings.addDimension')}
