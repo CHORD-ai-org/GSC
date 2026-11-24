@@ -61,6 +61,10 @@ import {
   listTagDefinitions,
   listTagValues,
   setTagValueConfirmed,
+  listMetaGroups,
+  listTagGroupIds,
+  setItemParams,
+  filterItemIds,
 } from './repo/tags.ts';
 import {
   PROFILE_DEFINITION_ID,
@@ -223,10 +227,21 @@ async function hItemsList(ctx: RouteCtx): Promise<RouteResult> {
     domain: url.searchParams.get('domain') ?? undefined,
     q: url.searchParams.get('q') ?? undefined,
   };
+  /* META_TAG_V1 筛选: ?group=&tag=&param.<key>=<value> → id set intersection. */
+  const groupId = url.searchParams.get('group') ?? undefined;
+  const tagId = url.searchParams.get('tag') ?? undefined;
+  const metaParams: Record<string, string> = {};
+  for (const [k, v] of url.searchParams.entries()) {
+    if (k.startsWith('param.')) metaParams[k.slice(6)] = v;
+  }
+  const metaFilterIds = (groupId || tagId || Object.keys(metaParams).length > 0)
+    ? await filterItemIds(db, { groupId, tagId, params: metaParams })
+    : undefined;
   /* T202: cursor pagination — cursor/limit present or always (default 50).
      B2/F8: viewer scope is applied in the query so total/cursor are honest. */
   const page = await listItemsPaged(db, {
     ...filters,
+    ids: metaFilterIds,
     cursor: url.searchParams.get('cursor') ?? undefined,
     limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
   }, { visibleIds: await authz.visibleItemIds() });
@@ -923,7 +938,27 @@ async function hNewsDelete(ctx: RouteCtx): Promise<RouteResult> {
 }
 
 async function hTagDefsList(ctx: RouteCtx): Promise<RouteResult> {
-  return ok({ ok: true, definitions: await listTagDefinitions(ctx.db) });
+  /* META_TAG_V1: definitions carry their (multi-parent) group ids. */
+  const groups = await listTagGroupIds(ctx.db);
+  const defs = await listTagDefinitions(ctx.db);
+  return ok({ ok: true, definitions: defs.map((d) => ({ ...d, group_ids: groups.get(d.id) ?? [] })) });
+}
+
+async function hMetaGroupsList(ctx: RouteCtx): Promise<RouteResult> {
+  return ok({ ok: true, groups: await listMetaGroups(ctx.db) });
+}
+
+async function hItemMetaParamsPut(ctx: RouteCtx): Promise<RouteResult> {
+  /* Chunk-level meta parameter set (upsert per key). */
+  const { db, body, params } = ctx;
+  const list = (body as { params?: { key: string; value: string; value_type?: string }[] }).params;
+  if (!Array.isArray(list) || list.length < 1 || list.length > 20
+    || list.some((p) => typeof p?.key !== 'string' || !p.key || p.key.length > 64
+      || typeof p?.value !== 'string' || p.value.length > 2000)) {
+    return fail('contract', 'params must be 1..20 {key, value, value_type?}');
+  }
+  const saved = await setItemParams(db, params[0], list.map((p) => ({ key: p.key, value: p.value, value_type: p.value_type ?? 'text' })));
+  return ok({ ok: true, params: saved });
 }
 
 async function hTagDefsCreate(ctx: RouteCtx): Promise<RouteResult> {
@@ -1224,6 +1259,11 @@ export const ROUTES: RouteSpec[] = [
       { method: 'GET', handler: hTagDefsList },
       { method: 'POST', handler: hTagDefsCreate, validate: validateCreateTagDefinitionBody, validateMessage: 'Invalid tag definition body', idem: true },
     ],
+  },
+  { pattern: /^\/api\/meta\/groups$/, ops: [{ method: 'GET', handler: hMetaGroupsList }] },
+  {
+    pattern: /^\/api\/items\/([^/]+)\/meta-params$/,
+    ops: [{ method: 'PUT', handler: hItemMetaParamsPut, body: true, idem: true }],
   },
   {
     pattern: /^\/api\/tags\/values$/,
