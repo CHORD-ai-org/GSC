@@ -193,3 +193,9 @@ compose 起套后开发/模拟都不再碰 PGlite。
 3. **无头会话环境阻塞**（记录）：`codex exec` 在本机无头挂死（自定义 cc-switch provider 疑不
    响应）；`opencode run` 同样挂死（疑 spark 侧车等待循环）。链路已用合成事件+真实 rollout
    证明；真轮末触发留待用户日常使用自然验证（notify/session.idle 均为标准机制）。
+
+## 2026-11-24 — 文档漂移：MEMORY_TAG_MODEL.md 不存在
+
+记忆/规划中引用的 `MEMORY_TAG_MODEL.md`（M6「重构」对象）在仓库中不存在——Meta Tag 设计
+实际位于 `DOMAIN_MODEL.md §5`（D-064…D-066）。引用一律以 DOMAIN_MODEL 为准；
+`META_TAG_SYSTEM_V1.md`（11-24，PROPOSED）为新设计入口。
