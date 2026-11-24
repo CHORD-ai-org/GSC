@@ -126,6 +126,9 @@ export const proposals = pgTable('proposals', {
   related_id: text('related_id').references(() => items.id, { onDelete: 'cascade' }),
   /* META_TAG_V1: tag definition id for kind='meta_tag' (related_id is an items FK). */
   related_definition_id: text('related_definition_id'),
+  /* SEMANTIC_TITLE_PLAN: outline node path for kind='semantic_name' node titles
+     (target_id stays the owning item — items FK). */
+  target_path: text('target_path'),
   proposed_value: text('proposed_value').notNull(),
   rationale: text('rationale').notNull().default(''),
   source: text('source').notNull().default('agent'),
@@ -259,6 +262,27 @@ export const spatialLayouts = pgTable('spatial_layouts', {
   pk: primaryKey({ columns: [table.item_id, table.page, table.owner_id] }),
 }));
 
+/* SEMANTIC_TITLE_PLAN (batch A): outline nodes L1–L4 — the targets semantic
+   titles hang on. Rows are derived from content (ensure re-derives); titles
+   carry nameOrigin: rule → agent (proposal accepted) → user (direct edit). */
+export const outlineNodes = pgTable('outline_nodes', {
+  id: text('id').primaryKey(),
+  item_id: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  path: text('path').notNull(),
+  level: integer('level').notNull(),
+  start_offset: integer('start_offset').notNull(),
+  end_offset: integer('end_offset').notNull(),
+  title: text('title').notNull(),
+  name_origin: text('name_origin').notNull().default('rule'),
+  /* change detector: agent titles are bound to the text they describe —
+     when the slice head changes the title resets to rule (user titles don't). */
+  text_head: text('text_head').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
+}, (table) => ({
+  uniq: uniqueIndex('outline_nodes_item_path').on(table.item_id, table.path),
+}));
+
 /* LOCAL_SIM (cloud-isomorphic): scheduler registry — folder scans and web crawls
    run on the worker with interval + in-flight lock (idle/running). */
 export const schedules = pgTable('schedules', {
@@ -277,4 +301,4 @@ export const schedules = pgTable('schedules', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, schedules, metaGroups, metaTagGroups, assignmentParams, itemMetaParams };
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, outlineNodes, schedules, metaGroups, metaTagGroups, assignmentParams, itemMetaParams };

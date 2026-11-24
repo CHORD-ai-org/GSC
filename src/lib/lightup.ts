@@ -24,7 +24,7 @@ export function normalizeText(input: string): string {
     .trim();
 }
 
-function suggestTitle(content: string): string {
+export function suggestTitle(content: string): string {
   const line = content.split('\n').find((l) => l.trim()) ?? '';
   const cleaned = line
     .replace(/^#{1,6}\s*/, '')
