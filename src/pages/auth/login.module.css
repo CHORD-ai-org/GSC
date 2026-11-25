@@ -1,184 +1,263 @@
-/* GSC sign-in — a CHORD-family login, laid out after Thylas (Quiet Computationalism)
-   but wearing GSC's black-and-white palette: white desk, black ink, gray hairlines.
-   Palette is scoped to this page so the login look stays independent of the in-app
-   theme and of Thylas' warm-paper colours. */
+/* GSC login — tech minimal (LOGIN_REDESIGN_PLAN). Scoped design tokens;
+   the in-app sketchbook language is untouched. Light default, dark via
+   [data-theme='dark'] on <html> (prefs). */
 
-.page {
-  /* GSC monochrome palette (src/styles/tokens.css) — black ink on white. */
-  --bg-app: #FFFFFF;
-  --bg-paper: #FAFAFA;
-  --login-paper: #FFFFFF;
-  --bg-rail: #F7F7F8;
-  --ink: #171717;
-  --ink-2: #6B7280;
-  --ink-3: #9CA3AF;
-  --line: #E8E8EC;
-  --line-strong: #D4D4D8;
-  --accent: #111113;
-  --error: #C2413B;
+.root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f7;
+  --ink: #0d0d0d;
+  --ink-2: #737373;
+  --ink-3: #9b9b9b;
+  --line: #e5e5e5;
+  --accent: #0d0d0d;
+  --accent-ink: #ffffff;
+  --error: #c2413b;
+  --radius: 10px;
   --ui: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   position: fixed;
   inset: 0;
   z-index: 200;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  overflow: hidden;
-  background: var(--bg-app);
+  overflow: auto;
+  background: var(--bg);
   color: var(--ink);
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+:global([data-theme='dark']) .root {
+  --bg: #212121;
+  --bg-soft: #2a2a2a;
+  --ink: #ececec;
+  --ink-2: #9b9b9b;
+  --ink-3: #7a7a7a;
+  --line: #3a3a3a;
+  --accent: #ececec;
+  --accent-ink: #1a1a1a;
 }
 
 .srOnly {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
-}
-
-/* ---- left: the desk + paper sheet ---- */
-.stage {
-  position: relative;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--ink) 4%, var(--bg-app));
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.sheet {
-  position: absolute;
-  width: 424px;
-  transform: rotate(-1.1deg);
-}
-.sheet:focus-within { transform: rotate(0deg); }
-
-.logo {
-  position: absolute;
-  top: 22px;
-  left: 26px;
-  z-index: 2;
+/* ── wordmark ── */
+.wordmark {
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.34em;
   color: var(--ink);
 }
-.logoMark { font-family: var(--ui); font-size: 19px; line-height: 1; }
-.logoName { margin-left: 6px; font: 500 13px/1 var(--ui); letter-spacing: -0.01em; }
+.wordmarkDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform: translateY(-6px);
+}
 
-.grip {
-  position: relative;
-  z-index: 1;
+/* ── shell A: centered card ── */
+.cardShell {
+  min-height: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  padding: 48px 24px;
+}
+.card {
   width: 100%;
-  height: 46px;
-  padding: 0 30px;
-  border: 0;
+  max-width: 400px;
+}
+
+/* ── shell B: split brand + form ── */
+.splitShell {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+}
+.brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 52px 48px;
+  color: #fafafa;
+  background:
+    linear-gradient(#ffffff08 1px, transparent 1px) 0 0 / 100% 56px,
+    linear-gradient(90deg, #ffffff08 1px, transparent 1px) 0 0 / 56px 100%,
+    #0d0d0d;
+}
+.brand .wordmark { color: #fafafa; }
+.brand .wordmarkDot { background: #fafafa; }
+.brandStatement {
+  max-width: 15ch;
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+  font-weight: 600;
+  margin: auto 0;
+}
+.brandKicker {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: #8a8a8a;
+}
+.splitForm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+.splitInner {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* ── form ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 36px;
+}
+.title {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+
+.oauth {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.oauthBtn {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
   background: transparent;
   color: var(--ink);
-  text-align: left;
-  user-select: none;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
 }
-.gripMarks { display: inline-flex; flex-direction: column; gap: 3px; width: 16px; flex: 0 0 auto; }
-.gripMarks span { height: 1px; background: var(--ink-3); }
-.gripMarks span:nth-child(3) { width: 10px; }
-.gripTitle { font: 500 18px/24px var(--ui); letter-spacing: -0.01em; }
+.oauthBtn:hover:not(:disabled) { background: var(--bg-soft); border-color: var(--ink-3); }
+.oauthBtn:active:not(:disabled) { transform: translateY(1px); }
+.oauthBtn:disabled { opacity: 0.55; cursor: default; }
 
-/* ---- form ---- */
-.form {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 6px 30px 36px;
-}
-.error, .notice { margin: 0 0 14px; font: 450 11px/16px var(--ui); }
-.error { color: var(--error); }
-.notice { padding-left: 9px; border-left: 2px solid var(--ink-3); color: var(--ink-2); }
+.divider { height: 1px; background: var(--line); margin: 6px 0; }
 
-.field { margin-top: 18px; position: relative; }
-.fieldLabel { font: 450 11px/16px var(--ui); color: var(--ink-3); letter-spacing: .02em; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.fieldLabel { font-size: 12px; font-weight: 500; color: var(--ink-2); }
 .input {
-  width: 100%; height: 30px; padding: 2px 0;
-  border: 0; background: transparent;
-  font: 400 14px/20px var(--ui); color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
-.input:focus { outline: none; }
-.field:focus-within .underline { color: var(--ink); }
-
-.oauth { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-.oauthBtn {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  height: 36px; border: 0; background: transparent; color: var(--ink);
-  font: 400 13px/18px var(--ui); cursor: pointer;
+.input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent);
 }
-.oauthBtn:hover .frame { color: var(--ink-2); }
-.oauthLabel { position: relative; }
-
-.divider { height: 1px; margin: 20px 0 2px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
 
 .submit {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  height: 38px; margin-top: 26px; border: 0; background: transparent; color: var(--ink);
-  font: 550 13px/18px var(--ui); cursor: pointer;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius);
+  padding: 13px 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: opacity 140ms ease, transform 80ms ease;
 }
-.submit:hover .frame { color: var(--ink-2); }
-.submitLabel { position: relative; }
+.submit:hover:not(:disabled) { opacity: 0.92; }
+.submit:active:not(:disabled) { transform: translateY(1px); }
+.submit:disabled { opacity: 0.55; cursor: default; }
 
-.actions { margin-top: 12px; }
+.actions { display: flex; justify-content: center; }
 .switchMode {
-  border: 0; padding: 0; background: transparent;
-  font: 400 13px/18px var(--ui); color: var(--ink-2);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
-  text-underline-offset: 3px; cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.switchMode:hover { color: var(--ink); text-decoration: underline; }
+
+.footnote {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
-/* ---- registration receipt step ---- */
-.receiptStep {
-  /* z-index:1 over the sheet's paper SVG frame (same as .grip/.form),
-     otherwise the static hint text paints under the opaque paper fill */
-  position: relative;
-  z-index: 1;
+.error,
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  animation: fadeIn 150ms ease;
+}
+.error { background: color-mix(in srgb, var(--error) 9%, transparent); color: var(--error); }
+.notice { background: var(--bg-soft); color: var(--ink-2); }
+
+/* ── registration receipt (minimal card) ── */
+.receiptCard {
+  margin-top: 36px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 10px 30px 36px;
+  gap: 16px;
 }
-.receiptHint {
-  margin: 22px 0 0;
-  font: 400 11px/16px var(--ui);
-  color: var(--ink-3);
-  text-align: center;
+.receiptKicker {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.receiptRows { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.receiptRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13.5px;
+}
+.receiptRow dt { color: var(--ink-2); }
+.receiptRow dd { margin: 0; color: var(--ink); text-align: right; word-break: break-all; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
 }
 
-.devBlock { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); }
-.devNote { font: 400 10.5px/16px var(--mono); color: var(--ink-3); }
-.devLink {
-  margin-top: 7px; border: 0; padding: 0; background: transparent;
-  font: 450 11px/16px var(--ui); color: var(--ink-2);
-  text-decoration: underline; text-decoration-color: var(--line-strong);
-  text-underline-offset: 3px; cursor: pointer;
-}
-.devLink:hover { color: var(--ink); }
-
-/* ---- right: the printed wire (fixed ink) ---- */
-.panel {
-  background: #0a0a0a;
-  color: #f2f2f2;
-  overflow: auto;
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
-}
-.panelInner { display: flex; flex-direction: column; height: 100%; padding: 40px 44px 48px; }
-.panelHead { font: 400 12px/18px var(--mono); letter-spacing: 0.01em; color: rgba(242, 242, 242, 0.85); }
-.rule { display: block; width: 100%; height: 4px; margin: 10px 0 24px; color: rgba(242, 242, 242, 0.35); }
-.quoteStage { margin: auto 0; }
-.quoteText { margin: 0; max-width: 36ch; font: 400 13.5px/1.85 var(--mono); letter-spacing: 0.01em; color: #f2f2f2; }
-.quoteBy { margin: 8px 0 0; font: 400 10.5px/1.6 var(--mono); color: rgba(242, 242, 242, 0.55); }
-.quoteSource { opacity: 0.75; }
-
-/* ---- narrow: the panel becomes a band on top ---- */
-@media (max-width: 959px) {
-  .page { grid-template-columns: minmax(0, 1fr); grid-template-rows: 152px minmax(0, 1fr); }
-  .panel { order: -1; }
-  .panelInner { padding: 18px 20px; }
-  .quoteText { max-width: none; font-size: 12px; line-height: 1.7; }
-  .stage { overflow: auto; padding: 24px 16px 32px; }
-  .sheet { position: relative; left: auto !important; top: auto !important; width: 100%; max-width: 420px; margin: 0 auto; opacity: 1 !important; transform: none; }
+@media (max-width: 860px) {
+  .splitShell { grid-template-columns: 1fr; }
+  .brand { min-height: 220px; padding: 32px 28px; }
+  .brandStatement { margin: 24px 0; }
 }

@@ -1,0 +1,7 @@
+{
+  "login-card-light": "{\"oauth\":4,\"inputs\":3,\"hasSubmit\":true,\"brandStatement\":false,\"sketchElements\":false,\"bodyLen\":14057,\"errs\":[],\"text\":\"Sign inGSCSign inContinue with CHORDContinue with GoogleContinue with GitHubContinue with XEmailPasswordSign inCreate an\"}",
+  "login-card-dark": "{\"oauth\":4,\"inputs\":3,\"hasSubmit\":true,\"brandStatement\":false,\"sketchElements\":false,\"bodyLen\":14057,\"errs\":[],\"text\":\"Sign inGSCSign inContinue with CHORDContinue with GoogleContinue with GitHubContinue with XEmailPasswordSign inCreate an\"}",
+  "login-split-light": "{\"oauth\":4,\"inputs\":3,\"hasSubmit\":true,\"brandStatement\":true,\"sketchElements\":false,\"bodyLen\":14300,\"errs\":[],\"text\":\"Sign inGSCGive information a persistent identity.capture · understand · organize · reuseSign inContinue with CHORDContin\"}",
+  "login-split-dark": "{\"oauth\":4,\"inputs\":3,\"hasSubmit\":true,\"brandStatement\":true,\"sketchElements\":false,\"bodyLen\":14300,\"errs\":[],\"text\":\"Sign inGSCGive information a persistent identity.capture · understand · organize · reuseSign inContinue with CHORDContin\"}",
+  "formFlow": "{\"errorShown\":true,\"errorText\":\"Enter your name or email.\"}"
+}

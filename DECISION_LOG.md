@@ -1281,3 +1281,39 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   tsc=0, eslint=0, vitest 214 passed + 1 skipped (+15 new: derivation 5, repo 5, titler 4,
   wiring 1). Sibling work: full G4 zoom interaction (gestures/远景列表) remains its own track —
   shares outline_nodes, does not rebuild.
+
+## D-108 — G2 integrations management surface: executed (DECIDED)
+
+- **Decision (founder 2026-11-24):** the three-client capture loop needs a management place —
+  download / config / link test — placed in the GSC product UI settings › 连接 (founder chose B),
+  with token generate + revoke (already present in TokenSection).
+- **Delivered:** `IntegrationsSection` in settings › 连接 (4 cards: opencode / codex / WorkBuddy /
+  manual — each with download buttons, copy-install-command, per-client connection lamp
+  (`agent:<client>:*` anchor + last snapshot activity), and a Test link button that pushes a tiny
+  self-test doc through the REAL ingest path) · API: GET /api/integrations/files/:name (allowlisted
+  JSON+base64 downloads), GET /api/integrations/status, POST /api/integrations/test · ingest core
+  extracted to `server/intel/batch.ts` (shared by /api/ingest/batch and the test probe) ·
+  integrations/workbuddy/SKILL.md mirror in-repo for download · settings deep link
+  `/settings?section=connections`.
+- **Implementation notes:** route contract is JSON-only → downloads ship base64 + frontend Blob;
+  file resolution has a cwd fallback (vitest rewrites import.meta.url — caught by the test).
+- **Verified:** server/integrations.test.ts 1/1 (allowlist/404/status/test-push/anchor lamp) +
+  ingest 3/3, live endpoints on :8792 (status/download decodes/test imported=1), UI screenshot
+  integrations-panel.png, tsc=0 lint=0.
+- **Status:** `DECIDED` — 2026-11-24, executed.
+
+## D-108 — Login page redesign: tech-minimal, both layout variants shipped (DECIDED)
+
+- **Decision (2026-11-25):** LOGIN_REDESIGN_PLAN executed with BOTH shells — centered card
+  (default, OpenAI-style) and split brand+form (`?layout=split`, founder asked for the split as
+  an alternative to compare). Hand-drawn sketch elements (SketchFrame/SketchUnderline/paper
+  grip/ReceiptPrinter) retire from the LOGIN surface only; the in-app sketchbook language is
+  untouched. Registration receipt becomes a minimal receipt card (plan default ①). Wordmark is
+  pure type + geometric dot (plan default ③).
+- **Implementation:** shared form block, two shells, scoped design tokens (light + dark via
+  [data-theme]), 120–180ms micro-interactions. Identity logic unchanged (zero logic edits).
+  `?layout=split` is captured at MODULE load — the app router normalizes the URL on boot and
+  strips unknown query params (found via the acceptance run).
+- **Acceptance:** CDP shots ×4 (card/split × light/dark) + form-flow probe (empty submit →
+  validation error) + zero sketch elements probe. `ui-prototype/shots/login-*.png`.
+- **Status:** `DECIDED` — 2026-11-25. Verified: tsc=0, eslint=0, vitest green (exit 0).

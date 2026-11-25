@@ -1,15 +1,11 @@
-import { useCallback, useRef, useState, type FormEvent } from 'react';
-import { SketchFrame, SketchUnderline, SketchRule } from '../../components/SketchFrame.tsx';
-import { GscLogo } from '../../components/GscLogo.tsx';
-import { ReceiptPrinter } from '../../components/ReceiptPrinter.tsx';
-import type { ReceiptPrinterHandle } from '../../components/ReceiptPrinter.tsx';
+import { useCallback, useState, type FormEvent } from 'react';
 import * as api from '../../services/api.ts';
 import s from './login.module.css';
 
 type Mode = 'signin' | 'create';
 
-/** The registration receipt printed after "Create account" succeeds. */
-type Issued = { id: string; name: string; email: string; date: string; order: number; code: string };
+/** The registration receipt shown after "Create account" succeeds. */
+type Issued = { id: string; name: string; email: string; code: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,15 +13,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
    provider row Thylas shows; CHORD is the shared identity for CHORD products. */
 const OAUTH = ['CHORD', 'Google', 'GitHub', 'X'] as const;
 
+/* Captured at module load: the app router normalizes the URL on boot and would
+   strip the query before render. ?layout=split → split brand+form shell. */
+const SPLIT = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('layout') === 'split';
+
 /**
- * GSC sign-in / create account — a CHORD-family login, styled after Thylas.
- *
- * CHORD owns sign-in. The form validates locally; identity becomes a GSC user
- * (register → api.createUser, sign-in → an existing local user). The OAuth row
- * reflects the CHORD/Thylas providers. After a successful registration the
- * form is replaced by a thermal printer that prints the registration receipt
- * (RECEIPT_DEMO_PLAN.md); tearing it off — or Continue — enters the workspace
- * through `onAuthed`, which hands the active identity back to the app shell.
+ * GSC sign-in / create account — tech-minimal login (LOGIN_REDESIGN_PLAN).
+ * Two shells: centered card (default) and split brand+form via `?layout=split`.
+ * Hand-drawn sketch elements are retired from THIS surface only; the in-app
+ * sketchbook language is untouched. Identity logic is unchanged: CHORD-family
+ * sign-in, local GSC identity (register → api.createUser, sign-in → existing).
  */
 export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: string) => void }) {
   const [mode, setMode] = useState<Mode>('signin');
@@ -36,7 +34,6 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<Issued | null>(null);
-  const receiptRef = useRef<ReceiptPrinterHandle | null>(null);
 
   const finishWith = useCallback(async (displayName: string) => {
     // Register a GSC identity for this account; sign-in reuses an existing one.
@@ -60,14 +57,12 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
     try {
       const user = await finishWith(display);
       if (mode === 'create') {
-        // Registration prints a receipt first; tearing it off enters the app.
+        // Registration shows a receipt first; Continue enters the app.
         const order = 1000 + (Math.floor(Date.now() / 60000) % 9000);
         setIssued({
           id: user.id,
           name: user.name,
           email: address,
-          date: new Date().toLocaleString(),
-          order,
           code: `GSC-${order}-${user.id.replace(/^usr_/, '').slice(0, 4).toUpperCase()}`,
         });
       } else {
@@ -100,124 +95,100 @@ export function LoginPage({ onAuthed }: { onAuthed: (userId: string, name: strin
   };
 
   const creating = mode === 'create';
+  const split = SPLIT;
 
-  return (
-    <div className={s.page}>
-      <h1 className={s.srOnly}>{creating ? 'Create an account' : 'Sign in'}</h1>
+  const wordmark = (
+    <div className={s.wordmark} aria-label="GSC">
+      GSC<span className={s.wordmarkDot} aria-hidden />
+    </div>
+  );
 
-      {/* left: desk + paper sheet */}
-      <div className={s.stage}>
-        <div className={s.logo}>
-          <GscLogo height={20} />
-          <span className={s.logoName}>GSC</span>
-        </div>
-        <div className={s.sheet} style={{ left: 'calc(50% - 212px)', top: 'calc(50% - 260px)' }}>
-          <SketchFrame seed="gsc-login-paper" variant="paper" />
-          <div className={s.grip}>
-            <span className={s.gripMarks} aria-hidden><span /><span /><span /></span>
-            <span className={s.gripTitle}>{issued ? 'Registration receipt' : creating ? 'Create an account' : 'Sign in'}</span>
-          </div>
+  const receipt = issued ? (
+    <div className={s.receiptCard}>
+      <p className={s.receiptKicker}>Registration complete</p>
+      <dl className={s.receiptRows}>
+        <div className={s.receiptRow}><dt>Name</dt><dd>{issued.name}</dd></div>
+        <div className={s.receiptRow}><dt>Email</dt><dd>{issued.email || '—'}</dd></div>
+        <div className={s.receiptRow}><dt>Identity</dt><dd className={s.mono}>{issued.id.slice(0, 8)}</dd></div>
+        <div className={s.receiptRow}><dt>Activation code</dt><dd className={s.mono}>{issued.code}</dd></div>
+      </dl>
+      <button type="button" className={s.submit} onClick={() => onAuthed(issued.id, issued.name)}>
+        Continue
+      </button>
+    </div>
+  ) : null;
 
-          {issued ? (
-            /* registration receipt — printed, tearable, then the workspace */
-            <div className={s.receiptStep}>
-              <ReceiptPrinter
-                ref={receiptRef}
-                title="GSC · Global Shared Context"
-                subtitle="Registration receipt"
-                order={issued.order}
-                width={258}
-                autoplay={false}
-                tearable
-                lines={[
-                  { kind: 'row', label: 'Name', value: issued.name },
-                  { kind: 'row', label: 'Email', value: issued.email || '—' },
-                  { kind: 'row', label: 'Identity', value: issued.id.slice(0, 8) },
-                  { kind: 'row', label: 'Via', value: 'Email form' },
-                  { kind: 'row', label: 'Date', value: issued.date },
-                  { kind: 'divider' },
-                  { kind: 'row', label: 'Status', value: 'Active' },
-                  { kind: 'space' },
-                  { kind: 'barcode', value: issued.code },
-                  { kind: 'text', text: issued.code },
-                ]}
-                footer="Give information a persistent identity. · chord owns sign-in"
-                onTear={() => onAuthed(issued.id, issued.name)}
-              />
-              <p className={s.receiptHint}>Drag the receipt up to tear it off</p>
-              <button type="button" className={s.submit} onClick={() => receiptRef.current?.tear()}>
-                <SketchFrame seed="gsc-receipt-continue" double={false} />
-                <span className={s.submitLabel}>Continue</span>
-              </button>
-            </div>
-          ) : (
-          <form className={s.form} onSubmit={submit} noValidate>
-            {error ? <p className={s.error} role="alert">{error}</p> : null}
-            {notice ? <p className={s.notice} role="status">{notice}</p> : null}
+  const form = (
+    <form className={s.form} onSubmit={submit} noValidate>
+      <h2 className={s.title}>{creating ? 'Create an account' : 'Sign in'}</h2>
+      {error ? <p className={s.error} role="alert">{error}</p> : null}
+      {notice ? <p className={s.notice} role="status">{notice}</p> : null}
 
-            <div className={s.oauth}>
-              {OAUTH.map((provider) => (
-                <button key={provider} type="button" className={s.oauthBtn} onClick={() => oauth(provider)} disabled={busy}>
-                  <SketchFrame seed={`gsc-oauth-${provider}`} double={false} />
-                  <span className={s.oauthLabel}>Continue with {provider}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className={s.divider} aria-hidden />
-
-            {creating ? (
-              <div className={s.field}>
-                <span className={s.fieldLabel}>Name</span>
-                <input className={s.input} aria-label="Name" value={name} autoComplete="name" onChange={(e) => setName(e.target.value)} />
-                <SketchUnderline seed="gsc-login-name" />
-              </div>
-            ) : null}
-
-            <div className={s.field}>
-              <span className={s.fieldLabel}>Email</span>
-              <input className={s.input} type="email" aria-label="Email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
-              <SketchUnderline seed="gsc-login-email" />
-            </div>
-
-            <div className={s.field}>
-              <span className={s.fieldLabel}>Password</span>
-              <input className={s.input} type="password" aria-label="Password" value={password} autoComplete={creating ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} />
-              <SketchUnderline seed="gsc-login-password" />
-            </div>
-
-            <button type="submit" className={s.submit} disabled={busy}>
-              <SketchFrame seed="gsc-login-submit" double={false} />
-              <span className={s.submitLabel}>{creating ? 'Create account' : 'Sign in'}</span>
-            </button>
-
-            <div className={s.actions}>
-              <button type="button" className={s.switchMode} onClick={switchMode}>
-                {creating ? 'Sign in instead' : 'Create an account'}
-              </button>
-            </div>
-
-            <div className={s.devBlock}>
-              <p className={s.devNote}>chord owns sign-in · gsc stores a local identity</p>
-            </div>
-          </form>
-          )}
-        </div>
+      <div className={s.oauth}>
+        {OAUTH.map((provider) => (
+          <button key={provider} type="button" className={s.oauthBtn} onClick={() => oauth(provider)} disabled={busy}>
+            Continue with {provider}
+          </button>
+        ))}
       </div>
 
-      {/* right: the printed wire */}
-      <aside className={s.panel}>
-        <div className={s.panelInner}>
-          <div className={s.panelHead}>GSC · Global Shared Context</div>
-          <SketchRule seed="gsc-login-rule" />
-          <div className={s.quoteStage}>
-            <p className={s.quoteText}>Give information a persistent identity.</p>
-            <p className={s.quoteBy}>
-              <span className={s.quoteSource}>CHORD</span> · capture · understand · organize · reuse
-            </p>
-          </div>
+      <div className={s.divider} aria-hidden />
+
+      {creating ? (
+        <div className={s.field}>
+          <span className={s.fieldLabel}>Name</span>
+          <input className={s.input} aria-label="Name" value={name} autoComplete="name" onChange={(e) => setName(e.target.value)} />
         </div>
-      </aside>
+      ) : null}
+
+      <div className={s.field}>
+        <span className={s.fieldLabel}>Email</span>
+        <input className={s.input} type="email" aria-label="Email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
+      </div>
+
+      <div className={s.field}>
+        <span className={s.fieldLabel}>Password</span>
+        <input className={s.input} type="password" aria-label="Password" value={password} autoComplete={creating ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+
+      <button type="submit" className={s.submit} disabled={busy}>
+        {creating ? 'Create account' : 'Sign in'}
+      </button>
+
+      <div className={s.actions}>
+        <button type="button" className={s.switchMode} onClick={switchMode}>
+          {creating ? 'Sign in instead' : 'Create an account'}
+        </button>
+      </div>
+
+      <p className={s.footnote}>chord owns sign-in · gsc stores a local identity</p>
+    </form>
+  );
+
+  const body = issued ? receipt : form;
+
+  return (
+    <div className={s.root}>
+      <h1 className={s.srOnly}>{creating ? 'Create an account' : 'Sign in'}</h1>
+      {split ? (
+        <div className={s.splitShell}>
+          <aside className={s.brand}>
+            {wordmark}
+            <p className={s.brandStatement}>Give information a persistent identity.</p>
+            <p className={s.brandKicker}>capture · understand · organize · reuse</p>
+          </aside>
+          <main className={s.splitForm}>
+            <div className={s.splitInner}>{body}</div>
+          </main>
+        </div>
+      ) : (
+        <div className={s.cardShell}>
+          <main className={s.card}>
+            {wordmark}
+            {body}
+          </main>
+        </div>
+      )}
     </div>
   );
 }
