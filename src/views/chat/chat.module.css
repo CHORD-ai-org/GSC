@@ -1,0 +1,38 @@
+.stream { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 12px; }
+.row { display: flex; }
+.rowUser { justify-content: flex-end; }
+.rowAgent { justify-content: flex-start; }
+.bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.bubbleUser { background: var(--bg-sunken); border: 1px solid var(--line); }
+.bubbleAgent { background: transparent; border: 1px solid transparent; padding-left: 2px; }
+.note { color: var(--ink-3); font-size: 12px; padding: 2px 2px; }
+.refChip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 11px; margin: 2px 4px 2px 0; }
+.flowChip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px 10px; font-size: 11px; margin: 2px 0; }
+
+/* 任务卡（原型：灰底大卡） */
+.taskCard { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; max-width: 78%; }
+.taskLabel { font-size: 11px; color: var(--ink-3); margin-bottom: 4px; }
+.taskTitle { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.taskGoal { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+.stages { display: flex; gap: 8px; flex-wrap: wrap; }
+.stageCard { border: 1px solid var(--line); background: var(--bg-surface); border-radius: 8px; padding: 8px 10px; min-width: 110px; cursor: pointer; }
+.stageActive { border-color: #34c759; }
+.stageNum { font-size: 10px; color: var(--ink-3); }
+.stageName { font-size: 12px; font-weight: 600; }
+.stageStatus { font-size: 10px; margin-top: 3px; }
+.stPending { color: var(--ink-3); }
+.stRunning { color: #0a84ff; }
+.stAwaiting { color: #ff9f0a; }
+.stDone { color: #34c759; }
+.stFailed { color: #ff453a; }
+.stageSteps { margin: 8px 2px 2px; padding-left: 2px; }
+.stageSteps li { font-size: 11px; color: var(--ink-3); margin: 2px 0; }
+.cardInputRow { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+.cardInput { flex: 1; border: 1px solid var(--line-strong); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 12px; background: var(--bg-surface); color: var(--ink); outline: none; }
+.ghost { opacity: 0.5; }
+
+/* 底部输入 */
+.composerRow { display: flex; gap: 8px; align-items: center; padding: 10px 0 4px; }
+.composerInput { flex: 1; border: 1px solid var(--line-strong); border-radius: 12px; padding: 11px 14px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--ink); outline: none; resize: none; }
+.sendBtn { border: 0; border-radius: 999px; width: 34px; height: 34px; background: #0a84ff; color: #fff; cursor: pointer; font-size: 14px; }
+.empty { color: var(--ink-3); font-size: 13px; padding: 30px 4px; }
