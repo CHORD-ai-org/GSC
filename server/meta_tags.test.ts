@@ -121,3 +121,56 @@ describe('META_TAG_SYSTEM_V1', () => {
     }
   });
 });
+
+describe('META_TAG pending_definition flow (G5 收尾)', () => {
+  it('suggestMetaTags surfaces invented tags as new:<name> suggestions', async () => {
+    const config = (await import('./config.ts')).readConfig({ PGLITE_DIR: './.data/_unused', GSC_LLM_API_KEY: 'k' });
+    const { suggestMetaTags } = await import('./agent/proposer.ts');
+    const fakeFetch = async () => new Response(JSON.stringify({
+      choices: [{ message: { content: '{"tags":[],"new_tags":[{"item":"i1","name":"转折点","value":"2026-03","why":"career pivot"}]}' } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const out = await suggestMetaTags(config, [{ id: 'i1', title: 'a', content: 'x' }], [], fakeFetch as unknown as typeof fetch);
+    expect(out).toEqual([{
+      item_id: 'i1', definition_id: 'new:转折点', new_name: '转折点', value: '2026-03', why: 'career pivot',
+    }]);
+  });
+
+  it('meta_tag accept is blocked on new: refs until pending_definition is accepted, then flows', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const item = await createItem(handle.db, { type: 'raw.document', title: 'X', domain: 'knowledge', origin: 'user', fields: { content_text: 'x' } });
+
+      // pipeline-shaped pair: pending_definition + meta_tag with new: ref
+      const pd = await createProposal(handle.db, {
+        kind: 'pending_definition', target_id: item.id, proposed_value: '转折点', rationale: 'new tag', source: 'agent',
+      });
+      const mt = await createProposal(handle.db, {
+        kind: 'meta_tag', target_id: item.id, related_definition_id: 'new:转折点',
+        proposed_value: '2026-03', rationale: 'career pivot', source: 'agent',
+      });
+
+      // 1) accepting meta_tag first is blocked — stays pending, no assignment
+      const blocked = await resolveProposalApplying(handle.db, mt.id, 'accepted');
+      expect(blocked?.status).toBe('pending');
+      const { listTagValues } = await import('./repo/tags.ts');
+      expect(await listTagValues(handle.db, { itemId: item.id })).toHaveLength(0);
+
+      // 2) accept pending_definition → definition created + ref upgraded
+      const pdDone = await resolveProposalApplying(handle.db, pd.id, 'accepted');
+      expect(pdDone?.status).toBe('accepted');
+      const defs = await (await import('./repo/tags.ts')).listTagDefinitions(handle.db);
+      const def = defs.find((d) => d.name === '转折点');
+      expect(def).toBeTruthy();
+
+      // 3) accept the (upgraded) meta_tag → assignment lands confirmed
+      const done = await resolveProposalApplying(handle.db, mt.id, 'accepted');
+      expect(done?.status).toBe('accepted');
+      const values = await listTagValues(handle.db, { itemId: item.id });
+      expect(values).toHaveLength(1);
+      expect(values[0].definition_id).toBe(def!.id);
+      expect(values[0].confirmed).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
