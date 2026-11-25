@@ -2,7 +2,9 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **语义标题 pipeline 落地（D-107，2026-11-24）G4 前半**：outline_nodes 模型 + 派生（≤4级自适应）+ titler 同父批量生成（碰撞簇重生1次）+ ensure-titles 按需提案 + OutlinePanel 三态徽标，四态实拍验收全通（规则名→提案中→已确认）。G4 缩放手势/远景列表另轨（共享 outline_nodes）。
+> Status: **G7 Step 0/1 完成（2026-11-25）**：D-110 边界演进落账（对话工作面入 GSC）+ 0016 数据层（消息块/任务/阶段状态机/uiflows，CHECK 枚举+稀疏 ord+乐观锁 version）；chat_workspace 2/2。下一步 G7 Step 2（repo/chat 扩展：PATCH 算子+转移表白名单）。
+> Prior: SIDEBAR_PLAN 执行完成（D-109，2026-11-25）**：置顶折叠区+对话「最近」（conversations 骨架前置 G7）+双「最近」语义分立+路由 /chat/:id；实测截图全中。黄点/真 ChatView/置顶动作随 G7。
+> Prior: 语义标题 pipeline 落地（D-107，2026-11-24）G4 前半**：outline_nodes 模型 + 派生（≤4级自适应）+ titler 同父批量生成（碰撞簇重生1次）+ ensure-titles 按需提案 + OutlinePanel 三态徽标，四态实拍验收全通（规则名→提案中→已确认）。G4 缩放手势/远景列表另轨（共享 outline_nodes）。
 > Prior: **G5 完整收尾（D-106，2026-11-24）**：pending_definition 提案流（new:<name> 引用→建定义→升级引用→打标落卡）；实测揪出「提前 accept 被消费」缺陷并修（保持 pending+blocked 溯源）。G5 Meta-tag v1.0 MVP 全闭环。
 > Prior: META_TAG_SYSTEM_V1 完成（D-105，2026-11-24）**：四组预置（画像/经历/日志/项目）+tag 多父边+两层 typed 参数+提案 accept=confirmed+筛选（API 交集+UI 组 chips）；实测全链通（vitest 198+1skip/199）。设计见 META_TAG_SYSTEM_V1.md。后置：tag 层级/confidence/组管理/云同步。
 > Prior: G2 三端采集闭环完成（D-103，2026-11-23）**：/api/ingest/batch 分组入料 + gsc-push CLI + opencode 插件/codex notify/WorkBuddy skill（已扩写）+ 归块 cluster 提案（同名归并语义）+ G3 矩阵。WorkBuddy 真链实测通（幂等/命名/归块），实测修 2 bug（LLM 包壳契约、幻觉 id FK 守卫）。验收补跑（D-104）：codex 链全通（链式派发器+真实 rollout）· opencode 插件双加载器适配加载干净·无头 exec/run 环境挂死留真轮末触发。

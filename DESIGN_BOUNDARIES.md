@@ -7,7 +7,8 @@ Status: `DECIDED`. Exclusions come from the task brief; MVP type choices were fi
 | Question | Owner |
 |---|---|
 | Persistent raw information, structured objects, relationships, provenance, context views | GSC |
-| Overview page, Workspaces, Coworkers, conversations, presentation | Thylas |
+| Overview page, Workspaces, Coworkers, presentation | Thylas |
+| 信息工作对话与任务编排（消息块流、任务卡/管线、DSL 交互面、对话列表） | GSC（G7，2026-11-25 边界演进，D-110） |
 | Agent runtime, reasoning, planning, tool execution, scheduling | WAM |
 | LLM inference | external provider, not GSC core |
 

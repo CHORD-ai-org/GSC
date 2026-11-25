@@ -595,3 +595,19 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
   既有 TokenSection；`/settings?section=connections` 深链。
 - API：/api/integrations/{files/:name,status,test}；ingest 核心抽 `server/intel/batch.ts` 共享。
 - 实测：integrations.test 1/1 + ingest 3/3 + 三端点 live + integrations-panel.png。
+
+## SIDEBAR_PLAN：COMPLETE（2026-11-25，D-109）
+
+- 侧栏新增「置顶」（spatial pinned 数据面+折叠存 UiPrefs）与「最近」（对话列表，GET
+  /api/conversations，行→/chat/:id 占位视图）；两个「最近」语义分立（信息时间 vs 对话时间）。
+- G7 数据骨架前置：0015 conversations/messages + repo/chat.ts + 3 路由。
+- 实测：conversations.test 1/1 + sidebar-two-recents.png。黄点/真 ChatView/置顶动作随 G7。
+
+## G7 Step 0/1：边界落账 + 数据层 0016（2026-11-25）
+
+- Step 0：DESIGN_BOUNDARIES conversations 行拆分（GSC=信息工作对话与任务编排）· D-110 边界
+  演进落账 · GOALS G7 → 执行中。
+- Step 1：0016_chat_workspace.sql——message_blocks（kind CHECK 五类）/tasks（乐观锁 version）/
+  task_stages（kind+status CHECK 枚举，状态机表）/uiflows（status CHECK）；ord 稀疏惯例
+  （1024 间隔）；(message_id,ord)/(task_id,ord) 唯一。schema 注册全。
+- 验收：chat_workspace.test 2/2（CHECK 拒非法枚举 ×4 / 稀疏 ord 插入+唯一拒绝 / version 默认 1）。

@@ -1331,3 +1331,30 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
   snippet+placeholder / 0 JS errors) + visual review (two fixes landed from it: MCP card title
   shortened out of uppercase-shout, tool descriptions get native tooltips).
 - **Status:** `DECIDED` — 2026-11-25. Verified: tsc=0, eslint=0, vitest 215 passed + 1 skipped.
+
+## D-109 — SIDEBAR_PLAN executed (DECIDED, 先于 G7)
+
+- **Decision (founder 2026-11-25「先执行 sidebar plan」):** deliver the sidebar update first.
+  G7's conversations data layer (migration 0015 conversations/messages skeleton) pulled forward
+  as the plan's own step-2 dependency.
+- **Delivered:** 置顶 section (spatial pinned pages data face, chevron collapse persisted in
+  UiPrefs) · 对话「最近」section (ConversationList from GET /api/conversations, rows →
+  #chat/:id placeholder view) · two-「最近」semantics live (top = information timeline,
+  bottom = conversation timeline, never merged) · routes /chat/:id · conversations/messages
+  schema + repo/chat.ts + 3 routes.
+- **Deferred to G7:** awaiting_user 黄点（needs tasks/stages) · real ChatView (placeholder notes
+  G7 V1) · 置顶动作（pin action; only the data face ships now).
+- **Verified:** conversations.test 1/1 (CRUD+routes round-trip) · UI screenshot
+  sidebar-two-recents.png (both sections + seeded conversations) · tsc=0 lint=0.
+- **Status:** `DECIDED` — 2026-11-25, executed.
+
+## D-110 — 边界演进：GSC 对话工作面划入 GSC（DECIDED）
+
+- **Decision（创始人 2026-11-25 两图批注 + GSC_CHAT_DESIGN.md v2 §1）**：「完整会话 UI 归
+  Thylas」（11-23）演进为——**信息工作对话与任务编排**（消息块流、任务卡/管线、DSL 交互面、
+  对话列表）划入 GSC；Thylas 保留通用会话与展示（Overview/Workspaces/Coworkers/presentation）。
+- **理由**：任务卡/管线/DSL 全以 GSC 信息对象（Chunk/Cluster/提案/管线）为语义底座，是
+  「围绕信息空间干活的入口」的自然延伸；通用会话/展示仍归 Thylas。
+- **Consequences**：DESIGN_BOUNDARIES conversations 行已拆分（GSC 行新增）；G7（GSC 对话）
+  立项执行（GSC_CHAT_PLAN.md v2 技术版）。
+- **Status**: `DECIDED` — 2026-11-25，随 GSC_CHAT_PLAN Step 0 落账。
