@@ -537,6 +537,112 @@ function TokenSection() {
 type SettingsSection = 'general' | 'account' | 'data' | 'connections' | 'model' | 'tags' | 'news' | 'privacy';
 
 /* MCP_CONFIG_UI_PLAN U-1/U-3 — Settings › MCP onboarding card. */
+/* G2 integrations management (founder 2026-11-24): download / config / link test. */
+function IntegrationsSection() {
+  const t = useT();
+  const toast = useToast();
+  const [status, setStatus] = useState<api.IntegrationStatusResponse | null>(null);
+  const [busy, setBusy] = useState('');
+  const load = useCallback(() => {
+    void api.listIntegrationStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const download = async (file: string, asName: string) => {
+    try {
+      const r = await api.downloadIntegrationFile(file);
+      const bin = atob(r.content_base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([arr], { type: 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast(t('integrations.downloadFailed'), 'error');
+    }
+  };
+
+  const test = async (client: string) => {
+    setBusy(client);
+    try {
+      const r = await api.testIntegration(client);
+      toast(t('integrations.testOk', { n: r.result.imported }), 'ok');
+      load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('integrations.testFailed'), 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const lamp = (client: string) => {
+    const c = status?.clients.find((x) => x.client === client);
+    if (!c?.connected) return t('integrations.off');
+    return c.last_activity ? t('integrations.on', { time: c.last_activity.slice(5, 16).replace('T', ' ') }) : t('integrations.onNoTime');
+  };
+
+  const cards: { client: string; title: string; files: { file: string; as: string }[]; cmd: string }[] = [
+    {
+      client: 'opencode', title: 'opencode',
+      files: [{ file: 'opencode-plugin.js', as: 'gsc-push.js' }, { file: 'gsc-push.mjs', as: 'gsc-push.mjs' }],
+      cmd: 'mkdir -p ~/.config/opencode/plugins && cp gsc-push.js gsc-push.mjs ~/.config/opencode/plugins/',
+    },
+    {
+      client: 'codex', title: 'codex',
+      files: [{ file: 'codex-dispatcher.mjs', as: 'notify-dispatcher.mjs' }, { file: 'codex-readme.md', as: 'codex-README.md' }],
+      cmd: 'notify = [ "node", "D:////////github projects////////GSC////////integrations////////codex////////notify-dispatcher.mjs" ]',
+    },
+    {
+      client: 'workbuddy', title: 'WorkBuddy',
+      files: [{ file: 'workbuddy-skill.md', as: 'SKILL.md' }],
+      cmd: 'mkdir -p ~/.workbuddy/skills/gsc-push && cp SKILL.md ~/.workbuddy/skills/gsc-push/',
+    },
+    {
+      client: 'manual', title: t('integrations.manual'),
+      files: [{ file: 'gsc-push.mjs', as: 'gsc-push.mjs' }],
+      cmd: 'node gsc-push.mjs --client manual --project X --session Y --file notes.md',
+    },
+  ];
+
+  return (
+    <div className={styles.settingBlock}>
+      <div className={styles.settingCaption}>{t('integrations.title')}</div>
+      <div className={styles.hint}>{t('integrations.configHint')}</div>
+      {cards.map((c) => (
+        <div className={styles.listRow} key={c.client} style={{ flexWrap: 'wrap', gap: 8 }}>
+          <span className={styles.rowTitle} style={{ minWidth: 80 }}>{c.title}</span>
+          <span className={styles.rowType}>{lamp(c.client)}</span>
+          {c.files.map((f) => (
+            <button key={f.file} type="button" className={styles.subtleButton} style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={() => void download(f.file, f.as)}>
+              {t('integrations.download')} {f.as}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={styles.subtleButton}
+            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+            onClick={() => { void navigator.clipboard?.writeText(c.cmd).then(() => toast(t('integrations.copied'), 'ok')); }}
+          >
+            {t('integrations.copyCmd')}
+          </button>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+            disabled={busy === c.client}
+            onClick={() => void test(c.client)}
+          >
+            {t('integrations.test')}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function McpSection() {
   const t = useT();
   const toast = useToast();
@@ -674,7 +780,12 @@ export function SettingsPage({
 }) {
   const { lang, setLang, t } = useI18n();
   const toast = useToast();
-  const [section, setSection] = useState<SettingsSection>('general');
+  const [section, setSection] = useState<SettingsSection>(() => {
+    /* deep link: /settings?section=connections */
+    const raw = new URLSearchParams(window.location.search).get('section');
+    const allowed: SettingsSection[] = ['general', 'account', 'data', 'connections', 'model', 'tags', 'news', 'privacy'];
+    return raw && (allowed as string[]).includes(raw) ? (raw as SettingsSection) : 'general';
+  });
   const [newTagName, setNewTagName] = useState('');
   const [newTagDesc, setNewTagDesc] = useState('');
   /* META_TAG_V1: multi-parent group selection for new tags. */
@@ -848,6 +959,7 @@ export function SettingsPage({
         ) : section === 'connections' ? (
           <>
             <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
+            <IntegrationsSection />
             <TokenSection />
             <McpSection />
             <div className={styles.settingBlock}>
