@@ -584,3 +584,14 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
   确认（accept=confirmed=1，D-066）→ 打标（带参）→ 筛选（?group=&tag=&param.k=v 交集 + UI 组 chips）。
 - 实测：vitest 4/4 + 全量 198+1skip/199；手动腿全链（多父/带参/交集筛选）；meta-filter-chips.png。
 - 待后置：tag→tag 层级 · confidence 生效 · 组管理 UI · 云同步（visibility_default 只是预留）。
+- G5 收尾（D-106，2026-11-24）：pending_definition 提案流——发明新 tag 一律走
+  `new:<name>` 引用 + pending_definition 提案；accept 建定义并升级引用，meta_tag 才落打标；
+  定义未确认前 accept meta_tag = 保持 pending + blocked 溯源（实测揪出消费缺陷已修）。
+
+## G2 三端集成管理面：COMPLETE（2026-11-24，D-108）
+
+- 设置→连接「三端采集」区：4 卡下载（插件/派发器/CLI/skill 镜像）+ 复制安装命令 + 连接灯
+  （agent:<client>:* 锚点+最近活动）+ 「测试链接」（真 ingest 路径自推）；Token 生成/吊销用
+  既有 TokenSection；`/settings?section=connections` 深链。
+- API：/api/integrations/{files/:name,status,test}；ingest 核心抽 `server/intel/batch.ts` 共享。
+- 实测：integrations.test 1/1 + ingest 3/3 + 三端点 live + integrations-panel.png。
