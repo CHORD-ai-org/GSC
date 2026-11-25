@@ -199,3 +199,12 @@ compose 起套后开发/模拟都不再碰 PGlite。
 记忆/规划中引用的 `MEMORY_TAG_MODEL.md`（M6「重构」对象）在仓库中不存在——Meta Tag 设计
 实际位于 `DOMAIN_MODEL.md §5`（D-064…D-066）。引用一律以 DOMAIN_MODEL 为准；
 `META_TAG_SYSTEM_V1.md`（11-24，PROPOSED）为新设计入口。
+
+## 2026-11-25 — PGlite 强杀损坏事故·第二次（v2 报废，v3 启用）
+
+`.data/pglite-v2` 深层损坏（WASM Abort 拒启；清 postmaster.pid 急救无效），元凶仍是
+`taskkill /F` 强杀 API（11-24 为换代码重启所为，违反上条教训①）。残骸**原地保全**
+`.data/pglite-v2`（被某不可见句柄占用，rename 失败，留原位即为保全）；开发库启用
+`.data/pglite-v3`（全新空库，15 迁移自动建齐）。11-23 17:47 后至 11-25 08:40 的开发数据
+不可恢复。**教训补强**：重启 API 的正确姿势=找 PID 后 `taskkill /PID n`（无 /F，温和退出）
+或等进程自然结束；PGlite 数据只有 `npm run backup` 快照能救——**重要节点先 backup**。
