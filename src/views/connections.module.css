@@ -1,0 +1,342 @@
+/* Settings › 连接 — tech-minimal console (CONNECTIONS_VISUAL_PLAN).
+   App theme tokens only (tokens.css) so light/dark flip automatically. */
+
+.lead {
+  margin: -8px 0 20px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ── section card ── */
+.section {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-card);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.sectionCount {
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.sectionLead {
+  margin: -6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* ── command strip ── */
+.command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--bg-app);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.command code { color: var(--ink); }
+
+/* ── labeled fields ── */
+.fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fieldLabel {
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+.input,
+.select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--bg-app);
+  outline: none;
+  min-width: 0;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.input:focus,
+.select:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+/* ── buttons ── */
+.primary {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 140ms ease, transform 80ms ease;
+}
+.primary:hover:not(:disabled) { opacity: 0.92; }
+.primary:active:not(:disabled) { transform: translateY(1px); }
+.primary:disabled { opacity: 0.5; cursor: default; }
+
+.ghost {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 13px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.ghost:hover:not(:disabled) { background: var(--bg-app); border-color: var(--ink-3); }
+.ghost:disabled { opacity: 0.5; cursor: default; }
+
+.dangerText {
+  border: none;
+  background: none;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.dangerText:hover { color: var(--error, #c2413b); }
+
+/* ── chips ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.chipSolid { background: var(--accent); color: var(--on-accent); }
+.chipOutline { border: 1px solid var(--line); color: var(--ink-2); }
+.chipMono {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+}
+
+/* ── token cards ── */
+.tokenList { display: flex; flex-direction: column; gap: 8px; }
+.tokenCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 14px;
+  transition: border-color 140ms ease;
+}
+.tokenCard:hover { border-color: var(--ink-3); }
+.tokenName {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tokenMeta {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.tokenSpacer { flex: 1; }
+
+.freshRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.freshRow code {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--bg-app);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 8px;
+  color: var(--ink);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 18px 0 8px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* ── client tabs ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.tab:hover { color: var(--ink); }
+.tabOn { color: var(--ink); border-bottom-color: var(--accent); font-weight: 550; }
+
+/* ── code block ── */
+.codeWrap { position: relative; }
+.code {
+  margin: 0;
+  background: var(--bg-app);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink);
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease;
+}
+.codeWrap:hover .copy { opacity: 1; }
+.copy:hover { color: var(--ink); }
+.copyDone { opacity: 1 !important; color: var(--ink); }
+
+/* ── tool rows (chip rows) ── */
+.tools { display: flex; flex-direction: column; gap: 6px; }
+.toolRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 140ms ease;
+}
+.toolRow:hover { background: var(--bg-app); }
+.toolRow:hover .toolDesc {
+  white-space: normal;
+  overflow: visible;
+}
+.toolDesc {
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── integrations rows ── */
+.intRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.intRow:first-of-type { border-top: none; }
+.intName {
+  min-width: 86px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
+}
+.intLamp {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  min-width: 120px;
+}
+.intLampOn { color: var(--ink); }
+.intLampOn::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+@media (max-width: 1100px) {
+  .wrap { grid-template-columns: 1fr; }
+}

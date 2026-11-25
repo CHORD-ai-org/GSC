@@ -73,13 +73,16 @@ try {
     (() => {
       document.documentElement.style.scrollBehavior = 'auto';
       const captions = [...document.querySelectorAll('*')].filter((e) => e.children.length === 0 && e.textContent.includes('MCP 接入'));
-      const card = captions[0]?.closest('[class*=settingBlock]');
+      const card = captions[0]?.closest('section');
       const base = { bodyLen: document.body.innerHTML.length, errs: (window.__errs || []).slice(0, 5), url: location.href };
       if (!card) return JSON.stringify({ ...base, found: false, navTexts: [...document.querySelectorAll('[class*=settingsNavItem]')].map((e) => e.textContent.trim()) });
       window.scrollTo(0, card.getBoundingClientRect().top + window.scrollY - 70);
       const snippet = card.querySelector('pre')?.textContent ?? '';
-      const tools = [...card.querySelectorAll('[class*=rowTitle]')].map((e) => e.textContent.trim());
-      return JSON.stringify({ ...base, found: true, hasSnippet: snippet.includes('server/mcp/index.ts'), hasPlaceholder: snippet.includes('GSC_API_TOKEN'), toolCount: tools.length, tools });
+      const tools = [...document.querySelectorAll('[class*=chipMono]')].map((e) => e.textContent.trim());
+      const tabs = [...document.querySelectorAll('[role=tab]')].map((e) => e.textContent.trim());
+      const tokenCards = [...document.querySelectorAll('[class*=tokenCard]')].length;
+      const intRows = [...document.querySelectorAll('[class*=intRow]')].length;
+      return JSON.stringify({ ...base, found: true, hasSnippet: snippet.includes('server/mcp/index.ts'), hasPlaceholder: snippet.includes('GSC_API_TOKEN'), tabs, toolCount: tools.length, tools, tokenCards, intRows });
     })()
   `, returnByValue: true }, sessionId);
   writeFileSync(path.join(OUT, 'mcp-settings.probe.json'), String(probe.result?.value ?? probe));

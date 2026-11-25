@@ -29,6 +29,7 @@ import type { LlmPublicConfig } from '../services/api.ts';
 import * as api from '../services/api.ts';
 import { MCP_CLIENT_TARGETS, MCP_SNIPPET_FILE, mcpSnippet, type McpClientTarget } from '../lib/mcpSnippets.ts';
 import styles from './views.module.css';
+import conn from './connections.module.css';
 
 export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
 
@@ -492,7 +493,8 @@ export function RecentlyPage({
 
 /* ── Settings: secondary navigation ───────────────────────────────────── */
 
-/* T301 — Token / Agent access management (GAP-04): see, create, revoke PATs. */
+/* T301 — Token / Agent access management (GAP-04): see, create, revoke PATs.
+   Visuals: CONNECTIONS_VISUAL_PLAN (token cards + labeled fields). */
 function TokenSection() {
   const t = useT();
   const [tokens, setTokens] = useState<api.TokenSummary[]>([]);
@@ -504,33 +506,53 @@ function TokenSection() {
   }, []);
   useEffect(() => { load(); }, [load]);
   return (
-    <div className={styles.settingBlock}>
-      <div className={styles.settingCaption}>{t('settings.tokens')}</div>
-      <div className={styles.addRow}>
-        <input className={styles.settingInput} placeholder={t('settings.tokenName')} value={name} onChange={(e) => setName(e.target.value)} />
-        <select className={styles.select} value={scope} onChange={(e) => setScope(e.target.value as 'read' | 'rw')}>
-          <option value="rw">rw</option>
-          <option value="read">read</option>
-        </select>
-        <button type="button" className={styles.primaryButton} onClick={() => {
+    <section className={conn.section}>
+      <div className={conn.sectionHead}>
+        <span className={conn.sectionTitle}>{t('settings.tokens')}</span>
+        {tokens.length > 0 ? <span className={conn.sectionCount}>{tokens.length}</span> : null}
+      </div>
+      <div className={conn.fields}>
+        <div className={conn.field}>
+          <span className={conn.fieldLabel}>{t('settings.tokenName')}</span>
+          <input className={conn.input} value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className={conn.field}>
+          <span className={conn.fieldLabel}>{t('conn.scopeLabel')}</span>
+          <select className={conn.select} value={scope} onChange={(e) => setScope(e.target.value as 'read' | 'rw')}>
+            <option value="rw">rw</option>
+            <option value="read">read</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <button type="button" className={conn.primary} onClick={() => {
           if (!name.trim()) return;
           void api.createToken(name.trim(), scope).then((r) => { setFresh(r.token); setName(''); load(); });
         }}>{t('settings.tokenCreate')}</button>
       </div>
-      {fresh ? <div className={styles.settingValue}>{t('settings.tokenCreated')} <code>{fresh}</code></div> : null}
-      {tokens.length === 0 ? <div className={styles.hint}>{t('settings.tokenEmpty')}</div> : (
-        <div className={styles.list}>
+      {fresh ? (
+        <div className={conn.freshRow}>
+          {t('settings.tokenCreated')}
+          <code>{fresh}</code>
+        </div>
+      ) : null}
+      {tokens.length === 0 ? (
+        <div className={conn.empty}>{t('settings.tokenEmpty')}</div>
+      ) : (
+        <div className={conn.tokenList}>
           {tokens.map((tok) => (
-            <div className={styles.listRow} key={tok.id}>
-              <span className={styles.rowTitle}>{tok.name}</span>
-              <span className={styles.rowType}>{tok.scope} · {tok.userId}</span>
-              <span className={styles.rowTime}>{tok.created_at ? tok.created_at.slice(0, 10) : '—'}</span>
-              <button type="button" className={styles.removeButton} onClick={() => { void api.revokeToken(tok.id).then(load); }}>{t('settings.tokenRevoke')}</button>
+            <div className={conn.tokenCard} key={tok.id}>
+              <span className={conn.tokenName}>{tok.name}</span>
+              <span className={`${conn.chip} ${tok.scope === 'rw' ? conn.chipSolid : conn.chipOutline}`}>{tok.scope}</span>
+              <span className={conn.tokenMeta}>{tok.userId}</span>
+              <span className={conn.tokenMeta}>{tok.created_at ? tok.created_at.slice(0, 10) : '—'}</span>
+              <span className={conn.tokenSpacer} />
+              <button type="button" className={conn.dangerText} onClick={() => { void api.revokeToken(tok.id).then(load); }}>{t('settings.tokenRevoke')}</button>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -608,51 +630,53 @@ function IntegrationsSection() {
   ];
 
   return (
-    <div className={styles.settingBlock}>
-      <div className={styles.settingCaption}>{t('integrations.title')}</div>
-      <div className={styles.hint}>{t('integrations.configHint')}</div>
-      {cards.map((c) => (
-        <div className={styles.listRow} key={c.client} style={{ flexWrap: 'wrap', gap: 8 }}>
-          <span className={styles.rowTitle} style={{ minWidth: 80 }}>{c.title}</span>
-          <span className={styles.rowType}>{lamp(c.client)}</span>
-          {c.files.map((f) => (
-            <button key={f.file} type="button" className={styles.subtleButton} style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={() => void download(f.file, f.as)}>
-              {t('integrations.download')} {f.as}
+    <section className={conn.section}>
+      <div className={conn.sectionHead}>
+        <span className={conn.sectionTitle}>{t('integrations.title')}</span>
+      </div>
+      <p className={conn.sectionLead}>{t('integrations.configHint')}</p>
+      {cards.map((c) => {
+        const on = Boolean(status?.clients.find((x) => x.client === c.client)?.connected);
+        return (
+          <div className={conn.intRow} key={c.client}>
+            <span className={conn.intName}>{c.title}</span>
+            <span className={`${conn.intLamp} ${on ? conn.intLampOn : ''}`}>{lamp(c.client)}</span>
+            {c.files.map((f) => (
+              <button key={f.file} type="button" className={conn.ghost} onClick={() => void download(f.file, f.as)}>
+                {t('integrations.download')} {f.as}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={conn.ghost}
+              onClick={() => { void navigator.clipboard?.writeText(c.cmd).then(() => toast(t('integrations.copied'), 'ok')); }}
+            >
+              {t('integrations.copyCmd')}
             </button>
-          ))}
-          <button
-            type="button"
-            className={styles.subtleButton}
-            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-            onClick={() => { void navigator.clipboard?.writeText(c.cmd).then(() => toast(t('integrations.copied'), 'ok')); }}
-          >
-            {t('integrations.copyCmd')}
-          </button>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-            disabled={busy === c.client}
-            onClick={() => void test(c.client)}
-          >
-            {t('integrations.test')}
-          </button>
-        </div>
-      ))}
-    </div>
+            <button
+              type="button"
+              className={conn.primary}
+              disabled={busy === c.client}
+              onClick={() => void test(c.client)}
+            >
+              {t('integrations.test')}
+            </button>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
-function McpSection() {
+/* CONNECTIONS_VISUAL_PLAN — MCP onboarding as a console: labeled fields,
+   client tabs, code block with floating copy; tool surface in its own card. */
+function McpConfigCard({ meta }: { meta: api.McpMetaResponse | null }) {
   const t = useT();
   const toast = useToast();
-  const [meta, setMeta] = useState<api.McpMetaResponse | null>(null);
   const [target, setTarget] = useState<McpClientTarget>('claude-code');
   const [token, setToken] = useState('');
   const [root, setRoot] = useState('');
-  useEffect(() => {
-    void api.getMcpMeta().then(setMeta).catch(() => setMeta(null));
-  }, []);
+  const [copied, setCopied] = useState(false);
   const snippet = mcpSnippet(target, {
     // dev splits frontend/API origins — prefer the API base the server reports
     url: meta?.env.find((e) => e.name === 'GSC_API_URL')?.example
@@ -661,41 +685,111 @@ function McpSection() {
     root: root.trim() || undefined,
   });
   return (
-    <div className={styles.settingBlock}>
-      <div className={styles.settingCaption}>{t('mcp.caption')}</div>
-      <div className={styles.settingValue}>{t('mcp.intro')}</div>
-      {meta ? (
-        <div className={styles.settingValue}>
-          {t('mcp.command')}: <code>{meta.command}</code> · {meta.server.name} v{meta.server.version}
-        </div>
-      ) : (
-        <div className={styles.hint}>{t('mcp.loadFailed')}</div>
-      )}
-      <div className={styles.addRow}>
-        <input className={styles.settingInput} placeholder={t('mcp.repoRoot')} value={root} onChange={(e) => setRoot(e.target.value)} />
-        <input className={styles.settingInput} placeholder={t('mcp.tokenHint')} value={token} onChange={(e) => setToken(e.target.value)} />
-        <select className={styles.select} value={target} onChange={(e) => setTarget(e.target.value as McpClientTarget)}>
-          {MCP_CLIENT_TARGETS.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+    <section className={conn.section}>
+      <div className={conn.sectionHead}>
+        <span className={conn.sectionTitle}>{t('mcp.cardTitle')}</span>
+        {meta ? <span className={conn.sectionCount}>{meta.server.name} v{meta.server.version}</span> : null}
       </div>
-      <div className={styles.settingValue}>{t('mcp.snippetFile')}: <code>{MCP_SNIPPET_FILE[target]}</code> · {t('mcp.needRw')}</div>
-      <pre className={styles.settingValue} style={{ overflowX: 'auto' }}><code>{snippet}</code></pre>
-      <button type="button" className={styles.primaryButton} onClick={() => {
-        void navigator.clipboard.writeText(snippet).then(() => toast(t('mcp.copied')));
-      }}>{t('mcp.copy')}</button>
-      <div className={styles.settingCaption}>{t('mcp.tools')}</div>
+      <p className={conn.sectionLead}>{t('mcp.intro')}</p>
       {meta ? (
-        <div className={styles.list}>
+        <div className={conn.command}>{t('mcp.command')}: <code>{meta.command}</code></div>
+      ) : (
+        <div className={conn.empty}>{t('mcp.loadFailed')}</div>
+      )}
+      <div className={conn.fields}>
+        <div className={conn.field}>
+          <span className={conn.fieldLabel}>{t('mcp.repoRoot')}</span>
+          <input className={conn.input} placeholder="<GSC_ROOT>" value={root} onChange={(e) => setRoot(e.target.value)} />
+        </div>
+        <div className={conn.field}>
+          <span className={conn.fieldLabel}>{t('mcp.tokenHint')}</span>
+          <input className={conn.input} placeholder="<GSC_API_TOKEN>" value={token} onChange={(e) => setToken(e.target.value)} />
+        </div>
+      </div>
+      <div className={conn.tabs} role="tablist">
+        {MCP_CLIENT_TARGETS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            role="tab"
+            aria-selected={target === c}
+            className={`${conn.tab} ${target === c ? conn.tabOn : ''}`}
+            onClick={() => setTarget(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+      <div className={conn.freshRow}>
+        {t('mcp.snippetFile')}: <code>{MCP_SNIPPET_FILE[target]}</code>
+        <span className={`${conn.chip} ${conn.chipOutline}`}>{t('mcp.needRw')}</span>
+      </div>
+      <div className={conn.codeWrap}>
+        <pre className={conn.code}><code>{snippet}</code></pre>
+        <button
+          type="button"
+          className={`${conn.copy} ${copied ? conn.copyDone : ''}`}
+          onClick={() => {
+            void navigator.clipboard.writeText(snippet).then(() => {
+              setCopied(true);
+              toast(t('mcp.copied'));
+              setTimeout(() => setCopied(false), 1600);
+            });
+          }}
+        >
+          {copied ? t('mcp.copied') : t('mcp.copy')}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ToolsCard({ meta }: { meta: api.McpMetaResponse | null }) {
+  const t = useT();
+  return (
+    <section className={conn.section}>
+      <div className={conn.sectionHead}>
+        <span className={conn.sectionTitle}>{t('mcp.tools')}</span>
+        {meta ? <span className={conn.sectionCount}>{meta.tools.length}</span> : null}
+      </div>
+      {meta ? (
+        <div className={conn.tools}>
           {meta.tools.map((tool) => (
-            <div className={styles.listRow} key={tool.name}>
-              <span className={styles.rowTitle}>{tool.name}</span>
-              <span className={styles.rowType}>{tool.annotations?.readOnlyHint ? t('mcp.readOnly') : t('mcp.write')}</span>
-              <span className={styles.settingValue}>{tool.description}</span>
+            <div className={conn.toolRow} key={tool.name}>
+              <code className={conn.chipMono}>{tool.name}</code>
+              <span className={`${conn.chip} ${tool.annotations?.readOnlyHint ? conn.chipOutline : conn.chipSolid}`}>
+                {tool.annotations?.readOnlyHint ? t('mcp.readOnly') : t('mcp.write')}
+              </span>
+              <span className={conn.toolDesc} title={tool.description}>{tool.description}</span>
             </div>
           ))}
         </div>
-      ) : null}
-    </div>
+      ) : (
+        <div className={conn.empty}>{t('mcp.loadFailed')}</div>
+      )}
+    </section>
+  );
+}
+
+function ConnectionsView() {
+  const t = useT();
+  const [meta, setMeta] = useState<api.McpMetaResponse | null>(null);
+  useEffect(() => {
+    void api.getMcpMeta().then(setMeta).catch(() => setMeta(null));
+  }, []);
+  return (
+    <>
+      <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
+      <p className={conn.lead}>{t('conn.lead')}</p>
+      <div className={conn.wrap}>
+        <div className={conn.col}>
+          <TokenSection />
+          <McpConfigCard meta={meta} />
+        </div>
+        <ToolsCard meta={meta} />
+      </div>
+      <IntegrationsSection />
+    </>
   );
 }
 
@@ -957,16 +1051,7 @@ export function SettingsPage({
             <TrashPanel />
           </>
         ) : section === 'connections' ? (
-          <>
-            <h1 className={styles.pageTitle}>{t('settings.connections')}</h1>
-            <IntegrationsSection />
-            <TokenSection />
-            <McpSection />
-            <div className={styles.settingBlock}>
-              <div className={styles.settingCaption}>CLAUDE CODE / CODEX</div>
-              <div className={styles.settingValue}>{t('settings.connClaude')}</div>
-            </div>
-          </>
+          <ConnectionsView />
         ) : section === 'model' ? (
           <ModelSection llmConfig={llmConfig} onSave={onSaveLlm} onCheck={onCheckLlm} />
         ) : section === 'tags' ? (

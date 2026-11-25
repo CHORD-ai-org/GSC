@@ -172,6 +172,11 @@ export const STRINGS: Record<string, StringPair> = {
   'mcp.needRw': { zh: 'gsc_propose 需要 rw token', en: 'gsc_propose needs an rw token' },
   'mcp.loadFailed': { zh: '工具清单加载失败', en: 'Failed to load the tool list' },
 
+  /* ── Connections console (CONNECTIONS_VISUAL_PLAN) ── */
+  'conn.lead': { zh: '给 agent 接线：签发访问令牌、复制接入配置、查看可用工具面。', en: 'Wire agents in: issue access tokens, copy connect snippets, inspect the tool surface.' },
+  'conn.scopeLabel': { zh: '权限', en: 'Scope' },
+  'mcp.cardTitle': { zh: 'MCP 接入', en: 'MCP' },
+
   /* ── Semantic titles / outline (SEMANTIC_TITLE_PLAN U-4) ── */
   'outline.title': { zh: '大纲', en: 'Outline' },
   'outline.generate': { zh: '生成语义标题', en: 'Generate semantic titles' },

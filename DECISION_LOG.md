@@ -1317,3 +1317,17 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Acceptance:** CDP shots ×4 (card/split × light/dark) + form-flow probe (empty submit →
   validation error) + zero sketch elements probe. `ui-prototype/shots/login-*.png`.
 - **Status:** `DECIDED` — 2026-11-25. Verified: tsc=0, eslint=0, vitest green (exit 0).
+
+## D-109 — Connections page visual overhaul: tech-minimal console (DECIDED)
+
+- **Decision (2026-11-25):** CONNECTIONS_VISUAL_PLAN executed (user: "现在这个视觉风格太难看了"
+  → rebuild, not polish). Both plan defaults taken: tool surface as chip rows (mono name chip +
+  read/write badge + one-line description, hover expands), client picker as 4 tabs.
+- **Layout:** two-column console — left: token cards + MCP config/snippet; right: tool surface
+  (9 chips); integrations (G2 three-end) restyled full-width below. Duplicate CLAUDE CODE/CODEX
+  hint block removed. All visuals use app tokens (light/dark automatic), matching the new
+  login language (10px radius, chips, micro-interactions).
+- **Acceptance:** CDP probe (4 tabs / 9 tool chips / 4 token cards / 4 integration rows /
+  snippet+placeholder / 0 JS errors) + visual review (two fixes landed from it: MCP card title
+  shortened out of uppercase-shout, tool descriptions get native tooltips).
+- **Status:** `DECIDED` — 2026-11-25. Verified: tsc=0, eslint=0, vitest 215 passed + 1 skipped.
