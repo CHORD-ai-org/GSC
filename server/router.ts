@@ -101,6 +101,7 @@ import {
 import { runGithubSync } from './sync/github.ts';
 import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
 import { latestSnapshotAtBySource } from './repo/snapshots.ts';
+import { createConversation, listConversations, getConversation, listMessages } from './repo/chat.ts';
 import { validateIngestBatchBody } from '../src/lib/ingest.ts';
 import { ingestBatch } from './intel/batch.ts';
 import type { IngestBatchBody } from '../src/lib/ingest.ts';
@@ -460,6 +461,24 @@ async function hIngestBatch(ctx: RouteCtx): Promise<RouteResult> {
   const { db, config, body, viewerId } = ctx;
   const result = await ingestBatch(db, config, body as IngestBatchBody, viewerId);
   return ok({ ok: true, ...result }, 201);
+}
+
+/* ── GSC 对话骨架（G7 前置，SIDEBAR_PLAN 数据源）── */
+
+async function hConversationsList(ctx: RouteCtx): Promise<RouteResult> {
+  return ok({ ok: true, conversations: await listConversations(ctx.db) });
+}
+
+async function hConversationsCreate(ctx: RouteCtx): Promise<RouteResult> {
+  const title = (ctx.body as { title?: string }).title ?? '';
+  if (typeof title !== 'string' || title.length > 200) return fail('contract', 'title must be ≤200 chars');
+  return ok({ ok: true, conversation: await createConversation(ctx.db, title || '未命名对话') }, 201);
+}
+
+async function hConversationMessages(ctx: RouteCtx): Promise<RouteResult> {
+  const conv = await getConversation(ctx.db, ctx.params[0]);
+  if (!conv) return fail('not_found', 'Conversation not found');
+  return ok({ ok: true, messages: await listMessages(ctx.db, conv.id) });
 }
 
 /* ── G2 integrations management (download / config / link test) ── */
@@ -1233,6 +1252,17 @@ export const ROUTES: RouteSpec[] = [
     }],
   },
   { pattern: /^\/api\/integrations\/files\/([\w.-]+)$/, ops: [{ method: 'GET', handler: hIntegrationsFiles }] },
+  {
+    pattern: /^\/api\/conversations$/,
+    ops: [
+      { method: 'GET', handler: hConversationsList },
+      { method: 'POST', handler: hConversationsCreate, body: true, idem: true },
+    ],
+  },
+  {
+    pattern: /^\/api\/conversations\/([^/]+)\/messages$/,
+    ops: [{ method: 'GET', handler: hConversationMessages }],
+  },
   { pattern: /^\/api\/integrations\/status$/, ops: [{ method: 'GET', handler: hIntegrationsStatus }] },
   {
     pattern: /^\/api\/integrations\/test$/,

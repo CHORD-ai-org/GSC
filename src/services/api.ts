@@ -21,6 +21,23 @@ export type ScheduleListResponse = { ok: true; schedules: ScheduleDTO[] };
 export type ScheduleDetailResponse = { ok: true; schedule: ScheduleDTO };
 export type ScheduleRunResponse = { ok: true; detail: string };
 export type ScheduleDeleteResponse = { ok: true; deleted: boolean };
+/* GSC 对话骨架（G7 前置） */
+export type ConversationListResponse = { ok: true; conversations: { id: string; title: string; created_at: string }[] };
+export type ConversationResponse = { ok: true; conversation: { id: string; title: string; created_at: string } };
+export type MessageListResponse = { ok: true; messages: { id: string; conversation_id: string; role: string; content: string; created_at: string }[] };
+
+export function listConversations(): Promise<ConversationListResponse> {
+  return request<ConversationListResponse>('/api/conversations');
+}
+
+export function createConversation(title: string): Promise<ConversationResponse> {
+  return request<ConversationResponse>('/api/conversations', { method: 'POST', body: JSON.stringify({ title }) });
+}
+
+export function listMessages(conversationId: string): Promise<MessageListResponse> {
+  return request<MessageListResponse>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`);
+}
+
 /* G2 integrations management */
 export type IntegrationStatusResponse = { ok: true; clients: { client: string; connected: boolean; anchors: string[]; last_activity: string | null }[] };
 export type IntegrationFileResponse = { ok: true; name: string; content_base64: string; size: number };
@@ -93,6 +110,9 @@ export type ApiResponse =
   | IntegrationStatusResponse
   | IntegrationFileResponse
   | IntegrationTestResponse
+  | ConversationListResponse
+  | ConversationResponse
+  | MessageListResponse
   | MetaGroupListResponse
   | MetaParamsResponse
   | ProposalDetailResponse
