@@ -1,10 +1,11 @@
 import { GscLogo } from '../components/GscLogo.tsx';
 import { useT } from '../lib/i18n.tsx';
+import type { UiPrefs } from '../lib/prefs.ts';
 import styles from './shell.module.css';
 
 export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
-  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user';
+  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user' | 'chat';
 
 type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user' | 'terminal';
 
@@ -99,7 +100,35 @@ function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boo
   );
 }
 
-export function Sidebar({ view, onNavigate, workspaceName }: { view: ViewId; onNavigate: (id: ViewId) => void; workspaceName: string }) {
+/* SIDEBAR_PLAN：两个「最近」语义不同（顶部=信息时间，底部=对话时间）；
+   置顶区=spatial pinned pages 数据面（置顶动作后置）。折叠态存 UiPrefs。 */
+function CollapsibleSection({
+  labelKey, collapsed, onToggle, children,
+}: { labelKey: string; collapsed: boolean; onToggle: () => void; children: React.ReactNode }) {
+  const t = useT();
+  return (
+    <div className={styles.group}>
+      <button type="button" className={styles.groupLabel} onClick={onToggle} aria-expanded={!collapsed}>
+        {t(labelKey)} <span aria-hidden="true">{collapsed ? '›' : '⌄'}</span>
+      </button>
+      {collapsed ? null : children}
+    </div>
+  );
+}
+
+export function Sidebar({
+  view, onNavigate, workspaceName, pinnedPages, conversations, activeChatId, onOpenChat, prefs, onPatchPrefs,
+}: {
+  view: ViewId;
+  onNavigate: (id: ViewId) => void;
+  workspaceName: string;
+  pinnedPages: string[];
+  conversations: { id: string; title: string }[];
+  activeChatId?: string;
+  onOpenChat: (chatId: string) => void;
+  prefs: UiPrefs;
+  onPatchPrefs: (patch: Partial<UiPrefs>) => void;
+}) {
   const t = useT();
   return (
     <nav className={styles.sidebar}>
@@ -114,6 +143,40 @@ export function Sidebar({ view, onNavigate, workspaceName }: { view: ViewId; onN
           ))}
         </div>
       ))}
+      <CollapsibleSection
+        labelKey="nav.pinned"
+        collapsed={prefs.sidebarPinnedCollapsed !== false}
+        onToggle={() => onPatchPrefs({ sidebarPinnedCollapsed: prefs.sidebarPinnedCollapsed !== false ? false : true })}
+      >
+        {pinnedPages.length === 0 ? (
+          <div className={styles.groupLabel} style={{ opacity: 0.55, textTransform: 'none', letterSpacing: 0 }}>{t('sidebar.noPinned')}</div>
+        ) : pinnedPages.map((page) => (
+          <button key={page} type="button" className={styles.navItem} onClick={() => onNavigate('canvas')}>
+            <Icon name="layers" />
+            {page}
+          </button>
+        ))}
+      </CollapsibleSection>
+      <CollapsibleSection
+        labelKey="nav.conversations"
+        collapsed={prefs.sidebarChatsCollapsed === true}
+        onToggle={() => onPatchPrefs({ sidebarChatsCollapsed: prefs.sidebarChatsCollapsed === true ? false : true })}
+      >
+        {conversations.length === 0 ? (
+          <div className={styles.groupLabel} style={{ opacity: 0.55, textTransform: 'none', letterSpacing: 0 }}>{t('sidebar.chatSoon')}</div>
+        ) : conversations.slice(0, 8).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className={`${styles.navItem} ${view === 'chat' && activeChatId === c.id ? styles.active : ''}`}
+            onClick={() => onOpenChat(c.id)}
+            aria-current={view === 'chat' && activeChatId === c.id ? 'page' : undefined}
+          >
+            <Icon name="clock" />
+            {c.title}
+          </button>
+        ))}
+      </CollapsibleSection>
       <div className={styles.footer}>
         <UserChip active={view === 'user'} workspaceName={workspaceName} onNavigate={onNavigate} />
         {FOOTER.map((entry) => (

@@ -31,6 +31,9 @@ export type UiPrefs = {
   provider: string;
   defaultModel: ModelName;
   workspaceName: string;
+  /* SIDEBAR_PLAN: collapse state for the two new sections (persisted). */
+  sidebarPinnedCollapsed?: boolean;
+  sidebarChatsCollapsed?: boolean;
 };
 
 export const DEFAULT_PREFS: UiPrefs = {
@@ -42,6 +45,8 @@ export const DEFAULT_PREFS: UiPrefs = {
   provider: 'Local',
   defaultModel: 'MiMo',
   workspaceName: 'GSC Workspace',
+  sidebarPinnedCollapsed: true,
+  sidebarChatsCollapsed: false,
 };
 
 const STORAGE_KEY = 'gsc.ui.prefs.v1';
@@ -71,6 +76,10 @@ export function loadPrefs(): UiPrefs {
       workspaceName: typeof parsed.workspaceName === 'string' && parsed.workspaceName.trim()
         ? parsed.workspaceName
         : DEFAULT_PREFS.workspaceName,
+      sidebarPinnedCollapsed: typeof parsed.sidebarPinnedCollapsed === 'boolean'
+        ? parsed.sidebarPinnedCollapsed : DEFAULT_PREFS.sidebarPinnedCollapsed,
+      sidebarChatsCollapsed: typeof parsed.sidebarChatsCollapsed === 'boolean'
+        ? parsed.sidebarChatsCollapsed : DEFAULT_PREFS.sidebarChatsCollapsed,
     };
   } catch {
     return { ...DEFAULT_PREFS };

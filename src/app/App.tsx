@@ -40,7 +40,7 @@ import type { ItemDTO, ItemFields, ItemType } from '../lib/items.ts';
 import { RELATION_KINDS } from '../lib/relations.ts';
 import type { RelationKind } from '../lib/relations.ts';
 import type { ComposerMode, ModelName, UiPrefs } from '../lib/prefs.ts';
-import { loadPrefs, savePrefs } from '../lib/prefs.ts';
+import { loadPrefs, savePrefs, loadSpatialPinned } from '../lib/prefs.ts';
 import { recordVisit, visitMap } from '../lib/visits.ts';
 import { loadSampleWorkspace, clearSampleWorkspace } from '../lib/sample.ts';
 import { Onboarding, isOnboardingDone } from '../components/Onboarding.tsx';
@@ -103,6 +103,23 @@ export default function App() {
   const [sourceBusy, setSourceBusy] = useState(false);
   const [proposals, setProposals] = useState<ProposalDTO[]>([]);
   const [recentDay, setRecentDay] = useState(route.day ?? '');
+  /* GSC 对话（G7）/ SIDEBAR_PLAN：会话 id + 对话列表 + 置顶页。 */
+  const [chatId, setChatId] = useState(route.chatId ?? '');
+  const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
+  const [pinnedPages, setPinnedPages] = useState<string[]>(() => loadSpatialPinned());
+
+  const loadConversations = useCallback(() => {
+    void api.listConversations()
+      .then((r) => setConversations(r.conversations.map((c) => ({ id: c.id, title: c.title }))))
+      .catch(() => setConversations([]));
+  }, []);
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  function openChat(id: string) {
+    setChatId(id);
+    setView('chat');
+    if (prefs.pageTransition) setMosaicToken((t) => t + 1);
+  }
   const [clusterShares, setClusterShares] = useState<{ user_id: string; name: string; role: 'view' | 'add' }[]>([]);
   const [tagDefinitions, setTagDefinitions] = useState<TagDefinitionDTO[]>([]);
   const [tagValues, setTagValues] = useState<TagValueDTO[]>([]);
@@ -128,12 +145,13 @@ export default function App() {
     setContextId(r.contextId ?? '');
     setClusterId(r.clusterId ?? '');
     setRecentDay(r.day ?? '');
+    setChatId(r.chatId ?? '');
   }, [location]);
 
   useEffect(() => {
     const now = parsePath(window.location.pathname, window.location.search);
     if (now.notFound) return;
-    const to = buildPath({ view, itemId: selectedId, contextId, clusterId, day: recentDay });
+    const to = buildPath({ view, itemId: selectedId, contextId, clusterId, day: recentDay, chatId });
     const here = window.location.pathname + window.location.search;
     if (to === here) {
       didInitRef.current = true;
@@ -145,7 +163,7 @@ export default function App() {
     } else {
       navigate(to);
     }
-  }, [view, selectedId, contextId, clusterId, recentDay]);
+  }, [view, selectedId, contextId, clusterId, recentDay, chatId]);
 
   /* META_TAG_V1 筛选: group/tag chips over the collections. */
   const [metaFilter, setMetaFilter] = useState<{ group?: string; tag?: string }>({});
@@ -1226,6 +1244,16 @@ export default function App() {
             }
           />
         );
+      case 'chat':
+        /* SIDEBAR_PLAN 路由落地；消息块流/任务卡属 G7 V1（GSC_CHAT_PLAN Step 5）。 */
+        return (
+          <div className={styles.page}>
+            <h1 className={styles.pageTitle}>
+              {conversations.find((c) => c.id === chatId)?.title ?? t('nav.conversations')}
+            </h1>
+            <div className={styles.hint}>{t('chat.placeholder')}</div>
+          </div>
+        );
       case 'user':
         return (
           <UserView
@@ -1313,7 +1341,17 @@ export default function App() {
         }}
       />
       <div className={styles.app}>
-        <Sidebar view={view} onNavigate={go} workspaceName={prefs.workspaceName} />
+        <Sidebar
+          view={view}
+          onNavigate={go}
+          workspaceName={prefs.workspaceName}
+          pinnedPages={pinnedPages}
+          conversations={conversations}
+          activeChatId={chatId}
+          onOpenChat={openChat}
+          prefs={prefs}
+          onPatchPrefs={(patch) => updatePrefs({ ...prefs, ...patch })}
+        />
         <main className={styles.main}>
           {error && panel === 'none' ? <div className={styles.errorBar}>{error}</div> : null}
           {renderMain()}

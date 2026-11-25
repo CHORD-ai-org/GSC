@@ -22,6 +22,8 @@ export type RouteState = {
   contextId?: string;
   clusterId?: string;
   day?: string;
+  /** GSC 对话（G7）：会话 id。 */
+  chatId?: string;
   /** True when the URL matches no known route (render a 404). */
   notFound?: boolean;
 };
@@ -32,7 +34,7 @@ export function parsePath(pathname: string, search = ''): RouteState {
   const head = seg[0] ?? '';
 
   if (!head) return { view: 'start' };
-  if (seg.length > 1 && !['raw', 'objects', 'clusters', 'contexts'].includes(head)) {
+  if (seg.length > 1 && !['raw', 'objects', 'clusters', 'contexts', 'chat'].includes(head)) {
     return { view: 'start', notFound: true };
   }
 
@@ -61,6 +63,8 @@ export function parsePath(pathname: string, search = ''): RouteState {
       return { view: 'docs' };
     case 'user':
       return { view: 'user' };
+    case 'chat':
+      return seg[1] ? { view: 'chat', chatId: seg[1] } : { view: 'chat' };
     case 'canvas':
       return { view: 'canvas' };
     default:
@@ -82,6 +86,8 @@ export function buildPath(s: RouteState): string {
       return s.clusterId ? `/clusters/${encodeURIComponent(s.clusterId)}` : '/clusters';
     case 'contexts':
       return s.contextId ? `/contexts/${encodeURIComponent(s.contextId)}` : '/contexts';
+    case 'chat':
+      return s.chatId ? `/chat/${encodeURIComponent(s.chatId)}` : '/chat';
     default:
       return `/${s.view}`;
   }
@@ -96,6 +102,7 @@ export const routes = {
   objects: (itemId?: string): string => buildPath({ view: 'objects', itemId }),
   clusters: (clusterId?: string): string => buildPath({ view: 'clusters', clusterId }),
   contexts: (contextId?: string): string => buildPath({ view: 'contexts', contextId }),
+  chat: (chatId?: string): string => buildPath({ view: 'chat', chatId }),
   lightup: (): string => '/lightup',
   sync: (): string => '/sync',
   settings: (): string => '/settings',
