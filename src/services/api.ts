@@ -21,10 +21,59 @@ export type ScheduleListResponse = { ok: true; schedules: ScheduleDTO[] };
 export type ScheduleDetailResponse = { ok: true; schedule: ScheduleDTO };
 export type ScheduleRunResponse = { ok: true; detail: string };
 export type ScheduleDeleteResponse = { ok: true; deleted: boolean };
+/* G7 对话工作面（Step 5 前端消费面） */
+export type ChatBlockDTO = { id: string; message_id: string; kind: string; ord: number; ref_id: string | null; content: string };
+export type ChatMessageDTO = { id: string; conversation_id: string; role: string; content: string; created_at: string; blocks: ChatBlockDTO[] };
+export type StageDTO = {
+  id: string; task_id: string; kind: string; name: string; ord: number;
+  status: string; attempts: number; steps: string[]; detail: string;
+};
+export type TaskProjectionResponse = {
+  ok: true;
+  task: { id: string; message_id: string; title: string; goal: string; status: string; version: number };
+  stages: StageDTO[];
+  uiflows: { id: string; task_id: string; stage_id: string; kind: string; dsl_text: string; status: string }[];
+  patches: { id: string; op_hash: string; op_kind: string; op: string; status: string }[];
+};
+export type ChatSendResponse = { ok: true; task: TaskProjectionResponse['task']; stages: StageDTO[]; fallback: boolean };
+export type TaskPatchResponse = {
+  ok: true;
+  applied: { op_hash: string; op: Record<string, unknown> }[];
+  proposed: { patch_id: string; op_hash: string; op: Record<string, unknown> }[];
+  replayed: number;
+};
+
+export type UiflowResponse = { ok: true; uiflow: { id: string; task_id: string; stage_id: string; kind: string; dsl_text: string; status: string } };
+export type UiflowCompleteResponse = { ok: true; proposals: number; notes: string[] };
+
+export function getUiflow(uiflowId: string): Promise<UiflowResponse> {
+  return request<UiflowResponse>(`/api/uiflows/${encodeURIComponent(uiflowId)}`);
+}
+
+export function completeUiflow(uiflowId: string, values: Record<string, string>, choices: Record<string, string>): Promise<UiflowCompleteResponse> {
+  return request<UiflowCompleteResponse>(`/api/uiflows/${encodeURIComponent(uiflowId)}/complete`, { method: 'POST', body: JSON.stringify({ values, choices }) });
+}
+
+export function sendChatMessage(conversationId: string, content: string): Promise<ChatSendResponse> {
+  return request<ChatSendResponse>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, { method: 'POST', body: JSON.stringify({ content }) });
+}
+
+export function getTaskProjection(taskId: string): Promise<TaskProjectionResponse> {
+  return request<TaskProjectionResponse>(`/api/tasks/${encodeURIComponent(taskId)}`);
+}
+
+export function patchTaskOps(taskId: string, version: number, ops: Record<string, unknown>[]): Promise<TaskPatchResponse> {
+  return request<TaskPatchResponse>(`/api/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ version, ops }) });
+}
+
+export function advanceTask(conversationTaskId: string, version: number, stageId: string, input?: string): Promise<TaskProjectionResponse> {
+  return request<TaskProjectionResponse>(`/api/tasks/${encodeURIComponent(conversationTaskId)}/advance`, { method: 'POST', body: JSON.stringify({ version, stage_id: stageId, input }) });
+}
+
 /* GSC 对话骨架（G7 前置） */
-export type ConversationListResponse = { ok: true; conversations: { id: string; title: string; created_at: string }[] };
+export type ConversationListResponse = { ok: true; conversations: { id: string; title: string; created_at: string; awaiting?: boolean }[] };
 export type ConversationResponse = { ok: true; conversation: { id: string; title: string; created_at: string } };
-export type MessageListResponse = { ok: true; messages: { id: string; conversation_id: string; role: string; content: string; created_at: string }[] };
+export type MessageListResponse = { ok: true; messages: ChatMessageDTO[]; next_cursor: string | null };
 
 export function listConversations(): Promise<ConversationListResponse> {
   return request<ConversationListResponse>('/api/conversations');
@@ -111,6 +160,11 @@ export type ApiResponse =
   | IntegrationFileResponse
   | IntegrationTestResponse
   | ConversationListResponse
+  | ChatSendResponse
+  | UiflowResponse
+  | UiflowCompleteResponse
+  | TaskProjectionResponse
+  | TaskPatchResponse
   | ConversationResponse
   | MessageListResponse
   | MetaGroupListResponse

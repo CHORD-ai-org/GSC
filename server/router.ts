@@ -101,7 +101,12 @@ import {
 import { runGithubSync } from './sync/github.ts';
 import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
 import { latestSnapshotAtBySource } from './repo/snapshots.ts';
-import { createConversation, listConversations, getConversation, listMessages } from './repo/chat.ts';
+import {
+  createConversation, listConversations, getConversation, listMessages, listBlocks,
+  getTaskWithStages, listTaskPatches, patchTask, listUiflowsByTask, getUiflow, listConversationsWithStatus,
+  VersionConflictError, PatchTargetError, InvalidTransitionError,
+} from './repo/chat.ts';
+import { startTask, resumeTask, runStages, completeFlow } from './agent/orchestrator.ts';
 import { validateIngestBatchBody } from '../src/lib/ingest.ts';
 import { ingestBatch } from './intel/batch.ts';
 import type { IngestBatchBody } from '../src/lib/ingest.ts';
@@ -465,8 +470,132 @@ async function hIngestBatch(ctx: RouteCtx): Promise<RouteResult> {
 
 /* ── GSC 对话骨架（G7 前置，SIDEBAR_PLAN 数据源）── */
 
+/* ── G7 对话工作面 API（GSC_CHAT_PLAN Step 4：RouteSpec+idem+乐观锁）── */
+
+function mapTaskError(e: unknown): RouteResult | undefined {
+  if (e instanceof VersionConflictError) return fail('conflict', e.message);
+  if (e instanceof PatchTargetError) return fail('not_found', e.message);
+  if (e instanceof InvalidTransitionError) return ok(apiError('contract', e.message), 422);
+  return undefined;
+}
+
+async function hConversationMessagesCreate(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, config, body, params } = ctx;
+  const content = (body as { content?: string }).content;
+  if (typeof content !== 'string' || !content.trim() || content.length > 8000) {
+    return fail('contract', 'content is required (1..8000 chars)');
+  }
+  const conv = await getConversation(db, params[0]);
+  if (!conv) return fail('not_found', 'conversation not found');
+  try {
+    const result = await startTask(db, config, conv.id, content.trim());
+    return ok({ ok: true, ...result }, 201);
+  } catch (e) {
+    return mapTaskError(e) ?? fail('internal', e instanceof Error ? e.message : 'startTask failed');
+  }
+}
+
+async function hConversationMessagesList(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, url, params } = ctx;
+  const conv = await getConversation(db, params[0]);
+  if (!conv) return fail('not_found', 'conversation not found');
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 50) || 50, 1), 200);
+  const cursor = url.searchParams.get('cursor') ?? undefined;
+  const rows = await listMessages(db, conv.id);
+  const page = rows.filter((m) => !cursor || m.created_at > cursor).slice(0, limit);
+  const blocks = await listBlocks(db, page.map((m) => m.id));
+  return ok({
+    ok: true,
+    messages: page.map((m) => ({ ...m, blocks: blocks.filter((b) => b.message_id === m.id) })),
+    next_cursor: page.length === limit ? page.at(-1)?.created_at ?? null : null,
+  });
+}
+
+async function hTaskGet(ctx: RouteCtx): Promise<RouteResult> {
+  const loaded = await getTaskWithStages(ctx.db, ctx.params[0]);
+  if (!loaded) return fail('not_found', 'task not found');
+  const flows = await listUiflowsByTask(ctx.db, loaded.task.id);
+  const patches = await listTaskPatches(ctx.db, loaded.task.id);
+  return ok({ ok: true, ...loaded, uiflows: flows, patches });
+}
+
+const PATCH_OPS = new Set(['add_stage', 'update_stage', 'remove_stage', 'move_stage']);
+
+async function hTaskPatch(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, body, params } = ctx;
+  const b = body as { version?: unknown; ops?: unknown };
+  if (typeof b.version !== 'number' || !Array.isArray(b.ops) || b.ops.length < 1 || b.ops.length > 20) {
+    return fail('contract', 'body: {version:number, ops:1..20}');
+  }
+  const ops = b.ops as { op?: string }[];
+  if (!ops.every((o) => typeof o?.op === 'string' && PATCH_OPS.has(o.op))) {
+    return fail('contract', 'ops[].op must be add_stage|update_stage|remove_stage|move_stage');
+  }
+  try {
+    const outcome = await patchTask(db, params[0], ops as never, b.version);
+    return ok({ ok: true, ...outcome });
+  } catch (e) {
+    return mapTaskError(e) ?? fail('internal', e instanceof Error ? e.message : 'patch failed');
+  }
+}
+
+async function hTaskAdvance(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, config, body, params } = ctx;
+  const b = body as { version?: unknown; stage_id?: unknown; input?: unknown };
+  if (typeof b.version !== 'number' || typeof b.stage_id !== 'string') {
+    return fail('contract', 'body: {version:number, stage_id:string, input?:string}');
+  }
+  const loaded = await getTaskWithStages(db, params[0]);
+  if (!loaded) return fail('not_found', 'task not found');
+  if (loaded.task.version !== b.version) {
+    return fail('conflict', `Version conflict: expected ${b.version}, actual ${loaded.task.version}`);
+  }
+  const stage = loaded.stages.find((s) => s.id === b.stage_id);
+  if (!stage) return fail('not_found', 'stage not found');
+  if (stage.status === 'done' || stage.status === 'failed') {
+    return ok(apiError('contract', `cannot advance stage in status ${stage.status}`), 422);
+  }
+  try {
+    if (stage.status === 'awaiting_user') {
+      await resumeTask(db, config, params[0], b.stage_id, typeof b.input === 'string' ? b.input : '');
+    } else {
+      await runStages(db, config, params[0]); // 手动推进（跳过已完成段）
+    }
+    const after = await getTaskWithStages(db, params[0]);
+    return ok({ ok: true, ...after! });
+  } catch (e) {
+    return mapTaskError(e) ?? fail('internal', e instanceof Error ? e.message : 'advance failed');
+  }
+}
+
+async function hUiflowGet(ctx: RouteCtx): Promise<RouteResult> {
+  const flow = await getUiflow(ctx.db, ctx.params[0]);
+  if (!flow) return fail('not_found', 'uiflow not found');
+  return ok({ ok: true, uiflow: flow });
+}
+
+async function hUiflowComplete(ctx: RouteCtx): Promise<RouteResult> {
+  /* Step 7：confirm→提案链→resume。表单结果（values/choices）随 resume 回流。 */
+  const { db, config, body } = ctx;
+  const exists = await getUiflow(db, ctx.params[0]);
+  if (!exists) return fail('not_found', 'uiflow not found');
+  const b = body as { values?: unknown; choices?: unknown };
+  const values = (b.values ?? {}) as Record<string, string>;
+  const choices = (b.choices ?? {}) as Record<string, string>;
+  if (typeof values !== 'object' || typeof choices !== 'object') return fail('contract', 'body: {values?, choices?}');
+  try {
+    const result = await completeFlow(db, config, ctx.params[0], {
+      values: Object.fromEntries(Object.entries(values).map(([k, v]) => [String(k), String(v).slice(0, 2000)])),
+      choices: Object.fromEntries(Object.entries(choices).map(([k, v]) => [String(k), String(v).slice(0, 200)])),
+    });
+    return ok({ ok: true, ...result });
+  } catch (e) {
+    return mapTaskError(e) ?? fail('internal', e instanceof Error ? e.message : 'complete failed');
+  }
+}
+
 async function hConversationsList(ctx: RouteCtx): Promise<RouteResult> {
-  return ok({ ok: true, conversations: await listConversations(ctx.db) });
+  return ok({ ok: true, conversations: await listConversationsWithStatus(ctx.db) });
 }
 
 async function hConversationsCreate(ctx: RouteCtx): Promise<RouteResult> {
@@ -475,11 +604,6 @@ async function hConversationsCreate(ctx: RouteCtx): Promise<RouteResult> {
   return ok({ ok: true, conversation: await createConversation(ctx.db, title || '未命名对话') }, 201);
 }
 
-async function hConversationMessages(ctx: RouteCtx): Promise<RouteResult> {
-  const conv = await getConversation(ctx.db, ctx.params[0]);
-  if (!conv) return fail('not_found', 'Conversation not found');
-  return ok({ ok: true, messages: await listMessages(ctx.db, conv.id) });
-}
 
 /* ── G2 integrations management (download / config / link test) ── */
 
@@ -1261,7 +1385,29 @@ export const ROUTES: RouteSpec[] = [
   },
   {
     pattern: /^\/api\/conversations\/([^/]+)\/messages$/,
-    ops: [{ method: 'GET', handler: hConversationMessages }],
+    ops: [
+      { method: 'GET', handler: hConversationMessagesList },
+      { method: 'POST', handler: hConversationMessagesCreate, body: true, idem: true },
+    ],
+  },
+  {
+    pattern: /^\/api\/tasks\/([^/]+)$/,
+    ops: [
+      { method: 'GET', handler: hTaskGet },
+      { method: 'PATCH', handler: hTaskPatch, body: true, idem: true },
+    ],
+  },
+  {
+    pattern: /^\/api\/tasks\/([^/]+)\/advance$/,
+    ops: [{ method: 'POST', handler: hTaskAdvance, body: true, idem: true }],
+  },
+  {
+    pattern: /^\/api\/uiflows\/([^/]+)$/,
+    ops: [{ method: 'GET', handler: hUiflowGet }],
+  },
+  {
+    pattern: /^\/api\/uiflows\/([^/]+)\/complete$/,
+    ops: [{ method: 'POST', handler: hUiflowComplete, body: true, idem: true }],
   },
   { pattern: /^\/api\/integrations\/status$/, ops: [{ method: 'GET', handler: hIntegrationsStatus }] },
   {

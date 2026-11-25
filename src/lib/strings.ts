@@ -16,6 +16,8 @@ export const STRINGS: Record<string, StringPair> = {
   'nav.conversations': { zh: '最近', en: 'RECENT CHATS' },
   'sidebar.noPinned': { zh: '置顶的页面将出现在这里', en: 'Pinned pages appear here' },
   'sidebar.chatSoon': { zh: '从开始页发起的对话将出现在这里', en: 'Conversations from Start appear here' },
+  'chat.empty': { zh: '发一条指令开始工作（例如：把智能床垫项目的数据整理一下）', en: 'Send an instruction to start (e.g. organize the GoatBed project data)' },
+  'chat.input': { zh: '描述要整理、构建或修改的内容…', en: 'Describe something to organize, build, or fix…' },
   'chat.placeholder': { zh: '对话工作面（消息流 / 任务卡 / 管线）由 G7 V1 提供，见 GSC_CHAT_PLAN.md。', en: 'The conversation workspace (message stream / task cards / pipeline) arrives with G7 V1 — see GSC_CHAT_PLAN.md.' },
   'nav.recently': { zh: '最近', en: 'Recently' },
   'nav.raw': { zh: '原始信息', en: 'Raw Information' },
