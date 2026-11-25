@@ -54,3 +54,17 @@ export async function getSnapshot(db: Database, id: string): Promise<SnapshotRow
   const [row] = await db.select().from(sourceSnapshots).where(eq(sourceSnapshots.id, id)).limit(1);
   return row;
 }
+
+/** Integrations status: newest snapshot time per source (ISO) — presence =
+ *  "connected", freshness = last activity. */
+export async function latestSnapshotAtBySource(db: Database): Promise<Map<string, string>> {
+  const rows = await db.select().from(sourceSnapshots);
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.source_id) continue;
+    const at = r.retrieved_at.toISOString();
+    const prev = map.get(r.source_id);
+    if (!prev || at > prev) map.set(r.source_id, at);
+  }
+  return map;
+}
