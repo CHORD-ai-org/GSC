@@ -21,6 +21,23 @@ export type ScheduleListResponse = { ok: true; schedules: ScheduleDTO[] };
 export type ScheduleDetailResponse = { ok: true; schedule: ScheduleDTO };
 export type ScheduleRunResponse = { ok: true; detail: string };
 export type ScheduleDeleteResponse = { ok: true; deleted: boolean };
+/* G2 integrations management */
+export type IntegrationStatusResponse = { ok: true; clients: { client: string; connected: boolean; anchors: string[]; last_activity: string | null }[] };
+export type IntegrationFileResponse = { ok: true; name: string; content_base64: string; size: number };
+export type IntegrationTestResponse = { ok: true; result: { source_id: string; imported: number; skipped: number; block_proposals: number } };
+
+export function listIntegrationStatus(): Promise<IntegrationStatusResponse> {
+  return request<IntegrationStatusResponse>('/api/integrations/status');
+}
+
+export function downloadIntegrationFile(name: string): Promise<IntegrationFileResponse> {
+  return request<IntegrationFileResponse>(`/api/integrations/files/${encodeURIComponent(name)}`);
+}
+
+export function testIntegration(client: string): Promise<IntegrationTestResponse> {
+  return request<IntegrationTestResponse>('/api/integrations/test', { method: 'POST', body: JSON.stringify({ client }) });
+}
+
 /* META_TAG_SYSTEM_V1 */
 export type MetaGroupListResponse = { ok: true; groups: { id: string; key: string; name: string; description: string; visibility_default: string }[] };
 export type MetaParamsResponse = { ok: true; params: { key: string; value: string; value_type: string }[] };
@@ -73,6 +90,9 @@ export type ApiResponse =
   | ScheduleDetailResponse
   | ScheduleRunResponse
   | ScheduleDeleteResponse
+  | IntegrationStatusResponse
+  | IntegrationFileResponse
+  | IntegrationTestResponse
   | MetaGroupListResponse
   | MetaParamsResponse
   | ProposalDetailResponse
