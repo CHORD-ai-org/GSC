@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const items = pgTable('items', {
   id: text('id').primaryKey(),
@@ -202,6 +202,63 @@ export const itemMetaParams = pgTable('item_meta_params', {
   value_type: text('value_type').notNull().default('text'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull(),
 }, (t) => [uniqueIndex('item_meta_params_unique').on(t.item_id, t.key)]);
+
+/* GSC 对话（G7）骨架（0015）：对话与消息。消息块/任务/管线随 G7 Step 1 补。 */
+export const conversations = pgTable('conversations', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  /* G7 乐观锁（0016）。 */
+  version: integer('version').notNull().default(1),
+});
+
+export const messages = pgTable('messages', {
+  id: text('id').primaryKey(),
+  conversation_id: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(),
+  content: text('content').notNull().default(''),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+}, (t) => [index('messages_conversation_idx').on(t.conversation_id, t.created_at)]);
+
+/* G7 对话工作面（0016）：消息块（UI 投影源）/ 任务 / 阶段状态机 / DSL 面。 */
+export const messageBlocks = pgTable('message_blocks', {
+  id: text('id').primaryKey(),
+  message_id: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  ord: integer('ord').notNull(),
+  ref_id: text('ref_id'),
+  content: text('content').notNull().default(''),
+}, (t) => [uniqueIndex('message_blocks_message_ord').on(t.message_id, t.ord), index('message_blocks_message_idx').on(t.message_id, t.ord)]);
+
+export const tasks = pgTable('tasks', {
+  id: text('id').primaryKey(),
+  message_id: text('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default(''),
+  goal: text('goal').notNull().default(''),
+  status: text('status').notNull().default('active'),
+  version: integer('version').notNull().default(1),
+});
+
+export const taskStages = pgTable('task_stages', {
+  id: text('id').primaryKey(),
+  task_id: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  name: text('name').notNull().default(''),
+  ord: integer('ord').notNull(),
+  status: text('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  steps: text('steps').notNull().default('[]'),
+  detail: text('detail').notNull().default(''),
+}, (t) => [uniqueIndex('task_stages_task_ord').on(t.task_id, t.ord), index('task_stages_task_idx').on(t.task_id, t.ord)]);
+
+export const uiflows = pgTable('uiflows', {
+  id: text('id').primaryKey(),
+  task_id: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  stage_id: text('stage_id').notNull().references(() => taskStages.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull().default('onboarding'),
+  dsl_text: text('dsl_text').notNull().default(''),
+  status: text('status').notNull().default('draft'),
+});
 
 export const idempotencyKeys = pgTable('idempotency_keys', {
   key: text('key').notNull(),
