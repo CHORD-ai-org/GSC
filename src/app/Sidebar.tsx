@@ -108,7 +108,7 @@ function CollapsibleSection({
   const t = useT();
   return (
     <div className={styles.group}>
-      <button type="button" className={styles.groupLabel} onClick={onToggle} aria-expanded={!collapsed}>
+      <button type="button" className={styles.groupToggle} onClick={onToggle} aria-expanded={!collapsed}>
         {t(labelKey)} <span aria-hidden="true">{collapsed ? '›' : '⌄'}</span>
       </button>
       {collapsed ? null : children}
@@ -149,7 +149,7 @@ export function Sidebar({
         onToggle={() => onPatchPrefs({ sidebarPinnedCollapsed: prefs.sidebarPinnedCollapsed !== false ? false : true })}
       >
         {pinnedPages.length === 0 ? (
-          <div className={styles.groupLabel} style={{ opacity: 0.55, textTransform: 'none', letterSpacing: 0 }}>{t('sidebar.noPinned')}</div>
+          <div className={styles.groupEmpty}>{t('sidebar.noPinned')}</div>
         ) : pinnedPages.map((page) => (
           <button key={page} type="button" className={styles.navItem} onClick={() => onNavigate('canvas')}>
             <Icon name="layers" />
@@ -163,7 +163,7 @@ export function Sidebar({
         onToggle={() => onPatchPrefs({ sidebarChatsCollapsed: prefs.sidebarChatsCollapsed === true ? false : true })}
       >
         {conversations.length === 0 ? (
-          <div className={styles.groupLabel} style={{ opacity: 0.55, textTransform: 'none', letterSpacing: 0 }}>{t('sidebar.chatSoon')}</div>
+          <div className={styles.groupEmpty}>{t('sidebar.chatSoon')}</div>
         ) : conversations.slice(0, 8).map((c) => (
           <button
             key={c.id}
