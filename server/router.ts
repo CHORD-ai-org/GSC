@@ -1,4 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Config } from './config.ts';
 import type { Database } from './persistence/client.ts';
 import { apiError } from '../src/lib/api.ts';
@@ -96,13 +99,11 @@ import {
   validateUpdateSourceBody,
 } from '../src/lib/sources.ts';
 import { runGithubSync } from './sync/github.ts';
-import { runSourceSync, processCaptureTask, processSnapshot } from './intel/pipeline.ts';
-import { upsertSnapshot } from './repo/snapshots.ts';
-import { contentHash } from './intel/extract.ts';
-import { proposeBlockAssignment } from './agent/organizer.ts';
+import { runSourceSync, processCaptureTask } from './intel/pipeline.ts';
+import { latestSnapshotAtBySource } from './repo/snapshots.ts';
 import { validateIngestBatchBody } from '../src/lib/ingest.ts';
+import { ingestBatch } from './intel/batch.ts';
 import type { IngestBatchBody } from '../src/lib/ingest.ts';
-import type { FetchedDoc } from './intel/adapters/types.ts';
 import { createTask, getTask, listTasks, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection } from './agent/detector.ts';
@@ -454,78 +455,79 @@ async function hScheduleRun(ctx: RouteCtx): Promise<RouteResult> {
 }
 
 async function hIngestBatch(ctx: RouteCtx): Promise<RouteResult> {
-  /* G2 batch intake: group (client×project) → source anchor, docs through the
-     Light Up pipeline (snapshot-idempotent), then a best-effort block-assignment
-     pass that only ever creates `cluster` proposals (D-042). */
+  /* G2 batch intake — thin wrapper over intel/batch.ts (shared with the
+     integrations test probe). */
   const { db, config, body, viewerId } = ctx;
-  const batch = body as IngestBatchBody;
-  const label = `agent:${batch.group.client}:${batch.group.project}`;
-  const existing = await listSources(db, viewerId);
-  let source = existing.find((s) => s.kind === 'agent' && s.label === label);
-  if (!source) {
-    source = await createSource(db, {
-      kind: 'agent',
-      label,
-      scope: `client=${batch.group.client};project=${batch.group.project}`,
-    }, viewerId);
-  }
-  let imported = 0;
-  let skipped = 0;
-  const newItems: { id: string; title: string; content: string }[] = [];
-  for (const [i, doc] of batch.docs.entries()) {
-    const rawHash = contentHash(doc.content_text);
-    const fetched: FetchedDoc = {
-      externalId: `agent:${batch.group.client}:${batch.group.project}:${batch.group.session_id}:${i}`,
-      url: doc.url ?? `agent://${batch.group.client}/${batch.group.project}/${batch.group.session_id}`,
-      title: doc.title || `session ${batch.group.session_id}`,
-      contentText: doc.content_text,
-      author: doc.author ?? batch.group.client,
-      publishedAt: doc.captured_at,
-      rawHash,
-      metadata: {
-        client: batch.group.client,
-        project: batch.group.project,
-        session_id: batch.group.session_id,
-        captured_at: doc.captured_at ?? new Date().toISOString(),
-      },
-    };
-    const snap = await upsertSnapshot(db, source.id, fetched);
-    if (!snap.created) {
-      skipped += 1;
-      continue;
-    }
-    const result = await processSnapshot(db, config, fetched, { kind: 'agent', ownerId: viewerId });
-    newItems.push({ id: result.itemId, title: fetched.title, content: doc.content_text });
-    imported += 1;
-  }
+  const result = await ingestBatch(db, config, body as IngestBatchBody, viewerId);
+  return ok({ ok: true, ...result }, 201);
+}
 
-  // Block assignment (best-effort): cluster proposals only — never a direct write.
-  let blockProposals = 0;
-  if (newItems.length > 0) {
+/* ── G2 integrations management (download / config / link test) ── */
+
+const INTEGRATION_FILES: Record<string, { path: string; filename: string }> = {
+  'gsc-push.mjs': { path: 'gsc-push.mjs', filename: 'gsc-push.mjs' },
+  'opencode-plugin.js': { path: 'opencode/gsc-push.js', filename: 'gsc-push.js' },
+  'codex-dispatcher.mjs': { path: 'codex/notify-dispatcher.mjs', filename: 'notify-dispatcher.mjs' },
+  'codex-readme.md': { path: 'codex/README.md', filename: 'codex-README.md' },
+  'workbuddy-skill.md': { path: 'workbuddy/SKILL.md', filename: 'gsc-push-SKILL.md' },
+};
+
+async function hIntegrationsFiles(ctx: RouteCtx): Promise<RouteResult> {
+  /* JSON+base64 payload (the route contract is JSON-only); the frontend turns
+     it into a browser download. Allowlisted files only. */
+  const entry = INTEGRATION_FILES[ctx.params[0]];
+  if (!entry) return fail('not_found', 'Unknown integration file');
+  /* Path resolution: module-relative first (bare node), cwd fallback (vitest
+     rewrites import.meta.url). */
+  const candidates = [
+    path.join(fileURLToPath(new URL('../../integrations/', import.meta.url)), entry.path),
+    path.join(process.cwd(), 'integrations', entry.path),
+  ];
+  let buf: Buffer | undefined;
+  for (const file of candidates) {
     try {
-      const known = (await listClusters(db)).map((c) => c.title);
-      const assignments = await proposeBlockAssignment(config, newItems, known);
-      for (const a of assignments) {
-        await createProposal(db, {
-          kind: 'cluster',
-          target_id: a.item_id,
-          proposed_value: a.cluster_name,
-          rationale: a.rationale || `block assignment (${batch.group.client})`,
-          source: 'agent',
-        });
-        blockProposals += 1;
-      }
-    } catch (e) {
-      console.error('[ingest] block assignment skipped:', e instanceof Error ? e.message : e);
+      buf = await readFile(file);
+      break;
+    } catch {
+      /* try next */
     }
   }
-  return ok({
-    ok: true,
-    source_id: source.id,
-    imported,
-    skipped,
-    block_proposals: blockProposals,
-  }, 201);
+  if (!buf) return fail('not_found', 'Integration file missing on disk');
+  return ok({ ok: true, name: entry.filename, content_base64: buf.toString('base64'), size: buf.length });
+}
+
+async function hIntegrationsStatus(ctx: RouteCtx): Promise<RouteResult> {
+  /* Per-client connection status: an `agent:<client>:*` source anchor with a
+     snapshot = connected; snapshot time = last activity. */
+  const { db, viewerId } = ctx;
+  const sources = await listSources(db, viewerId);
+  const latest = await latestSnapshotAtBySource(db);
+  const clients = ['opencode', 'codex', 'workbuddy', 'manual'].map((client) => {
+    const anchors = sources.filter((s) => s.kind === 'agent' && s.label.startsWith(`agent:${client}:`));
+    const times = anchors.map((s) => latest.get(s.id)).filter((v): v is string => !!v).sort();
+    return {
+      client,
+      connected: anchors.length > 0,
+      anchors: anchors.map((s) => s.label),
+      last_activity: times.at(-1) ?? null,
+    };
+  });
+  return ok({ ok: true, clients });
+}
+
+async function hIntegrationsTest(ctx: RouteCtx): Promise<RouteResult> {
+  /* Link test: push a tiny self-test doc through the real ingest path and
+     report the outcome — this is exactly what the client plugins do. */
+  const { db, config, body, viewerId } = ctx;
+  const client = (body as { client?: string }).client ?? 'manual';
+  if (!['opencode', 'codex', 'workbuddy', 'manual'].includes(client)) {
+    return fail('contract', 'client must be opencode|codex|workbuddy|manual');
+  }
+  const result = await ingestBatch(db, config, {
+    group: { client: client as 'manual', project: 'gsc-selftest', session_id: `test-${Date.now()}` },
+    docs: [{ title: 'GSC 集成测试', content_text: `GSC integration self-test from ${client} — safe to delete.`, captured_at: new Date().toISOString() }],
+  }, viewerId);
+  return ok({ ok: true, result });
 }
 
 async function hRelationsGet(ctx: RouteCtx): Promise<RouteResult> {
@@ -1229,6 +1231,12 @@ export const ROUTES: RouteSpec[] = [
       validateMessage: 'Invalid ingest batch body',
       idem: true,
     }],
+  },
+  { pattern: /^\/api\/integrations\/files\/([\w.-]+)$/, ops: [{ method: 'GET', handler: hIntegrationsFiles }] },
+  { pattern: /^\/api\/integrations\/status$/, ops: [{ method: 'GET', handler: hIntegrationsStatus }] },
+  {
+    pattern: /^\/api\/integrations\/test$/,
+    ops: [{ method: 'POST', handler: hIntegrationsTest, body: true, idem: true }],
   },
   {
     pattern: /^\/api\/relations$/,
