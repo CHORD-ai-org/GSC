@@ -49,7 +49,7 @@ export class LlmError extends Error {
   }
 }
 
-type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 function isLocalEndpoint(baseUrl: string): boolean {
   return /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/.test(baseUrl);
