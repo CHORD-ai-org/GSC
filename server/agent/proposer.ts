@@ -56,12 +56,19 @@ export async function suggestForChunks(
     .filter((row) => row.index >= 0 && row.semantic_name);
 }
 
-export type MetaTagSuggestion = { item_id: string; definition_id: string; value: string; why: string };
+export type MetaTagSuggestion = {
+  item_id: string;
+  /** existing definition id, or `new:<name>` for an invented tag (pending_definition flow) */
+  definition_id: string;
+  value: string;
+  why: string;
+  new_name?: string;
+};
 
 /**
- * META_TAG_V1 suggest face: choose meta tags for items FROM the existing
- * definition list only (inventing a new tag is out of scope — that goes through
- * a separate pending_definition flow). Best-effort at every level.
+ * META_TAG_V1 suggest face: choose meta tags FROM the existing definition list;
+ * when nothing fits, the model may propose a NEW tag name which surfaces as a
+ * pending_definition flow (never auto-created). Best-effort at every level.
  */
 export async function suggestMetaTags(
   config: Config,
@@ -69,27 +76,46 @@ export async function suggestMetaTags(
   definitions: { id: string; name: string }[],
   fetchImpl: FetchLike = fetch,
 ): Promise<MetaTagSuggestion[]> {
-  if (!definitions.length || !items.length) return [];
-  const defs = definitions.map((d) => `[${d.id}] ${d.name}`).join('、');
+  if (!items.length) return [];
+  const defs = definitions.length
+    ? definitions.map((d) => `[${d.id}] ${d.name}`).join('、')
+    : '（暂无可选，可建议新名）';
   const lines = items.map((i, n) => `${n + 1}. [${i.id}] ${i.title} :: ${i.content.slice(0, 200)}`).join('\n');
   const messages: ChatMessage[] = [
     {
       role: 'system',
       content:
-        'Assign meta tags to items. Choose ONLY from the given tag definitions (copy the complete id verbatim from [] — never invent or shorten ids). '
-        + 'Reply ONLY with JSON: {"tags":[{"item":"<id>","definition":"<tag id>","value":"<short value>","why":"<reason>"}]}. '
-        + 'Skip items that fit no tag. At most 3 tags per item.',
+        'Assign meta tags to items. Prefer the given tag definitions (copy the complete id verbatim from [] — never invent or shorten ids). '
+        + 'Reply ONLY with JSON: {"tags":[{"item":"<id>","definition":"<tag id>","value":"<short value>","why":"<reason>"}],'
+        + '"new_tags":[{"item":"<id>","name":"<new tag name ≤12 chars>","value":"<short value>","why":"<reason>"}]}. '
+        + 'Put an assignment in "tags" when an existing definition fits; use "new_tags" ONLY when no existing definition fits and a genuinely new tag name is needed. '
+        + 'Skip items that fit nothing. At most 3 tags per item.',
     },
     { role: 'user', content: `标签定义：${defs}\n\n待标注条目：\n${lines}` },
   ];
   const result = await chatComplete(config, messages, fetchImpl);
-  const parsed = extractJson(result.content) as { tags?: { item?: string; definition?: string; value?: string; why?: string }[] } | null;
+  const parsed = extractJson(result.content) as {
+    tags?: { item?: string; definition?: string; value?: string; why?: string }[];
+    new_tags?: { item?: string; name?: string; value?: string; why?: string }[];
+  } | null;
   const knownItems = new Set(items.map((i) => i.id));
   const knownDefs = new Set(definitions.map((d) => d.id));
   const out: MetaTagSuggestion[] = [];
   for (const t of parsed?.tags ?? []) {
     if (t.item && t.definition && t.value && knownItems.has(t.item) && knownDefs.has(t.definition)) {
       out.push({ item_id: t.item, definition_id: t.definition, value: String(t.value).slice(0, 200), why: String(t.why ?? '') });
+    }
+  }
+  for (const t of parsed?.new_tags ?? []) {
+    const name = String(t.name ?? '').trim().slice(0, 40);
+    if (t.item && name && t.value && knownItems.has(t.item)) {
+      out.push({
+        item_id: t.item,
+        definition_id: `new:${name}`,
+        new_name: name,
+        value: String(t.value).slice(0, 200),
+        why: String(t.why ?? ''),
+      });
     }
   }
   return out;
