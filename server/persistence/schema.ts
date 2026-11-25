@@ -260,6 +260,29 @@ export const uiflows = pgTable('uiflows', {
   status: text('status').notNull().default('draft'),
 });
 
+/* G7 任务域提案载体 + 审计线（0016）：proposals.target_id 是 items 外键指向不了
+   task —— 任务域「机器产物待确认」住 task_patches；stage 迁移审计住 task_events。 */
+export const taskPatches = pgTable('task_patches', {
+  id: text('id').primaryKey(),
+  task_id: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  op_hash: text('op_hash').notNull(),
+  op_kind: text('op_kind').notNull(),
+  op: text('op').notNull(),
+  status: text('status').notNull().default('applied'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+  resolved_at: timestamp('resolved_at', { withTimezone: true }),
+}, (t) => [uniqueIndex('task_patches_task_hash').on(t.task_id, t.op_hash)]);
+
+export const taskEvents = pgTable('task_events', {
+  id: text('id').primaryKey(),
+  task_id: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  stage_id: text('stage_id'),
+  actor: text('actor').notNull().default('agent'),
+  action: text('action').notNull(),
+  detail: text('detail').notNull().default(''),
+  at: timestamp('at', { withTimezone: true }).notNull(),
+}, (t) => [index('task_events_task_idx').on(t.task_id, t.at)]);
+
 export const idempotencyKeys = pgTable('idempotency_keys', {
   key: text('key').notNull(),
   endpoint: text('endpoint').notNull(),

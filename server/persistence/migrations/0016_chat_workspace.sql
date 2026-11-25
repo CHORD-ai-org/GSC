@@ -53,3 +53,32 @@ CREATE TABLE IF NOT EXISTS uiflows (
 
 CREATE INDEX IF NOT EXISTS task_stages_task_idx ON task_stages (task_id, ord);
 CREATE INDEX IF NOT EXISTS message_blocks_message_idx ON message_blocks (message_id, ord);
+
+-- 任务域提案载体（GSC_CHAT_PLAN §1.4：删/移/改 kind 走提案）：proposals 表的
+-- target_id 是 items 外键，指向不了 task —— 任务域提案住这里（D-042「机器产物待确认」
+-- 不变式保持，载体按域分）。op_hash = sha1(canonical op)，(task_id, op_hash) 唯一=幂等。
+CREATE TABLE IF NOT EXISTS task_patches (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  op_hash TEXT NOT NULL,
+  op_kind TEXT NOT NULL CHECK (op_kind IN ('add_stage', 'update_stage', 'remove_stage', 'move_stage')),
+  op TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'applied'
+    CHECK (status IN ('applied', 'proposed', 'accepted', 'rejected')),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE (task_id, op_hash)
+);
+
+-- 任务域审计线（events 表 item_id 是 items 外键，任务域迁移记这里；
+-- 对账不变式：stage 迁移必留 task_events 行）
+CREATE TABLE IF NOT EXISTS task_events (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  stage_id TEXT,
+  actor TEXT NOT NULL DEFAULT 'agent',
+  action TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+CREATE INDEX IF NOT EXISTS task_events_task_idx ON task_events (task_id, at);
