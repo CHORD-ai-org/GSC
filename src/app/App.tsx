@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
+import { ChatView } from '../views/chat/ChatView.tsx';
 import type { ViewId } from './Sidebar.tsx';
 import { useLocation, navigate, replace } from '../lib/router.ts';
 import { parsePath, buildPath } from './routes.ts';
@@ -105,12 +106,12 @@ export default function App() {
   const [recentDay, setRecentDay] = useState(route.day ?? '');
   /* GSC 对话（G7）/ SIDEBAR_PLAN：会话 id + 对话列表 + 置顶页。 */
   const [chatId, setChatId] = useState(route.chatId ?? '');
-  const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
+  const [conversations, setConversations] = useState<{ id: string; title: string; awaiting?: boolean }[]>([]);
   const [pinnedPages, setPinnedPages] = useState<string[]>(() => loadSpatialPinned());
 
   const loadConversations = useCallback(() => {
     void api.listConversations()
-      .then((r) => setConversations(r.conversations.map((c) => ({ id: c.id, title: c.title }))))
+      .then((r) => setConversations(r.conversations.map((c) => ({ id: c.id, title: c.title, awaiting: c.awaiting }))))
       .catch(() => setConversations([]));
   }, []);
   useEffect(() => { loadConversations(); }, [loadConversations]);
@@ -1245,13 +1246,18 @@ export default function App() {
           />
         );
       case 'chat':
-        /* SIDEBAR_PLAN 路由落地；消息块流/任务卡属 G7 V1（GSC_CHAT_PLAN Step 5）。 */
-        return (
+        /* G7 V1（GSC_CHAT_PLAN Step 5）：真 ChatView（消息块流+任务卡）。 */
+        return chatId ? (
+          <ChatView
+            conversationId={chatId}
+            title={conversations.find((c) => c.id === chatId)?.title}
+            onConversationsChanged={loadConversations}
+            onOpenItem={openItemInPage}
+          />
+        ) : (
           <div className={styles.page}>
-            <h1 className={styles.pageTitle}>
-              {conversations.find((c) => c.id === chatId)?.title ?? t('nav.conversations')}
-            </h1>
-            <div className={styles.hint}>{t('chat.placeholder')}</div>
+            <h1 className={styles.pageTitle}>{t('nav.conversations')}</h1>
+            <div className={styles.hint}>{t('chat.empty')}</div>
           </div>
         );
       case 'user':

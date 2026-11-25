@@ -2,7 +2,17 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **G7 Step 0/1 完成（2026-11-25）**：D-110 边界演进落账（对话工作面入 GSC）+ 0016 数据层（消息块/任务/阶段状态机/uiflows，CHECK 枚举+稀疏 ord+乐观锁 version）；chat_workspace 2/2。下一步 G7 Step 2（repo/chat 扩展：PATCH 算子+转移表白名单）。
+> Status: **G7 正式验收 PASS（2026-11-25）**：七门对账全过（含 accept 落定对账+409/422 实测+重放幂等）+ 四图 + 全量 237+1skip/238。遗留非阻塞（LLM key 401 待换等）。
+> Prior: G7 全线完成（D-113，2026-11-25）**：V1+V2+V3 十步全落（数据层/编排器/路由/ChatView/TaskCard/FlowPanel/DSL/双时间线），E2E §0 真链+四图验收，全量 237+1skip/238。遗留：LLM key 401 待换。下一候选：G4 后半/G6/或换 key 复跑全绿 E2E。
+> Prior: G7 Step 9 完成（2026-11-25）**：黄点（awaiting 聚合）/reference 点开/播报四类完备；chat_workspace 7/7 + 黄点截图。下一步 Step 10 收口（G7 总账+三图）。
+> Prior: G7 Step 8 完成（D-112，2026-11-25）V2 收口**：§0 场景 E2E 真链全通（含 Drawer→提案落地+续跑）；运行器语义修正=增强段失败不阻塞（红标可见/终态 failed）；发现环境 LLM key 401 失效。下一步 V3（Step 9-10）：黄点/reference 点开/播报完备+G7 总账。
+> Prior: G7 Step 7 完成（2026-11-25）V2 收口**：FlowPanel Drawer（review/collect/choose/写入清单/确认写入）+ completeFlow（confirm→提案映射：命中/未命中 pending_definition 双流）+ 恢复续跑；验收全中（flow_complete 2/2 + drawer 截图 + curl 对账）。G7 V2 闭环。下一步 V3：双时间线侧栏黄点+reference 点开+播报完备。
+> Prior: G7 Step 6 完成（2026-11-25）**：DSL 解析器（uiflow.ts：四道校验+降级链+renderFlow+round-trip fuzz 50）6/6 一次过。下一步 Step 7：FlowPanel 右侧 Drawer + confirm→提案链 → V2 收口。
+> Prior: G7 Step 5 完成（2026-11-25）V1 收口**：ChatView（消息块流+任务卡/管线卡/卡内 PATCH 乐观+状态色+黄标）真渲染验收全中（gsc-chat-v1.png）。G7 V1 闭环。下一步 V2：DSL 解析器（Step 6）+FlowPanel Drawer+confirm→提案（Step 7）。
+> Prior: G7 Step 4 完成（2026-11-25）**：API 层——messages 触发 startTask（201 返真实态）/tasks 投影源/PATCH 乐观锁/advance 停点恢复；409/422/404 语义齐。chat_api 2/2 + curl 全链真验。下一步 Step 5 ChatView 前端骨架。
+> Prior: G7 Step 3 完成（D-111，2026-11-25）**：薄编排器（structuredCall+uispec+orchestrator：四语义编排/重试≤3/confirm 停点/resume 续跑/StageExecutor 插座）；D-111 不搭 framework 结论落账。orchestrator 4/4。下一步 Step 4 API（conversations/:id/messages 触发 startTask + PATCH/advance 路由）。
+> Prior: G7 Step 2 完成（2026-11-25）**：repo/chat 扩展——patchTask（op_hash 幂等/纯增即时/删移改 kind→task_patches 提案/乐观锁）+ transitionStage（转移表白名单+task_events 对账）+ 稀疏 ord 竞态重试；5/5。实测修 3 真问题（version 双递增/ord 竞态/drizzle cause 链检测）。下一步 Step 3 编排器。
+> Prior: G7 Step 0/1 完成（2026-11-25）**：D-110 边界演进落账（对话工作面入 GSC）+ 0016 数据层（消息块/任务/阶段状态机/uiflows，CHECK 枚举+稀疏 ord+乐观锁 version）；chat_workspace 2/2。下一步 G7 Step 2（repo/chat 扩展：PATCH 算子+转移表白名单）。
 > Prior: SIDEBAR_PLAN 执行完成（D-109，2026-11-25）**：置顶折叠区+对话「最近」（conversations 骨架前置 G7）+双「最近」语义分立+路由 /chat/:id；实测截图全中。黄点/真 ChatView/置顶动作随 G7。
 > Prior: 语义标题 pipeline 落地（D-107，2026-11-24）G4 前半**：outline_nodes 模型 + 派生（≤4级自适应）+ titler 同父批量生成（碰撞簇重生1次）+ ensure-titles 按需提案 + OutlinePanel 三态徽标，四态实拍验收全通（规则名→提案中→已确认）。G4 缩放手势/远景列表另轨（共享 outline_nodes）。
 > Prior: **G5 完整收尾（D-106，2026-11-24）**：pending_definition 提案流（new:<name> 引用→建定义→升级引用→打标落卡）；实测揪出「提前 accept 被消费」缺陷并修（保持 pending+blocked 溯源）。G5 Meta-tag v1.0 MVP 全闭环。

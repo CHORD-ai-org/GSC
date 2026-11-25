@@ -1,6 +1,6 @@
 # GSC_CHAT_PLAN.md — G7「GSC 对话」分步执行计划 v2（技术版）
 
-Status: `PROPOSED` — 2026-11-25（v2 加密技术规格）。蓝本：`GSC_CHAT_DESIGN.md` v2。
+Status: `DECIDED` — 2026-11-25，Step 0–10 全执行完成（D-110~113）。蓝本：`GSC_CHAT_DESIGN.md` v2。
 架构立场（讨论结论，随 Step 3 记 D-110）：**不搭 agent framework**——搭「LLM 任务层 +
 薄编排器」，可选 bounded tool-loop 插座；理由见 §1.0。任务卡七项见设计文档 §9。
 
@@ -35,9 +35,9 @@ Status: `PROPOSED` — 2026-11-25（v2 加密技术规格）。蓝本：`GSC_CHA
 
 | 阶段 | 对照原型区域 | 视觉验收点 |
 |---|---|---|
-| V1 Step 5 | 任务卡灰卡 + 管线小卡列（01–04）+ 卡内输入 | 结构/序号/展开/状态色对齐原型；PATCH 即时增卡 |
-| V2 Step 7 | Onboarding 三步（Review/Preparation/Confirmation） | 右侧 Drawer ≈60-70% 宽；三段交互齐全 |
-| V3 Step 9 | 侧栏双「最近」+ 置顶 | 对齐 sidebar-two-recents.png（已验）；对话行 awaiting_user 黄点 |
+| V1 Step 5 | 任务卡灰卡 + 管线小卡列（01–04）+ 卡内输入 | ✅ 已验（gsc-chat-v1.png / e2e-final.png） |
+| V2 Step 7 | Onboarding 三步（Review/Preparation/Confirmation） | ✅ 已验（gsc-chat-v2-drawer.png） |
+| V3 Step 9 | 侧栏双「最近」+ 置顶 | ✅ 已验（sidebar-two-recents.png / sidebar-awaiting-dot.png） |
 
 ## 1. 核心技术决策
 

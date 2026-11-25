@@ -123,7 +123,7 @@ export function Sidebar({
   onNavigate: (id: ViewId) => void;
   workspaceName: string;
   pinnedPages: string[];
-  conversations: { id: string; title: string }[];
+  conversations: { id: string; title: string; awaiting?: boolean }[];
   activeChatId?: string;
   onOpenChat: (chatId: string) => void;
   prefs: UiPrefs;
@@ -173,7 +173,10 @@ export function Sidebar({
             aria-current={view === 'chat' && activeChatId === c.id ? 'page' : undefined}
           >
             <Icon name="clock" />
-            {c.title}
+            <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+            {c.awaiting ? (
+              <span title="等你确认" style={{ width: 8, height: 8, borderRadius: 99, background: '#ff9f0a', flexShrink: 0 }} />
+            ) : null}
           </button>
         ))}
       </CollapsibleSection>

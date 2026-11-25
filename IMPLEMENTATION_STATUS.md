@@ -611,3 +611,117 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
   task_stages（kind+status CHECK 枚举，状态机表）/uiflows（status CHECK）；ord 稀疏惯例
   （1024 间隔）；(message_id,ord)/(task_id,ord) 唯一。schema 注册全。
 - 验收：chat_workspace.test 2/2（CHECK 拒非法枚举 ×4 / 稀疏 ord 插入+唯一拒绝 / version 默认 1）。
+
+## G7 Step 2：仓储（PATCH 算子 + 状态机转移表）COMPLETE（2026-11-25）
+
+- `repo/chat.ts` 扩展：messages/blocks CRUD（稀疏 ord 1024+竞态重试）· createTask/getTaskWithStages
+  · **transitionStage**（转移表白名单 pending/running/awaiting_user/done/failed，非法
+  InvalidTransitionError；每次迁移留 task_events 对账）· **patchTask**（op_hash=sha1(canonical op)
+  幂等；纯增即时/删移改 kind 落 task_patches 提案；乐观锁 version 批进一次）· resolvePatchOp
+  （accept=应用，reject=留痕）。
+- 0016 补 task_patches（任务域提案载体——proposals.target_id 是 items 外键指向不了 task，
+  D-042 不变式按域分载体）+ task_events（任务域审计线）。
+- 实测修 3 真问题：version 双倍递增（改批进一次）· 并发 ord 竞态（唯一键+重试）·
+  drizzle 违例检测（pg code/detail 在 cause 链，递归检测）。
+- 验收：chat_workspace 5/5（转移全 pair+非法拒+events 对账 / op_hash 重放零重复+分流+
+  裁决 / 并发 ord 全落）。
+
+## G7 Step 3：薄编排器 COMPLETE（2026-11-25，D-111）
+
+- `agent/structured.ts`：structuredCall（extractJson→validate→修复重试 1 次→PlanError）。
+- `agent/uispec.ts`：generateOnboardingFlow（LLM 产 DSL 文本+模板兜底）。
+- `agent/orchestrator.ts`：startTask（指令→计划生成→任务卡→runStages）· runStages（每轮
+  重载新鲜状态、四执行语义编排既有引擎、重试≤3 退避、confirm 停 awaiting_user+uiflow 落）·
+  resumeTask（user_input→恢复续跑）· StageExecutor 插座（tool-loop 预留）。
+- 执行语义：collect=分词多查+零命中兜底取最新 · synthesize=suggestForChunks/meta 提案
+  （读 collect.detail refs）· compose=LLM 草稿+模板兜底 · confirm=DSL+停点。
+- 实测发现（记 D-111）：chatComplete 内建重试吸收瞬时错（stage 下自愈）；compose 模板兜底
+  不红标——stage 级重试/红标以「解析违约」路径实测。
+- 验收：orchestrator.test 4/4（成功链含停点/uiflow/提案 · 回退默认管线+note 明示 ·
+  重试留痕+三连违约红标 · resume 恢复续跑至任务完成）。
+
+## G7 Step 4：API 层 COMPLETE（2026-11-25）
+
+- 路由：POST/GET /api/conversations/:id/messages（发指令→startTask 同步执行→201 返执行后
+  真实态；消息+块 cursor 分页）· GET/PATCH /api/tasks/:id（投影源 task+stages+uiflows+patches；
+  卡内 PATCH 带乐观锁）· POST /api/tasks/:id/advance（awaiting_user→resume / 否则手动推进）。
+- 错误语义：409 VersionConflict · 422 非法迁移/完成段不可推进 · 404 目标缺失 · 400 契约。
+- generatePlan catch-all（任何失败回退默认管线，note 明示不阻塞）；startTask 响应返回执行后
+  真实阶段态（非 createTask 快照）。
+- 验收：chat_api 2/2（201 骨架+默认管线回退+块/投影源 · 400/404/409/422/算子契约）+ curl 真验
+  全链（awaiting_user 停点+uiflow 落+PATCH applied+409+422）。
+
+## G7 Step 5：ChatView 骨架 COMPLETE（2026-11-25，V1 收口）
+
+- `src/views/chat/`：ChatView（消息流+块渲染+底部输入）· TaskCard（「新建任务」+管线小卡
+  序号/状态色/awaiting_user 黄标+展开 steps+卡内「还有想添加的？」→ PATCH add_stage 乐观
+  ghost）· chat.module.css。块渲染五类：text/note/operation(=TaskCard)/reference/flow。
+- App 'chat' 路由换真视图；api.ts +sendChatMessage/getTaskProjection/patchTaskOps/advanceTask。
+- 实测截图 gsc-chat-v1.png：对照 §0.5 V1 行全中（任务卡灰卡/五段管线状态色/黄标/卡内输入/
+  灰播报/交互面 chip/底部输入；05 导出PDF=PATCH 实证在列）。
+- 记录：Composer 全量接入后置（V1 轻量输入对齐原型）；V1 轮询（任务卡 2s/消息按需）。
+
+## G7 Step 6：DSL 解析器 COMPLETE（2026-11-25）
+
+- `src/lib/uiflow.ts`：parseFlow（行式 tokenizer→AST→四道校验：词表白名单/字段类型/
+  reference 形态+checkReferences 存在性/confirm 提案动作白名单）+ 降级链（单行降级 note
+  原文保留→整流降级全 note 不丢输入）+ renderFlow（逆向，round-trip/uispec 模板共用）。
+- 安全限制：节点≤30/字段≤40/值≤2000/标题≤80/`!dsl v1` 版本标（未知版本整流降级）。
+- uispec 模板修正：`confirm write: pending` → `metadata(plan)`（pending 非法动作）。
+- 验收：uiflow.test 6/6（文法全过 · 非法词/动作降级保文 · 引用校验 · 整流降级 · 限制 ·
+  round-trip fuzz 50 例恒等）。
+
+## G7 Step 7：FlowPanel Drawer + confirm→提案 COMPLETE（2026-11-25，V2 收口）
+
+- `FlowPanel.tsx`：右侧 Drawer ≈64% 宽（portal 不卸载消息流）· review 可改预填/collect 表单/
+  choose 单选/写入清单/确认写入；降级内容如实展示；`?flow=` 深链。
+- `completeFlow`（orchestrator）：confirm 动作→提案映射——meta_tag（按名解析定义；未命中走
+  pending_definition+new: 引用，D-106 复用）· cluster/semantic_name/classification/metadata
+  直落 kind · association/dedupe/pending_definition 仅记录；表单结果回流 stage.detail；
+  uiflow→done→resumeTask 续跑。
+- 路由 GET/POST /api/uiflows/:id(.complete)（404 前置检查）。
+- 验收：flow_complete 2/2（三动作映射含未命中双提案 · 回流/续跑/幂等 · 路由契约/404）+ 截图
+  gsc-chat-v2-drawer.png（§0.5 V2 行全中）+ curl 真链（confirm 停点→done、续跑至 task done、
+  uiflow done；proposals=0 因旧模板 confirm 行降级——映射路径 vitest 已证）。
+
+## G7 Step 8：V2 收口（2026-11-25，D-112）
+
+- §0 场景端到端实证（8793 真链）：发指令→任务卡管线→卡内 PATCH「导出PDF」→synthesize
+  红标（LLM 401）但管线穿到 Onboarding→Drawer review 改值/collect 输入→confirm→**1 条
+  metadata 提案落地**（rationale 带表单值）→PATCH 段续跑 done→uiflow done→task failed
+  （红标可见）。
+- D-112 运行器语义：增强段失败不阻塞（仅 awaiting_user 停点返回）；相关套件 8/8 零破坏。
+- 环境发现：.env.local 的 GSC_LLM_API_KEY 当前 401 失效（fallback:True/synthesize 失败根因）。
+- 验收图 gsc-chat-e2e-final.png（任务卡红标+失败原因+引用 chip+播报流）。
+
+## G7 Step 9：双时间线余项 COMPLETE（2026-11-25）
+
+- 对话行 **awaiting_user 黄点**：listConversationsWithStatus 聚合（task_stages join）→ 侧栏
+  琥珀点（实测：停点会话 True/余 False；截图 sidebar-awaiting-dot.png）。
+- **reference 块可点开**：chip → openItemInPage 导航条目详情。
+- **播报四类完备**：启动（正在启动任务管线）/推进（正在执行：X）/停点（启动 Onboarding 的
+  交互流）/恢复（用户输入已收到（恢复执行））+ 终态播报。
+- 验收：chat_workspace 7/7（黄点正确 · 四类回放+task_events 对账≥每段一次迁移）。
+
+## G7 Step 10：V3 收口 / G7 总账（2026-11-25，D-113）
+
+- G7「GSC 对话」V1+V2+V3 十步全落：数据层（0015/0016 八表）· 仓储（PATCH 幂等/转移表白
+  名单）· 薄编排器（D-111/D-112）· 8 路由 · ChatView/TaskCard/FlowPanel · DSL 解析器 ·
+  双时间线。E2E §0 场景真链 + 四图验收；全量 237+1skip/238。
+- 遗留（已记 D-113）：LLM key 401 · Composer 全量/WS · PATCH kind 启发式 · tool-loop 插座。
+
+## G7 正式验收：PASS（2026-11-25）
+
+| 门 | 证据 | 结论 |
+|---|---|---|
+| 状态机 | 转移表白名单（chat_workspace 全 pair）· 422 实测 · 重试≤3 红标（orchestrator 测） | ✅ |
+| LLM 任务层 | 回退默认管线+note 明示（orchestrator 测+真链 fallback:True）· 修复重试 1 次 | ✅ |
+| PATCH | op_hash 重放零重复（applied:1→replayed:1）· 纯增即时/删移改提案 · 409 实测 | ✅ |
+| DSL | 白名单/引用校验/降级不丢输入/round-trip fuzz 50（uiflow 6/6） | ✅ |
+| 确认 | complete→1 提案→**accept 落定 accepted**（prp_479611ab，D-042 对账） | ✅ |
+| 投影 | 消息块回放完整（四类播报）· task_events≥每段一迁移对账 | ✅ |
+| 回归 | tsc=0 lint=0 **vitest 237+1skip/238**（51 文件） | ✅ |
+
+真链冒烟（8793 fresh）：发指令→管线→PATCH→重放幂等→Drawer complete→提案→accept→409/422→
+终态（synthesize 红标可见/续跑至 done/task failed 如实）。四图验收（v1/v2-drawer/e2e-final/
+awaiting-dot）。**验收结论：PASS**（遗留项见 D-113，均非阻塞）。

@@ -1358,3 +1358,48 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **Consequences**：DESIGN_BOUNDARIES conversations 行已拆分（GSC 行新增）；G7（GSC 对话）
   立项执行（GSC_CHAT_PLAN.md v2 技术版）。
 - **Status**: `DECIDED` — 2026-11-25，随 GSC_CHAT_PLAN Step 0 落账。
+
+## D-111 — 薄编排器（DECIDED：不搭 agent framework）
+
+- **Decision（创始人 2026-11-25 问「是否搭建 agent framework」，两轮讨论结论）**：不搭
+  agent framework；搭「LLM 任务层 + 薄编排器」，留 bounded tool-loop 插座（StageExecutor
+  接口，V1 不实现）。
+- **理由**：原型 UX 契约=「先展示要执行的操作，可改，确认后写」→ 执行必须计划内，与涌现式
+  agent（think-act-observe）形状相反；原型需求全部落在工作流形状上（计划生成/状态机/停点/
+  PATCH/DSL 生成）；框架价值区间（开放工具循环/自主重规划/多 agent）零命中，且黑箱调试违背
+  「操作可见可审计」。可证伪触发器（出现任一则重议）：30 分钟级自愈任务 / 不可预测动态编排 /
+  第二种完全不同形状的 agent 任务。
+- **落地**（Step 3，随本决策执行）：`agent/structured.ts`（structuredCall：结构化输出+修复
+  重试+回退）· `agent/uispec.ts`（DSL 生成+模板兜底）· `agent/orchestrator.ts`（runStages：
+  四执行语义编排既有引擎、重试≤3、confirm 停 awaiting_user、resumeTask 恢复续跑、
+  StageExecutor 插座）。
+- **执行期实证**：chatComplete 内建重试吸收瞬时 LLM 错（stage 之下自愈）——stage 级重试只
+  针对引擎/解析失败；compose 有模板兜底不红标。
+- **Status**：`DECIDED` — 2026-11-25。
+
+## D-112 — V2 收口 + 运行器失败语义（DECIDED）
+
+- **Decision（Step 8 §0 场景端到端驱动）**：增强段失败**不阻塞**后续段——synthesize（提案增强）
+  失败红标后管线继续推进（compose/confirm 照跑）；任务终态=有失败段则 failed（可见），
+  否则 done。理由：§0 场景「先弄 onboarding」是用户主诉求，提案生成是增强；一次 LLM 抽风
+  不应卡死 onboarding。
+- **实证**：E2E 中 synthesize 因 **LLM 401 Invalid API Key**（环境 key 失效）三连败——新语义下
+  管线穿到 Onboarding，Drawer complete 落 1 条 metadata 提案，PATCH 段续跑至 done。
+- **Consequences**：runStages 仅 awaiting_user 停点返回；failed 只标记不中断。
+- **Status**：`DECIDED` — 2026-11-25，随 Step 8 执行。
+
+## D-113 — G7「GSC 对话」总账（DECIDED，V1+V2+V3 完成）
+
+- **Scope**：GSC_CHAT_PLAN.md v2 十步三阶段全执行（Step 0–10），设计=GSC_CHAT_DESIGN.md v2。
+- **交付**：数据层 0015/0016（conversations/messages/message_blocks/tasks/task_stages/
+  uiflows/task_patches/task_events）· 仓储（PATCH 算子 op_hash 幂等/状态机转移表白名单）·
+  薄编排器（structuredCall+uispec+orchestrator，D-111/D-112 语义）· API 8 路由（409/422/404）·
+  ChatView/TaskCard/FlowPanel（消息块五类/任务卡管线/右侧 Drawer/卡内 PATCH）·
+  DSL 解析器（四道校验+降级链+round-trip）· 双时间线（黄点/reference/播报四类）。
+- **验收轨迹**：每步 vitest+真链（E2E §0 场景含 Drawer→提案落地+续跑）+ 四图（gsc-chat-v1/
+  v2-drawer/e2e-final/sidebar-awaiting-dot）；最终全量 237+1skip/238。
+- **决策链**：D-110 边界演进 · D-111 不搭 framework · D-112 失败不阻塞 · 提案载体域分
+  （task_patches，FK 约束所致）。
+- **遗留**：环境 LLM key 401 失效待换 · Composer 全量接入后置 · WS/流式后置 ·
+  卡内 PATCH kind 启发式固定 compose · bounded tool-loop 仅插座。
+- **Status**：`DECIDED` — 2026-11-25，G7 V1+V2+V3 完成。
