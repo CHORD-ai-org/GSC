@@ -11,7 +11,7 @@ import { segmentText } from '../../src/lib/lightup.ts';
 import { suggestForChunks, suggestMetaTags } from '../agent/proposer.ts';
 import { listTagDefinitions } from '../repo/tags.ts';
 import { runDetection } from '../agent/detector.ts';
-import { createProposal } from '../repo/proposals.ts';
+import { createProposal, listProposals } from '../repo/proposals.ts';
 import { createItem } from '../repo/items.ts';
 import { upsertSnapshot } from '../repo/snapshots.ts';
 import { claimNextTask, reclaimStale, updateTask } from '../repo/tasks.ts';
@@ -94,25 +94,39 @@ export async function processSnapshot(
     }
   }
 
-  /* META_TAG_V1 suggest face: meta_tag proposals from existing definitions only
-     (best-effort; related_id = definition id, proposed_value = tag value). */
+  /* META_TAG_V1 suggest face: meta_tag proposals from existing definitions
+     (related_definition_id = definition id) plus the pending_definition flow for
+     invented tags (related_definition_id = `new:<name>`; the definition is only
+     created when the user accepts the pending_definition proposal). */
   try {
     const definitions = await listTagDefinitions(db);
-    if (definitions.length > 0) {
-      const meta = await suggestMetaTags(config, [{
-        id: item.id, title: item.title ?? '', content: doc.contentText.slice(0, 2000),
-      }], definitions.map((d) => ({ id: d.id, name: d.name })));
-      for (const m of meta) {
-        await createProposal(db, {
-          kind: 'meta_tag',
-          target_id: m.item_id,
-          related_definition_id: m.definition_id,
-          proposed_value: m.value,
-          rationale: m.why || `meta tag suggestion (${opts.kind})`,
-          source: 'agent',
-        });
-        proposals += 1;
+    const meta = await suggestMetaTags(config, [{
+      id: item.id, title: item.title ?? '', content: doc.contentText.slice(0, 2000),
+    }], definitions.map((d) => ({ id: d.id, name: d.name })));
+    for (const m of meta) {
+      if (m.new_name) {
+        // one pending_definition per name (skip when one is already pending)
+        const pending = (await listProposals(db, 'pending')).filter((p) => p.kind === 'pending_definition');
+        if (!pending.some((p) => p.proposed_value === m.new_name)) {
+          await createProposal(db, {
+            kind: 'pending_definition',
+            target_id: m.item_id,
+            proposed_value: m.new_name,
+            rationale: m.why || `new tag suggested (${opts.kind})`,
+            source: 'agent',
+          });
+          proposals += 1;
+        }
       }
+      await createProposal(db, {
+        kind: 'meta_tag',
+        target_id: m.item_id,
+        related_definition_id: m.definition_id,
+        proposed_value: m.value,
+        rationale: m.why || `meta tag suggestion (${opts.kind})`,
+        source: 'agent',
+      });
+      proposals += 1;
     }
   } catch (e) {
     console.error('[intel] meta tag suggestion skipped:', e instanceof Error ? e.message : e);
