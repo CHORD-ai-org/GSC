@@ -62,15 +62,23 @@ function validatePlan(v: unknown): Plan | null {
   return { title: p.title.slice(0, 200), goal: p.goal, stages };
 }
 
+/** 无 LLM 时的语义标题收束（原型要求：不做指令原文折行当标题）。 */
+function semanticTitle(instruction: string): string {
+  const about = /关于[“"']([^”"']{2,20})[”"'](?:项目的|项目)/.exec(instruction)?.[1] ?? '';
+  const quoted = /[“「"']([^”」"']{2,20})[”」"'](?:项目|的数据|的所有数据)/.exec(instruction)?.[1] ?? '';
+  const subject = about || quoted || instruction.replace(/^(把|帮我|请|整理|请帮我)\s*/, '').slice(0, 12);
+  return subject ? `“${subject}”项目的信息收集与项目文档构建` : '信息整理任务';
+}
+
 function defaultPipeline(instruction: string): Plan {
   return {
-    title: instruction.slice(0, 40) || '未命名任务',
+    title: semanticTitle(instruction),
     goal: instruction,
     stages: [
       { kind: 'collect', name: '查找数据', steps: ['按指令关键词检索条目'] },
       { kind: 'synthesize', name: '分析融合', steps: ['生成命名/归类提案'] },
       { kind: 'compose', name: '撰写计划', steps: ['组装条目草稿'] },
-      { kind: 'confirm', name: 'Onboarding', steps: ['Information Review', 'User Confirmation Before Write'] },
+      { kind: 'confirm', name: 'Onboarding', steps: ['Information Review', 'Structured Data Preparation', 'User Confirmation Before Write'] },
     ],
   };
 }
@@ -82,7 +90,9 @@ async function generatePlan(config: Config, instruction: string, ctx: RunCtx): P
       content:
         'You plan an information-organization task. Reply ONLY with JSON: '
         + '{"title":"<≤40字>","goal":"<one sentence>","stages":[{"kind":"collect|synthesize|compose|confirm","name":"<≤12字>","steps":["<step>"]}]} '
-        + 'Constraints: 1..12 stages; steps ≤8 per stage; prefer the four kinds in order collect→synthesize→compose→confirm.',
+        + 'Constraints: 1..12 stages; steps ≤8 per stage; prefer the four kinds in order collect→synthesize→compose→confirm. '
+        + 'title must be a concise semantic project title (not a copy of the instruction). '
+        + 'When a confirm stage is used, its steps should be: Information Review, Structured Data Preparation, User Confirmation Before Write.',
     },
     { role: 'user', content: instruction },
   ];
@@ -169,7 +179,7 @@ export const defaultExecutor: StageExecutor = {
         });
         return { draft: out.draft };
       } catch {
-        return { draft: `草稿（模板）：围绕「${task.goal.slice(0, 80)}」整理条目与提案，确认后写入项目文件夹。` };
+        return { draft: '项目文档草稿（待确认）' };
       }
     }
     // confirm：产 DSL 草稿 → 停点
@@ -209,7 +219,6 @@ async function runStage(db: Database, config: Config, task: TaskDTO, stage: Stag
   const fullCtx: ExecCtx = { ...ctx, config };
   const backoff = ctx.backoffMs ?? DEFAULT_BACKOFF;
   const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  await addBlock(db, runMsgId, { kind: 'note', content: `正在执行：${stage.name}` });
   await transitionStage(db, stage.id, 'running');
   for (let attempt = 0; ; attempt += 1) {
     try {
@@ -219,7 +228,7 @@ async function runStage(db: Database, config: Config, task: TaskDTO, stage: Stag
           task_id: task.id, stage_id: stage.id, kind: 'onboarding', dsl_text: out.flow ?? '',
         });
         await addBlock(db, runMsgId, { kind: 'flow', ref_id: flow.id, content: `onboarding:${flow.id}` });
-        await addBlock(db, runMsgId, { kind: 'note', content: '启动 Onboarding 的交互流' });
+        await addBlock(db, runMsgId, { kind: 'note', content: '启动关键信息的Onboarding的交互流' });
         await transitionStage(db, stage.id, 'awaiting_user', { detail: 'awaiting onboarding input' });
         return 'parked';
       }
@@ -233,7 +242,6 @@ async function runStage(db: Database, config: Config, task: TaskDTO, stage: Stag
         await addBlock(db, runMsgId, { kind: 'text', content: out.draft });
         await transitionStage(db, stage.id, 'done');
       } else {
-        await addBlock(db, runMsgId, { kind: 'note', content: `已生成 ${out.proposals ?? 0} 条提案` });
         await transitionStage(db, stage.id, 'done');
       }
       return 'done';
@@ -241,7 +249,8 @@ async function runStage(db: Database, config: Config, task: TaskDTO, stage: Stag
       const msg = e instanceof Error ? e.message : String(e);
       if (attempt >= 2) {
         await transitionStage(db, stage.id, 'failed', { detail: msg.slice(0, 200) });
-        await addBlock(db, runMsgId, { kind: 'note', content: `阶段失败：${stage.name}（${msg.slice(0, 80)}）` });
+        const reason = msg.includes('401') ? 'LLM 不可用' : msg.slice(0, 30);
+        await addBlock(db, runMsgId, { kind: 'note', content: `阶段失败：${stage.name}（${reason}）` });
         return 'failed';
       }
       await transitionStage(db, stage.id, 'running', { bumpAttempts: true, detail: `retry after: ${msg.slice(0, 120)}` });
@@ -257,7 +266,7 @@ export async function runStages(db: Database, config: Config, taskId: string, ct
   const { task, stages } = loaded;
   const msg = await getMessage(db, task.message_id);
   const run = await addMessage(db, msg?.conversation_id ?? '', 'agent', '', []);
-  await addBlock(db, run.message.id, { kind: 'note', content: `正在启动任务管线：${task.title.slice(0, 40)}` }); // 播报·启动
+  await addBlock(db, run.message.id, { kind: 'note', content: '正在启动信息收集管线' }); // 播报·启动（原型原文）
   let anyFailed = false;
   for (const stale of stages) {
     // 每轮重载：跨 stage 取 refs（synthesize 读 collect.detail）必须用新鲜状态
@@ -273,7 +282,7 @@ export async function runStages(db: Database, config: Config, taskId: string, ct
   }
   // 终态：有失败段 → failed（可见）；否则 done
   await setTaskStatus(db, taskId, anyFailed ? 'failed' : 'done');
-  await addBlock(db, run.message.id, { kind: 'note', content: anyFailed ? '任务结束（有阶段失败，红标可见）' : '任务完成' });
+  await addBlock(db, run.message.id, { kind: 'note', content: anyFailed ? '任务结束（有阶段失败，红标可见）' : '开始编辑项目文件夹' });
 }
 
 /** 停点恢复：user_input → awaiting_user→running→续跑。 */
@@ -398,7 +407,7 @@ export async function startTask(
   });
   const run = await addMessage(db, conversationId, 'agent', '', [
     { kind: 'operation', ref_id: created.task.id, content: plan.title },
-    ...(fallback ? [{ kind: 'note' as const, content: '计划生成失败，使用默认管线' }] : []),
+    ...(fallback ? [{ kind: 'note' as const, content: '正在思考' }] : []),
   ]);
   void run;
   await runStages(db, config, created.task.id, ctx);

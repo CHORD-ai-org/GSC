@@ -174,3 +174,128 @@ describe('META_TAG pending_definition flow (G5 收尾)', () => {
     }
   });
 });
+
+describe('META_TAG_PIPELINE（M1/M2/M3）：识别管线', () => {
+  async function seed(handle: DatabaseHandle, term: string, count = 3) {
+    const { createTagDefinition } = await import('./repo/tags.ts');
+    await createTagDefinition(handle.db, { name: '数据库', group_ids: ['grp_project'] });
+    for (let i = 0; i < count; i += 1) {
+      await createItem(handle.db, {
+        type: 'raw.document', title: `${term} 笔记 ${i + 1}`, domain: 'knowledge', origin: 'user',
+        fields: { content_text: `${term} deployment guide part ${i + 1}` },
+      });
+    }
+  }
+
+  function chat(content: string): Response {
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  /** 按系统提示路由：打标建议 vs discovery 命名。 */
+  function router(tagReply: string, nameReply: string, failAlways = false): typeof fetch {
+    return (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { messages?: { role: string; content: string }[] };
+      const sys = (body.messages ?? []).find((m) => m.role === 'system')?.content ?? '';
+      if (failAlways) throw new Error('LLM HTTP 401: Invalid API Key');
+      if (sys.includes('Assign meta tags')) return chat(tagReply);
+      if (sys.includes('Merge these frequent terms')) return chat(nameReply);
+      return chat('{}');
+    }) as typeof fetch;
+  }
+
+  it('M1 meta_tag 维：LLM 建议 → meta_tag 提案；无配置时规则维照跑（llm=absent）', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const { runDetection } = await import('./agent/detector.ts');
+      const { listProposals } = await import('./repo/proposals.ts');
+      const config = (await import('./config.ts')).readConfig({ PGLITE_DIR: './.data/_unused', GSC_LLM_API_KEY: 'k' });
+      await seed(handle, 'kubernetes', 2);
+      const defId = (await (await import('./repo/tags.ts')).listTagDefinitions(handle.db))[0].id;
+      const fetchImpl = router(
+        JSON.stringify({ tags: [{ item: (await (await import('./repo/items.ts')).listItems(handle.db))[0].id, definition: defId, value: 'deploy notes', why: 'w' }], new_tags: [] }),
+        '{"names":[]}',
+      );
+      const report = await runDetection(handle.db, { config, fetchImpl });
+      expect(report.meta_tag).toBe(1);
+      expect(report.llm).toBe('ok');
+      expect(report.metadata).toBeGreaterThanOrEqual(1); // 规则维与 LLM 维同轮各跑
+      const props = await listProposals(handle.db, 'pending');
+      expect(props.some((p) => p.kind === 'meta_tag')).toBe(true);
+
+      // 无配置：llm=absent；规则维产物被幂等去重（r1 已产 metadata 提案）
+      const r2 = await runDetection(handle.db);
+      expect(r2.llm).toBe('absent');
+      expect(r2.metadata).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('M1 降级：fetch 401 → llm=skipped，规则维不受影响', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const { runDetection } = await import('./agent/detector.ts');
+      const { listProposals } = await import('./repo/proposals.ts');
+      const config = (await import('./config.ts')).readConfig({ PGLITE_DIR: './.data/_unused', GSC_LLM_API_KEY: 'k' });
+      await seed(handle, 'redis', 3); // 3 条共享词元 → discovery 命名步会真正调 LLM（该步不吞错）
+      const fetchImpl = router('{}', '{}', true);
+      const report = await runDetection(handle.db, { config, fetchImpl });
+      expect(report.llm).toBe('skipped');
+      const props = await listProposals(handle.db, 'pending');
+      expect(props.some((p) => p.kind === 'metadata')).toBe(true); // 规则维产物保留
+      expect(props.some((p) => p.kind === 'meta_tag')).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('M3 discovery：规则候选→LLM 命名→pending_definition；同名跨轮不重复', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const { runDetection } = await import('./agent/detector.ts');
+      const { listProposals } = await import('./repo/proposals.ts');
+      const config = (await import('./config.ts')).readConfig({ PGLITE_DIR: './.data/_unused', GSC_LLM_API_KEY: 'k' });
+      await seed(handle, 'kubernetes', 3); // 3 条共享词元 kubernetes → df=3 命中候选
+      const fetchImpl = router('{"tags":[],"new_tags":[]}', '{"names":["K8s 运维"]}');
+      const r1 = await runDetection(handle.db, { config, fetchImpl });
+      expect(r1.candidates).toBeGreaterThanOrEqual(1);
+      expect(r1.discovered).toBe(1);
+      const props = await listProposals(handle.db, 'pending');
+      const pd = props.filter((p) => p.kind === 'pending_definition');
+      expect(pd).toHaveLength(1);
+      expect(pd[0].proposed_value.toLowerCase()).toBe('k8s 运维');
+
+      // 跨轮同名不重复
+      const r2 = await runDetection(handle.db, { config, fetchImpl });
+      expect(r2.discovered).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('M2 ingest 钩子：maybeDetectOnIngest 增量跑 + 开关关闭生效', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const { maybeDetectOnIngest } = await import('./agent/detector.ts');
+      const { listProposals } = await import('./repo/proposals.ts');
+      const config = (await import('./config.ts')).readConfig({ PGLITE_DIR: './.data/_unused', GSC_LLM_API_KEY: 'k' });
+      await seed(handle, 'docker', 1);
+      const fetchImpl = router('{}', '{}');
+      const ids = (await (await import('./repo/items.ts')).listItems(handle.db)).map((i) => i.id);
+
+      const prev = process.env.GSC_DETECT_ON_INGEST;
+      process.env.GSC_DETECT_ON_INGEST = '0';
+      await maybeDetectOnIngest(handle.db, config, ids);
+      expect((await listProposals(handle.db, 'pending')).length).toBe(0); // 关闭=零提案
+
+      process.env.GSC_DETECT_ON_INGEST = '1';
+      await maybeDetectOnIngest(handle.db, config, ids);
+      expect((await listProposals(handle.db, 'pending')).length).toBeGreaterThanOrEqual(1); // metadata 规则维
+      if (prev === undefined) delete process.env.GSC_DETECT_ON_INGEST; else process.env.GSC_DETECT_ON_INGEST = prev;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -55,7 +55,7 @@ describe('G7 API（Step 4）', () => {
       expect(msgs.json.messages.length).toBeGreaterThanOrEqual(2); // user + run
       const allBlocks = msgs.json.messages.flatMap((m: { blocks: unknown[] }) => m.blocks);
       expect(allBlocks.some((b: { kind: string; content: string }) => b.kind === 'operation')).toBe(true); // 任务卡
-      expect(allBlocks.some((b: { kind: string; content: string }) => b.kind === 'note' && b.content.includes('默认管线'))).toBe(true);
+      expect(allBlocks.some((b: { kind: string; content: string }) => b.kind === 'note' && b.content.includes('正在思考'))).toBe(true);
 
       const taskId = created.json.task.id;
       const t = await call('GET', `/api/tasks/${taskId}`);

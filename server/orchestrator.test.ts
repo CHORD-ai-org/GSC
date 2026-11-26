@@ -112,7 +112,7 @@ describe('G7 薄编排器（Step 3）', () => {
       // note 明示
       const msgs = await chat0.listMessages(handle.db, conv.id);
       const blocks = await chat0.listBlocks(handle.db, msgs.map((m) => m.id));
-      expect(blocks.some((b) => b.kind === 'note' && b.content.includes('默认管线'))).toBe(true);
+      expect(blocks.some((b) => b.kind === 'note' && b.content.includes('正在思考'))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -184,7 +184,7 @@ describe('G7 薄编排器（Step 3）', () => {
 
       const msgs = await chat0.listMessages(handle.db, conv.id);
       const blocks = await chat0.listBlocks(handle.db, msgs.map((m) => m.id));
-      expect(blocks.some((b) => b.kind === 'note' && b.content.includes('任务完成'))).toBe(true);
+      expect(blocks.some((b) => b.kind === 'note' && b.content.includes('开始编辑项目文件夹'))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

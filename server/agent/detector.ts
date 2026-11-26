@@ -5,8 +5,13 @@
  */
 import type { Database } from '../persistence/client.ts';
 import type { ItemDTO } from '../../src/lib/items.ts';
+import type { Config } from '../config.ts';
+import type { FetchLike } from './llm.ts';
+import { chatComplete, extractJson } from './llm.ts';
 import { listItems } from '../repo/items.ts';
 import { createProposal, listProposals } from '../repo/proposals.ts';
+import { listTagDefinitions, listTagValues } from '../repo/tags.ts';
+import { suggestMetaTags } from './proposer.ts';
 
 const DEDUPE_THRESHOLD = 0.8;
 
@@ -64,9 +69,21 @@ export function planComparisons(tokenSets: Map<string, Set<string>>): [string, s
   return [...pairs].map((k) => k.split('\u0000') as [string, string]);
 }
 
-export type DetectionReport = { dedupe: number; metadata: number; association: number };
+export type DetectionReport = {
+  dedupe: number; metadata: number; association: number;
+  meta_tag: number; discovered: number; candidates: number;
+  llm: 'ok' | 'skipped' | 'absent';
+};
 
-export async function runDetection(db: Database): Promise<DetectionReport> {
+export type DetectOpts = {
+  /** LLM 缝合点配置——缺省时 LLM 维跳过（llm='absent'），规则维照跑。 */
+  config?: Config;
+  fetchImpl?: FetchLike;
+  /** ingest 钩子增量模式：LLM 维只跑这批新增条目。 */
+  incremental?: string[];
+};
+
+export async function runDetection(db: Database, opts: DetectOpts = {}): Promise<DetectionReport> {
   const all: ItemDTO[] = await listItems(db);
   const pending = await listProposals(db, 'pending');
   /* P1 hygiene: one key function for both sides of the dedupe check. The old code
@@ -81,7 +98,7 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
     pendingCount.set(k, (pendingCount.get(k) ?? 0) + 1);
   }
   const underCap = (kind: string, target: string, cap = 3) => (pendingCount.get(`${kind}:${target}`) ?? 0) < cap;
-  const report: DetectionReport = { dedupe: 0, metadata: 0, association: 0 };
+  const report: DetectionReport = { dedupe: 0, metadata: 0, association: 0, meta_tag: 0, discovered: 0, candidates: 0, llm: 'absent' };
 
   const texts = new Map<string, string>();
   for (const item of all) texts.set(item.id, comparableText(item));
@@ -136,5 +153,112 @@ export async function runDetection(db: Database): Promise<DetectionReport> {
     }
   }
 
+  /* META_TAG_PIPELINE M1/M3：Agent 腿两维（LLM 缝合点；401/缺配置时跳过不阻塞规则维）。 */
+  if (!opts.config) return report;
+  report.llm = 'ok';
+  try {
+    const defs = await listTagDefinitions(db);
+    const llmIds = opts.incremental && opts.incremental.length ? new Set(opts.incremental) : null;
+    const targets = llmIds ? all.filter((i) => llmIds.has(i.id)) : all;
+    // meta_tag 建议维：只对「尚无任何已打标定义」的条目建议（已打标的尊重人工结果）
+    const tagged = new Set((await listTagValues(db, {})).map((v) => `${v.item_id}:${v.definition_id}`));
+    const untagged = targets.filter((i) => !defs.some((d) => tagged.has(`${i.id}:${d.id}`)));
+    if (untagged.length > 0) {
+      const suggestions = await suggestMetaTags(
+        opts.config,
+        untagged.slice(0, 12).map((i) => ({ id: i.id, title: i.title, content: (texts.get(i.id) ?? i.title).slice(0, 200) })),
+        defs.map((d) => ({ id: d.id, name: d.name })),
+        opts.fetchImpl,
+      );
+      for (const sug of suggestions) {
+        const key = relKey('meta_tag', sug.item_id, sug.definition_id);
+        if (seen.has(key) || !underCap('meta_tag', sug.item_id)) continue;
+        await createProposal(db, {
+          kind: 'meta_tag',
+          target_id: sug.item_id,
+          related_definition_id: sug.definition_id,
+          proposed_value: sug.value,
+          rationale: sug.why || 'detector meta_tag suggestion',
+          source: 'detector',
+        });
+        seen.add(key);
+        report.meta_tag += 1;
+      }
+    }
+    // tag discovery 维：规则候选 → LLM 规范名 → pending_definition（同名跨轮永不重复）
+    const candidates = discoverTagCandidates(all, defs, texts);
+    report.candidates = candidates.length;
+    if (candidates.length > 0) {
+      const named = await nameTagCandidates(opts.config, candidates, opts.fetchImpl);
+      const localDefs = new Set<string>();
+      for (const name of named.slice(0, 8)) {
+        const norm = name.trim().toLowerCase();
+        if (!norm || norm.length > 20) continue;
+        if (localDefs.has(norm)) continue;
+        if (pending.some((x) => x.kind === 'pending_definition' && x.proposed_value.toLowerCase() === norm)) continue;
+        const rep = all.find((i) => (texts.get(i.id) ?? '').toLowerCase().includes(norm)) ?? all[0];
+        if (!rep) continue;
+        await createProposal(db, {
+          kind: 'pending_definition',
+          target_id: rep.id,
+          proposed_value: name.trim(),
+          rationale: `discovery: “${name.trim()}” appears across ${candidates.find((c) => c.term.toLowerCase() === norm)?.df ?? '?'} items — confirm to create the definition`,
+          source: 'detector',
+        });
+        localDefs.add(norm);
+        report.discovered += 1;
+      }
+    }
+  } catch {
+    report.llm = 'skipped'; // LLM 不可用：记账，规则维产物保留
+  }
+
   return report;
+}
+
+/** discovery 规则步：跨条目高频且未被任何已有定义覆盖的词元（≤8 个）。 */
+export function discoverTagCandidates(
+  items: ItemDTO[],
+  defs: { name: string }[],
+  texts: Map<string, string>,
+  minDf = 3,
+): { term: string; df: number }[] {
+  const df = new Map<string, number>();
+  const defNames = defs.map((d) => d.name.toLowerCase());
+  for (const item of items) {
+    for (const t of tokens(texts.get(item.id) ?? '')) {
+      if (defNames.some((n) => n.includes(t) || t.includes(n))) continue;
+      df.set(t, (df.get(t) ?? 0) + 1);
+    }
+  }
+  return [...df.entries()]
+    .filter(([, c]) => c >= minDf)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([term, c]) => ({ term, df: c }));
+}
+
+/** discovery LLM 步：候选词元 → 规范标签名（合并同义，≤8 个）。 */
+async function nameTagCandidates(
+  config: Config,
+  candidates: { term: string; df: number }[],
+  fetchImpl?: FetchLike,
+): Promise<string[]> {
+  const { content } = await chatComplete(config, [
+    { role: 'system', content: 'Merge these frequent terms into canonical tag names (merge synonyms; keep names ≤12 chars; keep the original language). Reply ONLY with JSON {"names":["..."]}.' },
+    { role: 'user', content: JSON.stringify(candidates) },
+  ], fetchImpl);
+  const parsed = extractJson(content) as { names?: unknown } | null;
+  return Array.isArray(parsed?.names) ? (parsed.names as unknown[]).map(String).slice(0, 8) : [];
+}
+
+/** ingest 钩子（M2）：批采集收尾触发检测，非阻塞；GSC_DETECT_ON_INGEST=0 关闭。 */
+export async function maybeDetectOnIngest(db: Database, config: Config | undefined, newIds: string[]): Promise<void> {
+  if (process.env.GSC_DETECT_ON_INGEST === '0') return;
+  if (newIds.length === 0) return;
+  try {
+    await runDetection(db, { config, incremental: newIds });
+  } catch {
+    /* 非阻塞：采集主链不受检测失败影响 */
+  }
 }

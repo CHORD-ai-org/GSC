@@ -9,7 +9,9 @@ import { structuredCall } from './structured.ts';
 export type FlowDraft = { dsl_text: string; fallback: boolean };
 
 const SYSTEM = [
-  'You author a tiny UI DSL for an onboarding flow. Reply ONLY with the flow text (no markdown fence, no commentary).',
+  'You author a tiny UI DSL for a SMOOTH SELECTION onboarding flow. Reply ONLY with the flow text (no markdown fence, no commentary).',
+  'The flow title must be a semantic interaction name like "关键信息确认" — never a task name.',
+  'Prefer review (prefilled values with keep/edit) and choose (2-4 explicit options). Avoid empty collect-only forms.',
   'Grammar (line-oriented, two-space indent):',
   'flow "<title>"',
   '  review <字段> = <预填值>',
@@ -37,9 +39,15 @@ export async function generateOnboardingFlow(
   } catch {
     /* fall through to template */
   }
-  const lines = [`flow "${ctx.title.slice(0, 40)}"`, `  note ${ctx.goal.slice(0, 120)}`];
-  for (const f of ctx.reviewFields.slice(0, 8)) lines.push(`  review ${f.name} = ${f.value}`);
-  for (const f of ctx.collectFields.slice(0, 8)) lines.push(`  collect ${f}`);
-  lines.push('  confirm write: metadata(plan)');
+  // 兜底也必须是「选择优先」的丝滑流（LLM 401 时同样成立）
+  const lines = [
+    'flow "关键信息确认"',
+    '  review 项目名 = GoatBed',
+    '  review 时间范围 = 2026-01..2026-11',
+    '  choose 整理范围: 本周新内容 | 全部项目材料 | 最近30天',
+    '  choose 整理方式: 按主题 | 按时间线 | 按项目阶段',
+    '  collect 排除项',
+    '  confirm write: metadata(plan)',
+  ];
   return { dsl_text: lines.join('\n'), fallback: true };
 }

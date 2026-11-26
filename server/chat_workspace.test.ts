@@ -226,11 +226,11 @@ describe('G7 V3（Step 9）：黄点 + 播报回放', () => {
       const msgs = await chat.listMessages(handle.db, conv.id);
       const blocks = await chat.listBlocks(handle.db, msgs.map((m) => m.id));
       const notes = blocks.filter((b) => b.kind === 'note').map((b) => b.content);
-      expect(notes.some((n) => n.includes('正在启动任务管线'))).toBe(true); // 启动
-      expect(notes.some((n) => n.includes('正在执行：查找数据'))).toBe(true); // 推进
-      expect(notes.some((n) => n.includes('启动 Onboarding 的交互流'))).toBe(true); // 停点
+      expect(notes.some((n) => n.includes('正在启动信息收集管线'))).toBe(true); // 启动（原型原文）
+      expect(notes.some((n) => n.includes('启动关键信息的Onboarding的交互流'))).toBe(true); // 停点
       expect(notes.some((n) => n.includes('恢复执行'))).toBe(true); // 恢复
-      expect(notes.some((n) => n.includes('任务完成'))).toBe(true);
+      expect(notes.some((n) => n.includes('开始编辑项目文件夹'))).toBe(true); // 终态
+      expect(notes.some((n) => n.includes('正在执行：'))).toBe(false); // 内部执行日志不进消息块
 
       // task_events 对账：stage 迁移都有事件行
       const { taskEvents } = await import('./persistence/schema.ts');
