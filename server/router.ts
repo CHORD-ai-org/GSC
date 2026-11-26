@@ -25,8 +25,9 @@ import { chatComplete } from './agent/llm.ts';
 import { clearLocalUserId, llmPublicConfig, readLocalUserId, resolveLlmConfig, writeLlmApiKey, writeLlmSettings, writeLocalUserId } from './storage/settings.ts';
 import { isProviderId, detectProvider, USD_PER_MILLION } from '../src/lib/providers.ts';
 import { buildOpenApi } from './openapi.ts';
+import { AGENTS_TUTORIAL_MD } from './agents-tutorial.ts';
 import { createNewsItem, deleteNewsItem, readNews, updateNewsItem } from './storage/news.ts';
-import { createItem, deleteItem, getItem, listDeletedItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
+import { createItem, deleteItem, getItem, listDeletedItems, listItems, listItemsPaged, purgeItem, restoreItem, updateItem } from './repo/items.ts';
 import { searchAll } from './repo/search.ts';
 import { createRelation, listRelations, listRelationsForItems } from './repo/relations.ts';
 import { listEvents, listEventsForItems, appendEvent, activityCountsByItem } from './repo/events.ts';
@@ -112,7 +113,8 @@ import { ingestBatch } from './intel/batch.ts';
 import type { IngestBatchBody } from '../src/lib/ingest.ts';
 import { createTask, getTask, listTasks, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
-import { runDetection } from './agent/detector.ts';
+import { runDetection, maybeDetectOnIngest } from './agent/detector.ts';
+import { buildInitialProfile } from './agent/profile-init.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
 import { DEFAULT_USER_ID, verifyApiToken, listTokens, createApiToken, revokeApiToken } from './storage/tokens.ts';
 import {
@@ -464,7 +466,15 @@ async function hIngestBatch(ctx: RouteCtx): Promise<RouteResult> {
   /* G2 batch intake — thin wrapper over intel/batch.ts (shared with the
      integrations test probe). */
   const { db, config, body, viewerId } = ctx;
+  const t0 = new Date();
   const result = await ingestBatch(db, config, body as IngestBatchBody, viewerId);
+  // META_TAG_PIPELINE M2：采集收尾钩子（非阻塞；仅本次新增条目；GSC_DETECT_ON_INGEST=0 关）
+  try {
+    const created = (await listItems(db)).filter((i) => i.created_at >= t0.toISOString()).map((i) => i.id);
+    void maybeDetectOnIngest(db, config, created);
+  } catch {
+    /* 非阻塞 */
+  }
   return ok({ ok: true, ...result }, 201);
 }
 
@@ -1010,7 +1020,7 @@ async function hAgentPropose(ctx: RouteCtx): Promise<RouteResult> {
 
 async function hAgentDetect(ctx: RouteCtx): Promise<RouteResult> {
   try {
-    const report = await runDetection(ctx.db);
+    const report = await runDetection(ctx.db, { config: ctx.config }); // 五维轮（META_TAG_PIPELINE M1）
     return ok({ ok: true, report });
   } catch (e) {
     return fail('internal', e instanceof Error ? e.message : 'Detection failed');
@@ -1221,6 +1231,27 @@ async function hTagValueDelete(ctx: RouteCtx): Promise<RouteResult> {
   return ok({ ok: true, deleted: true });
 }
 
+/* USER_PROFILE_INIT_PLAN U1：初始画像构建（屏 2 后端）。 */
+async function hProfileInit(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, config, viewerId, body } = ctx;
+  const sourceItemIds = (body as { source_item_ids?: unknown })?.source_item_ids;
+  if (sourceItemIds !== undefined && !Array.isArray(sourceItemIds)) {
+    return fail('contract', 'source_item_ids must be a string array');
+  }
+  const user = await getUser(db, viewerId);
+  const userName = user?.name ?? '用户';
+  try {
+    const report = await buildInitialProfile(db, config, {
+      userId: viewerId,
+      userName,
+      sourceItemIds: Array.isArray(sourceItemIds) ? sourceItemIds.map(String).slice(0, 50) : undefined,
+    });
+    return ok({ ok: true, ...report }, 201);
+  } catch (e) {
+    return fail('internal', e instanceof Error ? e.message : 'profile init failed');
+  }
+}
+
 async function hProfileGet(ctx: RouteCtx): Promise<RouteResult> {
   // Read-only User Profile output for external agents (D-066): confirmed values only.
   const { db, viewerId } = ctx;
@@ -1285,6 +1316,14 @@ async function hTokenDelete(ctx: RouteCtx): Promise<RouteResult> {
 
 async function hOpenApi(): Promise<RouteResult> {
   return ok(buildOpenApi());
+}
+
+/* FORAGENTS_PLAN F1：agent 自举教程（text/markdown；agent fetch 一等公民）。 */
+async function hForAgentsMd(ctx: RouteCtx): Promise<void> {
+  const res = ctx.res;
+  res.statusCode = 200;
+  res.setHeader('content-type', 'text/markdown; charset=utf-8');
+  res.end(AGENTS_TUTORIAL_MD);
 }
 
 async function hDocs(ctx: RouteCtx): Promise<RouteResult> {
@@ -1534,6 +1573,7 @@ export const ROUTES: RouteSpec[] = [
     ],
   },
   { pattern: /^\/api\/profile$/, ops: [{ method: 'GET', handler: hProfileGet }] },
+  { pattern: /^\/api\/profile\/init$/, ops: [{ method: 'POST', handler: hProfileInit, body: true, idem: true }] },
   {
     pattern: /^\/api\/llm\/config$/,
     ops: [
@@ -1575,6 +1615,7 @@ export const ROUTES: RouteSpec[] = [
   { pattern: /^\/api\/tokens\/([^/]+)$/, ops: [{ method: 'DELETE', handler: hTokenDelete, idem: true }] },
   { pattern: /^\/api\/openapi\.json$/, ops: [{ method: 'GET', handler: hOpenApi }] },
   { pattern: /^\/api\/docs$/, ops: [{ method: 'GET', handler: hDocs }] },
+  { pattern: /^\/api\/foragents\.md$/, ops: [{ method: 'GET', handler: hForAgentsMd }] },
 ];
 
 /* Route manifest derived from the table above — cannot drift (F9). */

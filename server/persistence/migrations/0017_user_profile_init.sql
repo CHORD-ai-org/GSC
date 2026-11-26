@@ -1,0 +1,2 @@
+-- USER_PROFILE_INIT_PLAN U1：伴灵名 + 用户画像锚点标记
+ALTER TABLE users ADD COLUMN IF NOT EXISTS companion_name TEXT;

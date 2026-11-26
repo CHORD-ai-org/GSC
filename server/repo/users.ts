@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../persistence/client.ts';
 import { clusterShareEvents, clusterShares, users } from '../persistence/schema.ts';
 
-export type UserDTO = { id: string; name: string; created_at: string };
+export type UserDTO = { id: string; name: string; created_at: string; companion_name?: string | null };
 export type ShareDTO = { cluster_id: string; user_id: string; name: string; role: 'view' | 'add'; created_at: string };
 
 type UserRow = typeof users.$inferSelect;
@@ -96,4 +96,17 @@ export async function shareFor(
   const all = await db.select().from(clusterShares).where(eq(clusterShares.cluster_id, clusterId));
   const found = all.find((s) => s.user_id === userId);
   return found ? (found.role as 'view' | 'add') : null;
+}
+
+export async function setCompanionName(db: Database, id: string, companionName: string): Promise<void> {
+  // 0017 轻量补列（companion_name 未进 drizzle users 定义，走原始 SQL 模板）
+  await db.execute(sql`UPDATE users SET companion_name = ${companionName} WHERE id = ${id}`);
+}
+
+export async function getCompanionName(db: Database, id: string): Promise<string | null> {
+  const res = await db.execute<{ companion_name: string | null }>(
+    sql`SELECT companion_name FROM users WHERE id = ${id}`,
+  );
+  const rows = (res as unknown as { rows?: { companion_name: string | null }[] }).rows ?? [];
+  return rows[0]?.companion_name ?? null;
 }
