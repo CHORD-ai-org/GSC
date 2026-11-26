@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const API_HOST = '127.0.0.1';
-const API_PORT = 8788;
+const API_PORT = Number(process.env.API_PORT ?? 8788);
 const PORT = Number(process.env.DASHBOARD_PORT ?? 8790);
 
 const server = createServer((req, res) => {

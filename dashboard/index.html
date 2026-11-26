@@ -51,6 +51,15 @@
 
   <h2>调度列表</h2>
   <div id="list"><div class="empty">加载中…</div></div>
+
+  <h2>识别管线（META_TAG_PIPELINE）</h2>
+  <div class="form">
+    <button class="primary" id="detect">运行全量识别</button>
+    <span class="meta">五维轮：dedupe / association / metadata / meta_tag 建议 / tag discovery · 全走提案制</span>
+  </div>
+  <div id="detectReport" class="empty">尚未运行（LLM 维状态随 /api/llm/config 而定；401 时仅规则维产出）</div>
+  <h2>待裁决提案（按维度）</h2>
+  <div id="propCounts"><div class="empty">加载中…</div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -129,8 +138,51 @@
     }
   });
 
+  const KIND_LABEL = { dedupe: '去重', association: '关联', metadata: '元信息', meta_tag: '打标建议', pending_definition: '新标签定义', cluster: '归块', semantic_name: '语义命名', classification: '分类' };
+
+  async function refreshProps() {
+    try {
+      const r = await fetch('/api/proposals?status=pending');
+      const d = await r.json();
+      const counts = {};
+      for (const p of (d.proposals ?? [])) counts[p.kind] = (counts[p.kind] ?? 0) + 1;
+      const entries = Object.entries(counts);
+      $('propCounts').innerHTML = entries.length
+        ? entries.map(([k, v]) => `<div class="row"><span class="chip">${esc(KIND_LABEL[k] || k)}</span><span class="body"><b>${v}</b> 条待裁决</span></div>`).join('')
+        : '<div class="empty">暂无待裁决提案</div>';
+    } catch (e) {
+      $('propCounts').innerHTML = '<div class="empty">API 不可达</div>';
+    }
+  }
+
+  $('detect').addEventListener('click', async () => {
+    const b = $('detect');
+    b.disabled = true; b.textContent = '识别中…';
+    try {
+      const r = await fetch('/api/agent/detect', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        const rep = d.report ?? {};
+        $('detectReport').innerHTML = `<div class="row"><span class="body">
+          <b>上次识别报告</b>
+          <div class="meta">dedupe ${rep.dedupe ?? 0} · metadata ${rep.metadata ?? 0} · association ${rep.association ?? 0} · meta_tag ${rep.meta_tag ?? 0} · discovered ${rep.discovered ?? 0}（候选 ${rep.candidates ?? 0}）· LLM 状态：${rep.llm ?? '-'}</div>
+        </span></div>`;
+        toast('识别完成：提案已入待裁决');
+      } else {
+        toast(d.message || '识别失败');
+      }
+      refreshProps();
+    } catch (e) {
+      toast('识别失败：API 不可达');
+    } finally {
+      b.disabled = false; b.textContent = '运行全量识别';
+    }
+  });
+
   refresh();
+  refreshProps();
   setInterval(refresh, 15000);
+  setInterval(refreshProps, 20000);
 </script>
 </body>
 </html>

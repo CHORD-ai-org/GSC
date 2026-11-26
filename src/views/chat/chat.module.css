@@ -36,3 +36,23 @@
 .composerInput { flex: 1; border: 1px solid var(--line-strong); border-radius: 12px; padding: 11px 14px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--ink); outline: none; resize: none; }
 .sendBtn { border: 0; border-radius: 999px; width: 34px; height: 34px; background: #0a84ff; color: #fff; cursor: pointer; font-size: 14px; }
 .empty { color: var(--ink-3); font-size: 13px; padding: 30px 4px; }
+
+.bubbleUser{background:#eef4fc;border:1px solid #d9e6f6;border-radius:14px;max-width:460px;color:#22364b;padding:11px 15px}
+.taskCard{background:#f5f6f8;border:1px solid #e3e5e9;border-radius:12px;padding:14px 16px;max-width:540px}
+.stages{flex-direction:column;flex-wrap:nowrap;gap:6px}
+.stageCard{width:100%;min-width:0;display:flex;align-items:center;gap:10px;background:#fff;border-radius:8px;padding:8px 10px}
+.stageActive{border-color:#34c759}
+.stageName{flex:1;font-size:12px}
+.stageStatus{font-size:11px;margin-top:0}
+.taskGrid{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:14px;align-items:start}
+.cardInputRow{flex-direction:column;align-items:stretch;gap:8px;margin-top:0}
+.cardButtons{display:flex;gap:6px;justify-content:flex-end}
+.extraSteps{margin-top:10px;font-size:11px;color:var(--ink-3)}
+.flowNotice{background:#f1f2f4;border:1px solid #e0e2e6;border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.6;color:var(--ink-3);text-align:left;cursor:pointer;width:100%;max-width:520px}
+.composerCapsule{width:100%;border:1px solid var(--line-strong);border-radius:14px;padding:11px 14px;font:400 13px var(--font-sans);background:var(--bg-surface);color:var(--ink);outline:none;resize:none}
+.composerMeta{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-3);padding:7px 4px 0}
+.composerMetaGroup{display:flex;gap:14px;align-items:center}
+.subtleButton{border:0.5px solid var(--line-strong);background:var(--bg-surface);border-radius:999px;min-width:30px;height:28px;padding:0 8px;font:400 12px var(--font-sans);color:var(--ink);cursor:pointer}
+.subtleButton:disabled{opacity:0.35;cursor:default}
+.chip{border:0.5px solid var(--line-strong);background:var(--bg-surface);border-radius:999px;padding:7px 14px;font:400 13px var(--font-sans);color:var(--ink);cursor:pointer}
+.chip:disabled{opacity:0.5;cursor:default}
