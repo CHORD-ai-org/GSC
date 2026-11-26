@@ -4,6 +4,7 @@ import { Button, Field, SectionLabel } from '../components/ui.tsx';
 import { DotGridBackground, MosaicTransition } from '../components/animations.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { ChatView } from '../views/chat/ChatView.tsx';
+import { ForAgentsView } from '../views/ForAgentsView.tsx';
 import type { ViewId } from './Sidebar.tsx';
 import { useLocation, navigate, replace } from '../lib/router.ts';
 import { parsePath, buildPath } from './routes.ts';
@@ -971,8 +972,8 @@ export default function App() {
     }
     return (
       <>
-        {metaGroups.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
+        {(kind === 'raw' || kind === 'objects') && metaGroups.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '14px 36px 0' }}>
             <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('filter.group')}</span>
             <button
               type="button"
@@ -1245,6 +1246,9 @@ export default function App() {
             }
           />
         );
+      case 'foragents':
+        /* FORAGENTS_PLAN F1：Agent 专用教程——隐藏路由（不进导航）。 */
+        return <ForAgentsView />;
       case 'chat':
         /* G7 V1（GSC_CHAT_PLAN Step 5）：真 ChatView（消息块流+任务卡）。 */
         return chatId ? (

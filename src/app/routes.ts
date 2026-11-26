@@ -67,6 +67,8 @@ export function parsePath(pathname: string, search = ''): RouteState {
       return seg[1] ? { view: 'chat', chatId: seg[1] } : { view: 'chat' };
     case 'canvas':
       return { view: 'canvas' };
+    case 'foragents':
+      return { view: 'foragents' }; // FORAGENTS_PLAN：隐藏，不在导航
     default:
       return { view: 'start', notFound: true };
   }
@@ -109,4 +111,5 @@ export const routes = {
   docs: (): string => '/docs',
   user: (): string => '/user',
   canvas: (): string => '/canvas',
+  foragents: (): string => '/foragents',
 } as const;
