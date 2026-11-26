@@ -1,3 +1,4 @@
+import { humanizeProposalValue } from './pages.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ITEM_LABELS, RAW_TYPES } from '../lib/items.ts';
@@ -634,7 +635,7 @@ export function LightUpStudio({
                 ) : proposals.map((p) => (
                   <div key={p.id} className={styles.createdRow}>
                     <span className={styles.cName} style={{ fontSize: 13 }}>{p.kind}</span>
-                    <span className={styles.cType}>{p.proposed_value}</span>
+                    <span className={styles.cType}>{humanizeProposalValue(p.kind, p.proposed_value)}</span>
                     <span className={styles.cSrc}>{p.source} · {p.rationale}</span>
                     {p.status === 'pending' ? (
                       <>

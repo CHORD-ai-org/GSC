@@ -2,7 +2,16 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **G7 正式验收 PASS（2026-11-25）**：七门对账全过（含 accept 落定对账+409/422 实测+重放幂等）+ 四图 + 全量 237+1skip/238。遗留非阻塞（LLM key 401 待换等）。
+> Status: **G8 初始用户画像入 GOALS（2026-11-26）**：新目标行（🟡 U1 后端落地）+ 理解口径段（四屏流水线/Calibration=提案制/三字段/锚点条目/渐进披露/Tau 伴灵）。待 U2 屏 1/2 UI。
+> Prior: USER_PROFILE_INIT U1 完成（2026-11-26）**：初始画像管线后端（锚点 raw.document+source_label=user_profile/伴灵名 users.companion_name Tau/用户画像+个人经历两组限定打标提案/401 降级）+ POST /api/profile/init；文献定调（Calibration=提案制/三字段/渐进披露）。待 U2 屏 1/2 UI · U3 引导 · U4 语音。
+> Prior: FORAGENTS F1 完成（2026-11-26）**：/foragents 隐藏教程页+GET /api/foragents.md（text/markdown）上线；内容源=docs/agents/foragents.md 真文件（模板字面量转义坑改文件存储）。F2 配置片段校对/F3 画像节待办。
+> Prior: FORAGENTS 规划（2026-11-26）**：/foragents 隐藏教程页——现状盘点发现 MCP server（9 工具）+tokens 已建成，缺的是自举入口；设计=单一 MD 内容源双形态（server /api/foragents.md agent fetch 一等公民 + 隐藏 React 视图）；七节骨架+四类配置片段；F1-F3 分批 PROPOSED。
+> Prior: 全站 UI 体检第 2 轮（2026-11-26）**：11 视图截图审计；P0 两项已修（chips 贴顶/提案 JSON 泄漏+humanize 三处接线）；P1 七项入档待修（前置=令牌收口）。
+> Prior: META_TAG_PIPELINE M1–M3 完成（D-115，2026-11-26）**：detect 五维轮（+meta_tag 建议/+discovery 同名幂等）+ingest 钩子（增量/可关/非阻塞）+dashboard 识别管线面板；10/10+真链（401 降级如实）。M4 四轴接线待 G6 B 批。
+> Prior: G6 口径定调（2026-11-26）**：四轴=双层（meta 锚点层+查询时投影层）；验收绑画像 API（`GET /api/contexts/:id/profile` 四问 JSON，G6 与 MCP 出口同源）；trajectory=events 直读 v1 不归纳；通用措辞/实现先项目类；写入复用 G7 提案。已写进 GOALS「G6 理解口径」段；V1_PLAN A/B/C 待确认执行。
+> Prior: 生成页面居中 + 底层框架调研（2026-11-25）**：FlowPanel 居中模态化；结论=不换框架，走令牌收口+原生 dialog+CSS transition（路线 B），Radix 挂起。UI_PARITY 后续令牌优化不阻塞 benchmark。
+> Prior: UI 保真修复 R1–R5 完成（2026-11-25）**：用户浅蓝大泡/顶栏/任务卡竖排四步+语义标题+右栏输入/播报精简+灰说明块/Drawer stepper 丝滑点选/composer 复原；P0 1–9 全打勾（parity-r1-r3.png / parity-r4-stepper.png）。基准仍暂停。
+> Prior: G7 正式验收 PASS（2026-11-25）**：七门对账全过（含 accept 落定对账+409/422 实测+重放幂等）+ 四图 + 全量 237+1skip/238。遗留非阻塞（LLM key 401 待换等）。
 > Prior: G7 全线完成（D-113，2026-11-25）**：V1+V2+V3 十步全落（数据层/编排器/路由/ChatView/TaskCard/FlowPanel/DSL/双时间线），E2E §0 真链+四图验收，全量 237+1skip/238。遗留：LLM key 401 待换。下一候选：G4 后半/G6/或换 key 复跑全绿 E2E。
 > Prior: G7 Step 9 完成（2026-11-25）**：黄点（awaiting 聚合）/reference 点开/播报四类完备；chat_workspace 7/7 + 黄点截图。下一步 Step 10 收口（G7 总账+三图）。
 > Prior: G7 Step 8 完成（D-112，2026-11-25）V2 收口**：§0 场景 E2E 真链全通（含 Drawer→提案落地+续跑）；运行器语义修正=增强段失败不阻塞（红标可见/终态 failed）；发现环境 LLM key 401 失效。下一步 V3（Step 9-10）：黄点/reference 点开/播报完备+G7 总账。

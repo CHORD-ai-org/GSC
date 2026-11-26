@@ -5,7 +5,8 @@ import styles from './shell.module.css';
 
 export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
-  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user' | 'chat';
+  | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user' | 'chat'
+  | 'foragents'; // FORAGENTS_PLAN：隐藏路由，不进导航
 
 type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user' | 'terminal';
 

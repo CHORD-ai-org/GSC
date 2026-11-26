@@ -1403,3 +1403,17 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **遗留**：环境 LLM key 401 失效待换 · Composer 全量接入后置 · WS/流式后置 ·
   卡内 PATCH kind 启发式固定 compose · bounded tool-loop 仅插座。
 - **Status**：`DECIDED` — 2026-11-25，G7 V1+V2+V3 完成。
+
+## D-115 — Meta-tag 识别管线（DECIDED，M1–M3 落地）
+
+- **Decision（创始人 2026-11-26 问「是不是还没有识别 meta-tag 的 pipeline」→ 设计→「开始执行」）**：
+  detect 轮 3 维→5 维（+meta_tag 建议/+tag discovery）；三类触发（手动 detect/ingest 收尾钩子
+  仅新增可关/G7 对话）；机械+Agent 双腿——机械出广度（相似度/缺字段/高频词候选），Agent 出
+  判断（打标建议/规范命名），落库全走提案制。
+- **落地**：detector 五维轮（config 缺省/401→llm=absent/skipped，规则维不受影响）·
+  discovery 两步（规则候选→LLM 规范名→pending_definition，同名跨轮永不重复）·
+  maybeDetectOnIngest（GSC_DETECT_ON_INGEST=0 关）· dashboard 8790 加「识别管线」面板
+  （一键识别+报告+按维提案计数）· dashboard server API_PORT env 化。
+- **实证**：vitest 10/10（meta_tag 提案/降级规则维保留/discovery 同名幂等/钩子开关）+
+  真链 detect（llm=skipped 如实记账）+ dashboard 截图。
+- **Status**：`DECIDED` — 2026-11-26。M4（四轴 axis group 接线）待 G6 B 批。

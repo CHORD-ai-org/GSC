@@ -725,3 +725,58 @@ Phase 05 — execute scenarios A–D, record observed results, known limitations
 真链冒烟（8793 fresh）：发指令→管线→PATCH→重放幂等→Drawer complete→提案→accept→409/422→
 终态（synthesize 红标可见/续跑至 done/task failed 如实）。四图验收（v1/v2-drawer/e2e-final/
 awaiting-dot）。**验收结论：PASS**（遗留项见 D-113，均非阻塞）。
+
+## UI_PARITY_FIX_PLAN R1–R5：UI 保真修复 COMPLETE（2026-11-25）
+
+- R1 浅蓝大泡+顶栏 · R2 任务卡竖排四步+Onboarding 绿边英文三步+语义标题+卡内右栏 ·
+  R3 播报精简（内部日志只留审计线）+ 灰说明块原型原文 · R4 生成器带候选（无 key 也丝滑）+
+  FlowPanel stepper 点选即流转 · R5 composer 胶囊+附件/模型条只读形态。
+- 截图 parity-r1-r3.png / parity-r4-stepper.png，P0 1–9 全打勾（UI_PARITY_AUDIT 修复结论）。
+- 测试口径更新：播报四类（启动=正在启动信息收集管线/停点/恢复/终态），内部执行日志不出消息块。
+
+## 生成页面居中 + 底层框架调研（2026-11-25）
+
+- FlowPanel 从右侧 Drawer 改**居中模态**（min(760px,92vw)、圆角 16、阴影）——创始人要求
+  「生成的页面在中央」；截图 flow-centered.png。
+- 调研结论（UI_FOUNDATION_RESEARCH.md）：**不换框架**（Tailwind/shadcn 成本高、审美冲突）；
+  走路线 B——令牌收口 + 原生 `<dialog>` + CSS transition（零依赖）；Radix 仅在出现多模态
+  堆叠/焦点事故时引入。
+
+## META_TAG_PIPELINE M1–M3：识别管线 COMPLETE（2026-11-26，D-115）
+
+- detect 轮 3→5 维：+meta_tag 建议（suggestMetaTags×未打标条目×定义表）+tag discovery
+  （规则候选→LLM 规范名→pending_definition，同名幂等）；report 扩 meta_tag/discovered/
+  candidates/llm（ok|skipped|absent）。
+- ingest/batch 收尾钩子 maybeDetectOnIngest（仅新增、GSC_DETECT_ON_INGEST=0 关、非阻塞）。
+- dashboard（8790）：「识别管线」面板——一键全量识别+报告展示+待裁决提案按维计数；
+  server.mjs API_PORT env 化。
+- 实测：detect 真链 llm=skipped 如实（401）；10/10 新测（含降级/幂等/开关/同名不重复）。
+- 遗留：LLM 维真值验证待换 key；M4 四轴接线待 G6 B 批。
+
+## 全站 UI 体检第 2 轮 + P0 修复（2026-11-26，SITE_UI_AUDIT）
+
+- 11 视图逐页截图审计；P0 两项已修：① 页头筛选 chips 贴顶截断（限定 raw/objects+页边距）
+  ② overview 提案卡 JSON 泄漏（humanizeProposalValue 可读化，同步 detail/lightup/spatial）。
+- P1 七项入档（sync 色块/recently 空态矛盾/lightup 线索/页距/原生 select 等），
+  修法前置=令牌收口（路线 B）。截图 audit-*.png / fix-*.png。
+
+## FORAGENTS F1：Agent 自举教程 COMPLETE（2026-11-26）
+
+- 内容源 `docs/agents/foragents.md`（真 .md 文件，单一源）+ `server/agents-tutorial.ts`
+  （readFileSync 导出）+ `GET /api/foragents.md`（text/markdown 直写，无 idem——
+  幂等包装要求有返回值，void 直写会被转 JSON 的坑）+ 隐藏视图 `/foragents`
+  （ForAgentsView：极简 MD 渲染+代码块复制按钮；ViewId 加 foragents、不进 GROUPS）。
+- 七节内容事实核对：env 实名 GSC_API_TOKEN（差点写成 GSC_TOKEN，测试锚死）· MCP 9 工具
+  断言防漂移 · markdown 源改文件存储（模板字面量 \` 在 esbuild/node 行为差异的坑）。
+- 验收：curl GET text/markdown 200+七节+9 工具名 · foragents-page.png（导航无入口）·
+  foragents.test 4/4 · 全量 245+1skip/246。
+
+## USER_PROFILE_INIT U1：初始画像构建管线 COMPLETE（2026-11-26，USER_PROFILE_INIT_PLAN）
+
+- 文献检索（ai-know-you Calibration/画像三字段/Progressive Profiling/Birth System 90s）→
+  设计=四屏映射既有资产（源连接→合成→校准→引导），不新增 item type。
+- 落地：0017 迁移（users.companion_name）· agent/profile-init.ts（ensureProfileAnchor
+  source_label=user_profile 幂等锚点 + buildInitialProfile：伴灵名 Tau+用户画像/个人经历两组
+  限定打标提案+401 降级）· POST /api/profile/init（201+报告）。
+- 实测：3/3（锚点幂等/伴灵名持久化/组限定提案挂 chunk/降级）+ 全量 248+1skip/249。
+- 待办：U2 屏 1/2 UI · U3 屏 3 引导 · U4 语音（Fish Audio）+X OAuth。

@@ -1,3 +1,4 @@
+import { humanizeProposalValue } from './pages.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { ItemDTO } from '../lib/items.ts';
@@ -292,7 +293,7 @@ export function SpatialView({
             <div key={targetId} className={styles.spatProp} style={{ left: base.x + 12, top: base.y + CARD_H + 8 }}>
               <div className={styles.spatPropHead}>
                 <span className={styles.propChip}>{kindLabel(newest.kind)}</span>
-                <span className={styles.spatPropValue}>{newest.proposed_value}</span>
+                <span className={styles.spatPropValue}>{humanizeProposalValue(newest.kind, newest.proposed_value)}</span>
                 {rest.length > 0 ? (
                   <button
                     type="button"

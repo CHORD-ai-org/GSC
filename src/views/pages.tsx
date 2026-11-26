@@ -108,6 +108,22 @@ export function StartView({
 
 /* ── Overview: entry to the Context Space ─────────────────────────────── */
 
+/** UI_PARITY：提案原文可读化——metadata 的 JSON 展开为 name: value，其余截断。 */
+const PROPOSAL_KIND_LABEL: Record<string, string> = {
+  meta_tag: '打标', cluster: '归块', semantic_name: '语义命名', classification: '分类',
+  metadata: '元信息', association: '关联', dedupe: '去重', pending_definition: '新标签',
+};
+
+export function humanizeProposalValue(kind: string, value: string): string {
+  if (kind === 'metadata' && value.startsWith('{')) {
+    try {
+      const o = JSON.parse(value) as { name?: unknown; value?: unknown };
+      if (o && typeof o.name === 'string') return `${o.name}: ${String(o.value ?? '')}`.slice(0, 80);
+    } catch { /* 保留原文 */ }
+  }
+  return value.length > 80 ? value.slice(0, 78) + '…' : value;
+}
+
 export function OverviewPage({
   items,
   contexts,
@@ -183,7 +199,7 @@ export function OverviewPage({
         </button>
       </div>
 
-      {/* Review queue: proposal cards with inline ✓/✗ (P3) */}
+      {/* Review queue: proposal cards with inline ✓/✗ (P3)；UI_PARITY：原文可读化，不暴露 JSON */}
       {pendingProposals.length > 0 ? (
         <div className={styles.section}>
           <SectionLabel title={t('overview.queue')} count={t('overview.pendingCount', { n: pendingProposals.length })} />
@@ -191,9 +207,9 @@ export function OverviewPage({
             {pendingProposals.slice(0, 3).map((p) => (
               <div key={p.id} className={styles.proposalCard}>
                 <div className={styles.proposalMain}>
-                  <span className={styles.proposalKind}>{p.kind}</span>
-                  <span className={styles.proposalValue}>{p.proposed_value}</span>
-                  <span className={styles.proposalMeta}>{p.source === 'detector' ? 'DET' : 'AGT'} · {rt(p.created_at)}</span>
+                  <span className={styles.proposalKind}>{PROPOSAL_KIND_LABEL[p.kind] ?? p.kind}</span>
+                  <span className={styles.proposalValue}>{humanizeProposalValue(p.kind, p.proposed_value)}</span>
+                  <span className={styles.proposalMeta}>{p.source === 'detector' ? '检测' : 'Agent'} · {rt(p.created_at)}</span>
                 </div>
                 <div className={styles.proposalActions}>
                   <button type="button" className={styles.acceptButton} aria-label="accept" onClick={() => void onResolve(p.id, 'accepted')}>✓</button>

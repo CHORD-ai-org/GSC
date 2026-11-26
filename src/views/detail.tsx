@@ -1,3 +1,4 @@
+import { humanizeProposalValue } from './pages.tsx';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui.tsx';
@@ -151,7 +152,7 @@ function AttributionPanel({
     <div key={p.id} className={styles.propRow}>
       <span className={styles.propChip}>{t((PROPOSAL_KIND_KEY[p.kind] ?? 'prop.metadata') as Parameters<typeof t>[0])}</span>
       <span className={styles.propBody}>
-        <b>{p.proposed_value}</b>
+        <b>{humanizeProposalValue(p.kind, p.proposed_value)}</b>
         {p.related_id === itemId && p.target_id !== itemId ? <span className={styles.propWhy}>{t('prop.related')}</span> : null}
         {p.rationale ? <span className={styles.propWhy}>{p.rationale}</span> : null}
       </span>
