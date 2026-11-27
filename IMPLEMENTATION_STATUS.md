@@ -857,3 +857,40 @@ awaiting-dot）。**验收结论：PASS**（遗留项见 D-113，均非阻塞）
   提案=「挑好称心标签/想好了名字/该有个归处/细查来龙去脉/心意相通/嗅到新标签/警觉发现重复」。
 - 3/3 测试同步；ov-copy-v1.png 实效（「你写下了「我的秘密基地」」末条黑底）。
 - Status：v1 待创始人过目 → 定稿或改写。
+
+## 模型配置/选择 UX M1-M3 COMPLETE（2026-11-27）
+
+- **M1 测试连接+状态灯**：checkLlm()（真探针 ping）+ Composer 状态灯（ok 绿/fail 红/idle 灰），
+  健康事件全局广播（gsc-llm-health）——api 层拦截 LLM 相关失败（/llm|401|api key/i）自动红。
+- **M2 模型选择器升级**：菜单=搜索框+「最近 3」置顶（localStorage）+按 provider 分组全量列出+
+  当前项 ✓ 常显+跨 provider 一步切换（provider+base+model 同 patch）。
+- **M3 失败态可视化**：LLM 失败自动红灯；菜单 footer 测试连接旁灯常显。
+- **顺手根治**：顶栏 seg/iconBtn/topSpacer 类名错配（styles 在 app.module 但类定义在 views.module）
+  导致裸按钮堆叠——app.module.css 补齐（一行排布+灰胶囊白选中分段控件）。
+- m13-composer.png 实证（分段控件+状态灯）。全量 257+1skip/258。
+
+## Start 页动态提示行（2026-11-28，创始人定调）
+
+- 主 GSC logo 下加「下一步我们 ____？」：固定句 Inter Bold（19px/700）；短语槽随时间轮换
+  （4.2s fade 切换）且**各配字体**——添加些什么(Inter)/审查一个新项目(Georgia serif)/
+  随便逛逛(mono)/聊聊最近的事(cursive)；短语集可随产品生长扩展（注记原意）。
+- prefers-reduced-motion 降级（无 fade 直切）。next-prompt.png 实证。
+
+## Sidebar 对话 thinking orbs（2026-11-28）
+
+- ChatView 发送期间广播 gsc-chat-thinking 事件 → App conversations 记 thinking 态
+  （refetch 保活不被冲掉）→ 侧栏对话行显示 ThinkingOrbs（三枚渐变光球错相脉动：
+  紫/青/粉 radial-gradient，1.15s ease-in-out，错相 180ms）。
+- 优先级：thinking orbs > 等你确认橙点；reduced-motion 降级静态。
+- thinking-orbs.png 静态验（orbs 为生成瞬态）；全量 257+1skip/258。
+
+## CLUSTERS_UI_PLAN CL1-CL3 COMPLETE（2026-11-28）
+
+- **CL1 书架墙+Gallery 网格**：书脊卡（id-hash 色脊+成员/创建时间 meta+7 日密度条+待裁决红点）
+  与 Gallery 封面卡（低饱和语义底色+56px 自绘符号**按成员数自动分派**[书架线/双叠方块/点阵]+
+  状态点+底缘密度条）双视角；排序 pills（最近活跃/成员数/名称，默认最近活跃）；
+  密度=成员 events 一次批取聚合（真数据）。**?view=list|grid 深链**（useViewMode 增强）。
+- **CL2 详情重构**：语义名提案横幅（就地 ✓ 用这个/✕ 不用）· 成员卡片网格（✕ 角标移除）·
+  添加成员=**搜索选择器**（点选添加，替代下拉）· **归块履历时间线**（narrate 同源叙事，
+  倒序 ≤12+日期）· 定义/分享块与编辑/删除/共享功能全保留。
+- 验收：cl1-wall.png/cl1-gallery.png/cl2-detail.png · 全量 257+1skip/258。

@@ -2,7 +2,13 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **文案美化 v1 出稿（2026-11-27）**：narrate.ts 词彩升级（写下了/添了新笔墨/细查来龙去脉…），3/3 测+ov-copy-v1.png；待创始人过目定稿后转下一线。
+> Status: **CLUSTERS_UI CL1-CL3 全落（2026-11-28）**：书脊墙+Gallery 网格（封面系统/自动分派符号/密度条/红点/?view= 深链）+详情重构（语义名横幅就地裁决/成员网格/搜索添加/归块履历时间线）。
+> Prior: thinking orbs 上线（2026-11-28）**：侧栏对话行生成期显示三枚渐变光球（gsc-chat-thinking 事件接线+refetch 保活）；thinking>待确认橙点。CLUSTERS_UI v2 待确认四点。
+> Prior: CLUSTERS_UI 规划 v2（2026-11-28）**：加「网格视角」——移植 Thylas Artifact Gallery 封面系统（语义底色 id-hash4 色+56px 自绘符号+状态点+2 行 clamp）；CL1 含墙/网格双视角。待确认四点。
+> Prior: CLUSTERS_UI 规划（2026-11-28，PROPOSED）**：关联组=书架叙事（书脊卡墙+详情：语义名横幅/成员网格/归块履历时间线复用 narrate+事件管道）；三方向收敛 A+B；零新端点；CL1-3 分批；待确认三点。
+> Prior: 动态提示行上线（2026-11-28）**：Start logo 下「下一步我们 ____？」——固定句 Inter Bold+短语轮换各配字体（4.2s fade/reduced-motion 降级）。短语集随产品生长扩展。
+> Prior: 模型 UX M1-M3 完成（2026-11-27）**：测试连接+状态灯（api 层健康广播）+模型菜单搜索/最近/分组+失败态可视化；顺手根治顶栏 seg 类名错配裸按钮。对话 MVP 确认达标。
+> Prior: 文案美化 v1 出稿（2026-11-27）**：narrate.ts 词彩升级（写下了/添了新笔墨/细查来龙去脉…），3/3 测+ov-copy-v1.png；待创始人过目定稿后转下一线。
 > Prior: OV5 节奏完成·OVERVIEW_REDESIGN 全批落地（2026-11-27，D-117）**：双栏/44px 节奏/统计卡灰白（.page scope）；ov5-long.png 全页对照笔记。尾巴=叙事文案美化+整页微调。
 > Prior: OV4 横滑区完成（2026-11-27）**：「下面想编辑什么」渐变无边界区（drag+snap+←→键+焦点环+reduced-motion），3 真 cluster tiles 实证。待 OV5 长页整合（末批）。
 > Prior: OV3 叙事活动流完成（2026-11-27）**：narrate.ts 纯函数模板（3/3 测）+历史记录区块（末条黑底高亮/来源图标/空态），接 overview/feed 真数据。待 OV4 无边界横滑区/OV5 长页。

@@ -1437,3 +1437,15 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **scope 决定**：统计卡灰白化仅覆盖 Overview 页（.page scope），其他页的
   UI_COLORBLOCK_REFACTOR 色块轮换不动——两决定并存按页分流。
 - **Status**：`DECIDED`（OV-BE~OV4 完成，OV5 节奏完成、整页微调留尾）。文案美化待创始人（笔记自注）。
+
+## D-118 — 对外文档面定调（2026-11-28，创始人拍板）
+
+- **决策**：完善对外文档（README 门面），三决策：O1 README **英文单语**（不出中文版）；
+  O2 范围 **E1–E5 全做**（README 重写 / Quickstart 实证 / 截图资产 / 接入文档对账 / 导航分层）；
+  O3 README 导航**只链对外子集**（≤6 份），DOCS_MAP 留内部不上首页。
+- **执行记录**：`EXTERNAL_DOCS_PLAN.md`（任务卡 E1–E5）。E2 全新 clone 实证全绿
+  （install/migrate 21/api/dev/mcp 9 工具/test 56 文件 257+1skip/api:check 12/build ✓，Node v22.22.2）。
+  E4 对账结论：foragents / sdk / API_CONTRACT 三方口径与代码零偏差。
+- **替代方案**：中英双语 README（否——单语更省维护）；全量 DOCS_MAP 上首页（否——内部噪音大）。
+- **后果**：README 重写为对外门面（8 段结构）；内部文档导览职责保留给 DOCS_MAP。
+- **Status**：`DECIDED`
