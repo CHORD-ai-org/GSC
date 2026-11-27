@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ComposerMode, ModelName } from '../lib/prefs.ts';
 import { BrandLogo } from '../components/BrandLogo.tsx';
-import type { LlmPublicConfig } from '../services/api.ts';
+import { checkLlm, type LlmPublicConfig } from '../services/api.ts';
 import { PROVIDERS, detectProvider, isProviderId, providerProfile, type ProviderId } from '../lib/providers.ts';
 import { useToast } from '../components/Toast.tsx';
 import styles from './shell.module.css';
@@ -28,6 +28,14 @@ export function Composer({
   const [mode, setMode] = useState<ComposerMode>('agent');
   const [menu, setMenu] = useState<'model' | 'provider' | null>(null);
   const [busy, setBusy] = useState(false);
+  /* M1/M3：LLM 健康状态灯（测试连接 + 全局失败事件驱动）。 */
+  const [health, setHealth] = useState<'unknown' | 'ok' | 'fail'>('unknown');
+  const [testing, setTesting] = useState(false);
+  /* M2：模型搜索 + 最近使用。 */
+  const [query, setQuery] = useState('');
+  const [recents, setRecents] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('gsc.recentModels') ?? '[]') as string[]; } catch { return []; }
+  });
   const wrapRef = useRef<HTMLDivElement>(null);
 
   /* Real configured provider + model (shared registry — same source as Settings). */
@@ -49,6 +57,14 @@ export function Composer({
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [menu]);
+
+  useEffect(() => {
+    function onHealth(e: Event) {
+      setHealth((e as CustomEvent<'ok' | 'fail'>).detail === 'ok' ? 'ok' : 'fail');
+    }
+    window.addEventListener('gsc-llm-health', onHealth);
+    return () => window.removeEventListener('gsc-llm-health', onHealth);
+  }, []);
 
   async function submit() {
     const trimmed = text.trim();
@@ -72,16 +88,59 @@ export function Composer({
     }
   }
 
+  function rememberModel(m: string) {
+    setRecents((prev) => {
+      const next = [m, ...prev.filter((x) => x !== m)].slice(0, 3);
+      try { localStorage.setItem('gsc.recentModels', JSON.stringify(next)); } catch { /* 存储不可用忽略 */ }
+      return next;
+    });
+  }
+
   async function switchModel(m: string) {
     setMenu(null);
     if (m === realModel) return;
     setBusy(true);
     try {
       await onConfigChange({ model: m });
+      rememberModel(m);
     } catch (e) {
       toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
     } finally {
       setBusy(false);
+    }
+  }
+
+  /* M2：跨 provider 分组点击——一步切 provider+base+model。 */
+  async function switchModelFor(p: (typeof PROVIDERS)[number], m: string) {
+    setMenu(null);
+    if (m === realModel && p.id === providerId) return;
+    setBusy(true);
+    try {
+      await onConfigChange(
+        p.id === providerId
+          ? { model: m }
+          : { provider: p.id, base_url: p.defaultBase || undefined, model: m },
+      );
+      rememberModel(m);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* M1 测试连接：真探针 ping。 */
+  async function runCheck() {
+    setTesting(true);
+    try {
+      const r = await checkLlm();
+      setHealth('ok');
+      toast(`${r.model} · ${r.ms}ms · “${r.reply}”`, 'ok');
+    } catch (e) {
+      setHealth('fail');
+      toast(e instanceof Error ? e.message : t('model.saveFailed'), 'error');
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -144,6 +203,7 @@ export function Composer({
 
           <div className={styles.chip}>
             <button type="button" className={styles.chipButton} disabled={busy} onClick={() => setMenu(menu === 'provider' ? null : 'provider')}>
+              <span className={styles.lamp} data-health={health === 'unknown' ? (keyStatus[providerId] ? 'idle' : 'fail') : health} aria-label={`LLM 状态：${health}`} />
               {profile.brand ? <BrandLogo kind={profile.brand} size={14} /> : <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="3" width="12" height="8" rx="1.5" /><path d="M5.5 13.5h5" /></svg>}
               {t(profile.labelKey)}
               <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6.5L8 10.5l4-4" /></svg>
@@ -171,13 +231,56 @@ export function Composer({
               <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6.5L8 10.5l4-4" /></svg>
             </button>
             {menu === 'model' ? (
-              <div className={styles.chipMenu}>
-                {modelOptions.map((m) => (
-                  <button key={m} type="button" className={styles.chipOption} onClick={() => void switchModel(m)}>
-                    <span className={styles.chipOptionText}>{m}</span>
-                    {m === realModel ? <span className={styles.tickMark}>✓</span> : null}
+              <div className={styles.chipMenuWide}>
+                <input
+                  className={styles.menuSearch}
+                  placeholder="搜索模型"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+                {(() => {
+                  const q = query.toLowerCase();
+                  const inRecent = new Set(recents);
+                  const recentHit = recents.filter((m) => m.toLowerCase().includes(q));
+                  return (
+                    <>
+                      {recentHit.length > 0 ? (
+                        <>
+                          <div className={styles.chipGroupLabel}>最近</div>
+                          {recentHit.map((m) => (
+                            <button key={`r-${m}`} type="button" className={styles.chipOption} onClick={() => void switchModel(m)}>
+                              <span className={styles.chipOptionText}>{m}</span>
+                              {m === realModel ? <span className={styles.tickMark}>✓</span> : null}
+                            </button>
+                          ))}
+                        </>
+                      ) : null}
+                      {PROVIDERS.map((p) => {
+                        const models = (p.id === providerId ? modelOptions : p.models).filter((m) => !inRecent.has(m) && m.toLowerCase().includes(q));
+                        if (models.length === 0) return null;
+                        return (
+                          <div key={p.id}>
+                            <div className={styles.chipGroupLabel}>{t(p.labelKey)}</div>
+                            {models.map((m) => (
+                              <button key={`${p.id}:${m}`} type="button" className={styles.chipOption} onClick={() => void switchModelFor(p, m)}>
+                                <span className={styles.chipOptionText}>{m}</span>
+                                {m === realModel && p.id === providerId ? <span className={styles.tickMark}>✓</span> : null}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+                <div className={styles.chipFooter}>
+                  <button type="button" className={styles.checkBtn} disabled={testing} onClick={() => void runCheck()}>
+                    {testing ? '测试中…' : '⚡ 测试连接'}
                   </button>
-                ))}
+                  <span className={styles.lamp} data-health={health} aria-label={`LLM 状态：${health}`} />
+                </div>
               </div>
             ) : null}
           </div>

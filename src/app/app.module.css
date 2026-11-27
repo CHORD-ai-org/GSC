@@ -59,3 +59,12 @@
   .colMain{padding:16px}
   .colDetail{padding:16px}
 }
+
+/* 顶栏（侧栏开关/搜索/视角 seg）——此前类名错配（styles.seg 在 views.module）导致裸按钮 */
+.topBar { display: flex; align-items: center; gap: 8px; padding: 10px 36px 0; }
+.iconBtn { width: 32px; height: 32px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.iconBtn:hover { background: var(--tint-hover); color: var(--ink); }
+.topSpacer { flex: 1; }
+.seg { display: inline-flex; align-items: center; background: var(--pill-track); border-radius: 999px; padding: 3px; }
+.segBtn { border: 0; background: transparent; padding: 5px 16px; border-radius: 999px; font: 400 13px "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--ink-2); cursor: pointer; }
+.segOn { background: var(--pill-on); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-pill); }
