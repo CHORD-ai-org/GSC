@@ -85,6 +85,17 @@ function UserChip({ active, workspaceName, onNavigate }: { active: boolean; work
   );
 }
 
+/** thinking orbs：Agent 正在该对话思考时的三枚脉动光球（reduced-motion 降级为静态）。 */
+function ThinkingOrbs() {
+  return (
+    <span className={styles.thinkingOrbs} role="status" aria-label="思考中">
+      <span className={styles.orb} />
+      <span className={`${styles.orb} ${styles.orb2}`} />
+      <span className={`${styles.orb} ${styles.orb3}`} />
+    </span>
+  );
+}
+
 function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boolean; onNavigate: (id: ViewId) => void }) {
   const t = useT();
   return (
@@ -124,7 +135,7 @@ export function Sidebar({
   onNavigate: (id: ViewId) => void;
   workspaceName: string;
   pinnedPages: string[];
-  conversations: { id: string; title: string; awaiting?: boolean }[];
+  conversations: { id: string; title: string; awaiting?: boolean; thinking?: boolean }[];
   activeChatId?: string;
   onOpenChat: (chatId: string) => void;
   prefs: UiPrefs;
@@ -184,7 +195,9 @@ export function Sidebar({
           >
             <Icon name="clock" />
             <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-            {c.awaiting ? (
+            {c.thinking ? (
+              <ThinkingOrbs />
+            ) : c.awaiting ? (
               <span title="等你确认" style={{ width: 8, height: 8, borderRadius: 99, background: '#ff9f0a', flexShrink: 0 }} />
             ) : null}
           </button>

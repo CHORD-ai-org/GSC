@@ -79,6 +79,7 @@ export function ChatView({
     const text = input.trim();
     if (!text || busy) return;
     setBusy(true);
+    window.dispatchEvent(new CustomEvent('gsc-chat-thinking', { detail: { chatId: conversationId, on: true } }));
     try {
       await api.sendChatMessage(conversationId, text);
       setInput('');
@@ -88,6 +89,7 @@ export function ChatView({
       /* 保留在输入框 */
     } finally {
       setBusy(false);
+      window.dispatchEvent(new CustomEvent('gsc-chat-thinking', { detail: { chatId: conversationId, on: false } }));
     }
   }
 
