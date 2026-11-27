@@ -6,7 +6,7 @@ import styles from './shell.module.css';
 export type ViewId =
   | 'start' | 'overview' | 'recently' | 'raw' | 'objects' | 'lightup'
   | 'clusters' | 'contexts' | 'sync' | 'settings' | 'docs' | 'canvas' | 'user' | 'chat'
-  | 'foragents'; // FORAGENTS_PLAN：隐藏路由，不进导航
+  | 'foragents' | 'onboarding'; // 隐藏路由：foragents（Agent 教程）/ onboarding（G8 三屏）
 
 type IconName = 'home' | 'grid' | 'clock' | 'file' | 'box' | 'cluster' | 'layers' | 'sync' | 'export' | 'gear' | 'book' | 'user' | 'terminal';
 
@@ -56,7 +56,6 @@ const GROUPS: { labelKey: string; items: NavEntry[] }[] = [
   ] },
   { labelKey: 'nav.organization', items: [
     { id: 'clusters', labelKey: 'nav.clusters', icon: 'cluster' },
-    { id: 'contexts', labelKey: 'nav.contexts', icon: 'layers' },
     { id: 'sync', labelKey: 'nav.sync', icon: 'sync' },
   ] },
 ];
@@ -91,12 +90,13 @@ function NavButton({ entry, active, onNavigate }: { entry: NavEntry; active: boo
   return (
     <button
       type="button"
+      title={t(entry.labelKey)}
       className={`${styles.navItem} ${active ? styles.active : ''}`}
       onClick={() => onNavigate(entry.id)}
       aria-current={active ? 'page' : undefined}
     >
       <Icon name={entry.icon} />
-      {t(entry.labelKey)}
+      <span>{t(entry.labelKey)}</span>
     </button>
   );
 }
@@ -131,19 +131,28 @@ export function Sidebar({
   onPatchPrefs: (patch: Partial<UiPrefs>) => void;
 }) {
   const t = useT();
+  const collapsed = prefs.sidebarCollapsed === true;
   return (
-    <nav className={styles.sidebar}>
-      <div className={styles.brand}>
-        <GscLogo height={18} />
+    <nav className={collapsed ? `${styles.sidebar} ${styles.sidebarCollapsed}` : styles.sidebar}>
+      <div className={styles.brandRow}>
+        {collapsed ? null : <GscLogo height={18} />}
+        <button
+          type="button"
+          className={styles.collapseBtn}
+          title={collapsed ? '展开侧栏' : '收起侧栏'}
+          aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+          onClick={() => onPatchPrefs({ sidebarCollapsed: !collapsed })}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+            <rect x="2" y="2.5" width="12" height="11" rx="2" />
+            <path d="M6.2 2.5v11" />
+          </svg>
+        </button>
       </div>
-      {GROUPS.map((group) => (
-        <div className={styles.group} key={group.labelKey}>
-          <div className={styles.groupLabel}>{t(group.labelKey)}</div>
-          {group.items.map((entry) => (
-            <NavButton key={entry.id} entry={entry} active={view === entry.id} onNavigate={onNavigate} />
-          ))}
-        </div>
+      {GROUPS.flatMap((g) => g.items).map((entry) => (
+        <NavButton key={entry.id} entry={entry} active={view === entry.id} onNavigate={onNavigate} />
       ))}
+      <div className={collapsed ? styles.collapseArea : undefined}>
       <CollapsibleSection
         labelKey="nav.pinned"
         collapsed={prefs.sidebarPinnedCollapsed !== false}
@@ -181,6 +190,7 @@ export function Sidebar({
           </button>
         ))}
       </CollapsibleSection>
+      </div>
       <div className={styles.footer}>
         <UserChip active={view === 'user'} workspaceName={workspaceName} onNavigate={onNavigate} />
         {FOOTER.map((entry) => (

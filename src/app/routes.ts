@@ -69,6 +69,8 @@ export function parsePath(pathname: string, search = ''): RouteState {
       return { view: 'canvas' };
     case 'foragents':
       return { view: 'foragents' }; // FORAGENTS_PLAN：隐藏，不在导航
+    case 'onboarding':
+      return { view: 'onboarding' }; // G8 三屏：独立壳层（无侧栏）
     default:
       return { view: 'start', notFound: true };
   }
@@ -112,4 +114,5 @@ export const routes = {
   user: (): string => '/user',
   canvas: (): string => '/canvas',
   foragents: (): string => '/foragents',
+  onboarding: (): string => '/onboarding',
 } as const;

@@ -1,7 +1,7 @@
 .page{padding:28px 36px;overflow:auto;max-width:960px;width:100%;margin:0 auto}
 .pageTitle{font-size:var(--text-page);line-height:var(--lh-page);font-weight:650;letter-spacing:-.015em;margin:0 0 4px}
 .pageSub{color:var(--ink-2);margin:0 0 24px;max-width:640px}
-.section{margin:28px 0}
+.section{margin:44px 0}
 .sectionTitle{font-size:13px;font-weight:650;margin:0 0 10px}
 .hint{color:var(--ink-3);font-size:12px;line-height:18px}
 
@@ -80,7 +80,7 @@
 
 /* Overview */
 .headRow .pageSub{margin-bottom:0}
-.statGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 8px}
+.statGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:20px 0 8px}
 .statCard{border:1px solid transparent;background:var(--fill-1);border-radius:var(--radius-lg);padding:18px 20px;display:flex;flex-direction:column;gap:4px;text-align:left;cursor:pointer}
 .statCard:hover{border-color:var(--line-strong)}
 .statNum{font-size:28px;line-height:34px;font-weight:680}
@@ -476,3 +476,74 @@
 .cloudChip:nth-child(6n+6){background:var(--fill-6)}
 .subtleButton{border:1px solid var(--line-strong);background:var(--bg-surface);border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;color:var(--ink);cursor:pointer}
 .subtleButton:hover{background:var(--bg-sunken)}
+
+/* —— 主区顶栏（U4+/导航精简）：收缩钮/搜索钮/右侧 segmented —— */
+.topBar { display: flex; align-items: center; gap: 6px; padding: 10px 20px 4px; }
+.iconBtn { width: 32px; height: 32px; border: 0; background: transparent; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #6B6B66; }
+.iconBtn:hover { background: #ECEAE3; color: #252522; }
+.topSpacer { flex: 1; }
+.seg { display: inline-flex; align-items: center; background: #ECEAE3; border-radius: 999px; padding: 3px; }
+.segBtn { border: 0; background: transparent; padding: 5px 16px; border-radius: 999px; font: 400 13px "Segoe UI", "Microsoft YaHei", sans-serif; color: #6B6B66; cursor: pointer; }
+.segOn { background: #fff; color: #252522; font-weight: 500; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+
+/* OVERVIEW_REDESIGN OV1：欢迎区/源行/画像入口（视觉超越草稿标准见计划 §2） */
+.welcomeRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 26px 0 10px; }
+.welcomeTitle { font-size: 30px; font-weight: 650; line-height: 1.25; margin: 0; color: var(--ink); letter-spacing: -0.01em; }
+.welcomeSub { font-size: 13.5px; color: var(--ink-3); margin-top: 6px; }
+.sourceRow { display: flex; align-items: center; gap: 30px; padding: 22px 0 8px; flex-wrap: wrap; }
+.ovSourceBtn { position: relative; border: 0; background: transparent; cursor: pointer; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; transition: background .2s; }
+.ovSourceBtn:hover { background: var(--tint-hover); }
+.ovGreenCheck { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; border-radius: 50%; background: #2fae55; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+.profileQueueBtn { margin-left: 8px; border: 0; background: transparent; cursor: pointer; font: 500 15px/1.2 "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 12px; transition: background .22s; }
+.profileQueueBtn:hover { background: var(--tint-hover); }
+
+/* OVERVIEW_REDESIGN OV2：今日数据传输量卡（视觉超越草稿 §2） */
+.dataCard { margin-left: auto; background: #F6F6F8; border-radius: 18px; padding: 16px 18px 12px; min-width: 268px; }
+.dataCardTitle { font-size: 13px; font-weight: 650; color: var(--ink); }
+.dataCardSub { font-size: 11px; color: var(--ink-3); margin: 2px 0 8px; }
+.dataCardMeta { font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+
+/* OVERVIEW_REDESIGN OV3：历史记录叙事活动流（末条高亮=笔记原意） */
+.feedList { background: #F6F6F8; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.feedRow { background: #fff; border-radius: 999px; padding: 9px 18px; display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink); }
+.feedRowOn { background: #252522; border-radius: 999px; padding: 9px 18px; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #fff; }
+.feedIcon { flex: none; color: var(--ink-3); display: flex; }
+.feedIconOn { flex: none; color: #fff; display: flex; opacity: .85; }
+.feedText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feedTime { flex: none; font-size: 11px; color: var(--ink-3); }
+.feedTimeOn { flex: none; font-size: 11px; color: rgba(255,255,255,.7); }
+
+/* OVERVIEW_REDESIGN OV4：无边界 cluster 横滑区（仅 subsection 渐变无边界；drag+snap+键盘） */
+.clusterBand {
+  display: flex; gap: 18px; align-items: stretch;
+  background: linear-gradient(120deg, #F4F2EC 0%, #F8F7F3 55%, #FBFAF7 100%);
+  border-radius: 22px; padding: 18px 22px;
+  overflow-x: auto; scroll-snap-type: x proximity;
+  scrollbar-width: none; cursor: grab; user-select: none;
+}
+.clusterBand::-webkit-scrollbar { display: none; }
+.clusterBand:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.clusterTile {
+  flex: none; width: 212px; height: 112px; border: 0; border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
+  padding: 16px; scroll-snap-align: start; cursor: pointer; font: inherit;
+  transition: background .22s ease, transform .22s ease;
+}
+.clusterTile:hover { background: rgba(255, 255, 255, 0.92); transform: translateY(-2px); }
+.clusterTileTitle { font-size: 14px; font-weight: 600; color: var(--ink); text-align: left; }
+.clusterTileMeta { font-size: 11px; color: var(--ink-3); }
+@media (prefers-reduced-motion: reduce) { .clusterTile { transition: none; } .clusterTile:hover { transform: none; } }
+
+/* OVERVIEW_REDESIGN OV5：长页节奏（笔记底部双栏区块+44px 垂直节奏） */
+.ovColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; margin: 44px 0 0; }
+@media (max-width: 980px) { .ovColumns { grid-template-columns: 1fr; } }
+
+/* OVERVIEW_REDESIGN OV5：Overview 页统计卡灰白化（仅本页 scope，尊重全局 UI_COLORBLOCK_REFACTOR） */
+.page .statCard:nth-child(6n+1),
+.page .statCard:nth-child(6n+2),
+.page .statCard:nth-child(6n+3),
+.page .statCard:nth-child(6n+4),
+.page .statCard:nth-child(6n+5),
+.page .statCard:nth-child(6n+6) { background: #F6F6F8; }
+.page .statCard:hover { background: var(--tint-hover); }

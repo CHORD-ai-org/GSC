@@ -5,6 +5,7 @@ import { DotGridBackground, MosaicTransition } from '../components/animations.ts
 import { Sidebar } from './Sidebar.tsx';
 import { ChatView } from '../views/chat/ChatView.tsx';
 import { ForAgentsView } from '../views/ForAgentsView.tsx';
+import { OnboardingFlow } from '../views/onboarding/OnboardingFlow.tsx';
 import type { ViewId } from './Sidebar.tsx';
 import { useLocation, navigate, replace } from '../lib/router.ts';
 import { parsePath, buildPath } from './routes.ts';
@@ -57,6 +58,7 @@ import type { ExportSource } from '../lib/sync.ts';
 import * as api from '../services/api.ts';
 import type { ItemDetailResponse } from '../services/api.ts';
 import styles from './app.module.css';
+import shellStyles from './shell.module.css';
 
 type Panel = 'none' | 'new' | 'edit' | 'link' | 'new-context' | 'edit-context' | 'new-cluster' | 'edit-cluster';
 /* U3: field vocabulary single-sourced in lib/itemFields.ts (was fieldLabels + multiline here). */
@@ -84,6 +86,11 @@ export default function App() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [contexts, setContexts] = useState<ContextIndexEntry[]>([]);
   const [overviewMode, setOverviewMode] = useState<'overview' | 'canvas'>('overview');
+  /* G8+: 首页双视角——Start/Overview 切换，侧栏高亮名随之变换。 */
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [homeMode, setHomeMode] = useState<'start' | 'overview'>(() => {
+    return new URLSearchParams(window.location.search).get('home') === 'overview' ? 'overview' : 'start';
+  });
   const [clusters, setClusters] = useState<ClusterIndexEntry[]>([]);
   const [clusterId, setClusterId] = useState(route.clusterId ?? '');
   const [relationIndex, setRelationIndex] = useState<Record<string, { outgoing: { to_id: string; kind: RelationKind }[]; incoming: { from_id: string; kind: RelationKind }[] }>>({});
@@ -379,6 +386,7 @@ export default function App() {
   }
 
   function go(next: ViewId) {
+    if (next === 'start') setHomeMode('start');
     if (next === view) return;
     if (prefs.pageTransition) setMosaicToken((t) => t + 1);
     setView(next);
@@ -1036,9 +1044,32 @@ export default function App() {
     switch (view) {
       case 'start':
         return (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            {homeMode === 'overview' ? (
+              <OverviewPage
+                items={items}
+                contexts={contexts}
+                clusters={clusters}
+                pendingProposals={proposals}
+                tagSummary={tagSummary}
+                homeMode={homeMode}
+                onHomeMode={(m) => setHomeMode(m)}
+                onNew={() => go('lightup')}
+                onOpenItem={openItemInPage}
+                onOpenContext={openContextInPage}
+                onOpenCluster={(id) => { setClusterId(id); markVisited(id); go('clusters'); }}
+                onOpenQueue={() => go('lightup')}
+                onPickDay={(day) => { setRecentDay(day); go('recently'); }}
+                onSeeAll={() => go('raw')}
+                onResolve={async (id, status) => {
+                  await resolveProposalEntry({ id } as ProposalDTO, status);
+                }}
+              />
+            ) : (
           <StartView
             onSubmit={submitComposer}
             onCanvas={() => go('canvas')}
+            onProfileInit={() => go('onboarding')}
             onOpenFile={() => fileInputRef.current?.click()}
             onLightUp={() => go('lightup')}
             onConfigChange={saveLlmConfig}
@@ -1051,6 +1082,8 @@ export default function App() {
               await loadContextIndex();
             }}
           />
+            )}
+          </div>
         );
       case 'overview':
         return (
@@ -1350,9 +1383,17 @@ export default function App() {
           void submitComposer({ text: q, mode: 'agent', model: 'MiMo', provider: 'Local' });
         }}
       />
-      <div className={styles.app}>
-        <Sidebar
-          view={view}
+      {view === 'onboarding' ? (
+        <OnboardingFlow
+          onDone={() => {
+            window.localStorage.setItem('gsc.onboarded', '1');
+            go('overview');
+          }}
+        />
+      ) : null}
+      {view !== 'onboarding' ? (<div className={styles.app}>
+        {sidebarOpen ? <Sidebar
+          view={view === 'start' && homeMode === 'overview' ? 'overview' : view}
           onNavigate={go}
           workspaceName={prefs.workspaceName}
           pinnedPages={pinnedPages}
@@ -1361,12 +1402,40 @@ export default function App() {
           onOpenChat={openChat}
           prefs={prefs}
           onPatchPrefs={(patch) => updatePrefs({ ...prefs, ...patch })}
-        />
+        /> : null}
         <main className={styles.main}>
+          <div className={styles.topBar}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              aria-label="切换侧栏"
+              title={sidebarOpen ? '收起侧栏' : '展开侧栏'}
+              onClick={() => setSidebarOpen((o) => !o)}
+            >
+              <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <rect x="1.5" y="2.5" width="15" height="13" rx="2.5" />
+                <path d="M7 2.5v13" />
+                <rect x="1.5" y="2.5" width="5.5" height="13" rx="2" fill="currentColor" stroke="none" opacity="0.28" />
+              </svg>
+            </button>
+            <button type="button" className={styles.iconBtn} aria-label="搜索" title="搜索（⌘K）" onClick={() => setPaletteOpen(true)}>
+              <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                <circle cx="8" cy="8" r="4.6" />
+                <path d="M11.5 11.5L15 15" />
+              </svg>
+            </button>
+            <span className={styles.topSpacer} />
+            {view === 'start' && homeMode === 'start' ? (
+              <div className={styles.seg} role="tablist" aria-label="首页视角">
+                <button type="button" className={`${styles.segBtn} ${styles.segOn}`}>Start</button>
+                <button type="button" className={styles.segBtn} onClick={() => setHomeMode('overview')}>Overview</button>
+              </div>
+            ) : null}
+          </div>
           {error && panel === 'none' ? <div className={styles.errorBar}>{error}</div> : null}
           {renderMain()}
         </main>
-      </div>
+      </div>) : null}
       <input
         ref={fileInputRef}
         type="file"

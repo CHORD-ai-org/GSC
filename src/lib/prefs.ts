@@ -34,6 +34,8 @@ export type UiPrefs = {
   /* SIDEBAR_PLAN: collapse state for the two new sections (persisted). */
   sidebarPinnedCollapsed?: boolean;
   sidebarChatsCollapsed?: boolean;
+  /** U4+/UI：整栏收缩（icon-only 窄栏）。 */
+  sidebarCollapsed?: boolean;
 };
 
 export const DEFAULT_PREFS: UiPrefs = {

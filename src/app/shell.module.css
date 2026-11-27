@@ -1,5 +1,17 @@
 .sidebar{width:248px;flex:none;background:var(--bg-sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px 12px;overflow:auto}
 .brand{display:flex;align-items:center;gap:8px;padding:4px 8px 18px;color:var(--ink)}
+.brandRow{display:flex;align-items:center;gap:8px;padding:4px 6px 16px;color:var(--ink)}
+.collapseBtn{margin-left:auto;border:0;background:transparent;color:var(--ink-2);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.collapseBtn:hover{background:var(--tint-hover);color:var(--ink)}
+.sidebarCollapsed{width:60px;padding:16px 8px 12px}
+.sidebarCollapsed .brandRow{justify-content:center;padding:4px 0 14px}
+.sidebarCollapsed .collapseBtn{margin-left:0}
+.sidebarCollapsed .navItem{justify-content:center;gap:0;padding:8px 0}
+.sidebarCollapsed .navItem span{display:none}
+.sidebarCollapsed .collapseArea{display:none}
+.sidebarCollapsed .userChip{justify-content:center;padding:6px 0;gap:0}
+.sidebarCollapsed .userChipText{display:none}
+.sidebarCollapsed .footer{align-items:center}
 .brandName{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.14em}
 
 .group{margin-bottom:18px}

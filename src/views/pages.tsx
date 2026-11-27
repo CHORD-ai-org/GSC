@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { narrate, type FeedLine } from '../lib/narrate.ts';
 import { Composer } from '../app/Composer.tsx';
 import { NewsPanel } from '../components/NewsPanel.tsx';
 import { GscLogo } from '../components/GscLogo.tsx';
@@ -38,6 +39,7 @@ export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
 export function StartView({
   onSubmit,
   onCanvas,
+  onProfileInit,
   onOpenFile,
   onLightUp,
   onConfigChange,
@@ -47,6 +49,7 @@ export function StartView({
 }: {
   onSubmit: (payload: { text: string; mode: ComposerMode; model: ModelName; provider: string }) => void | Promise<void>;
   onCanvas: () => void;
+  onProfileInit?: () => void;
   onOpenFile: () => void;
   onLightUp: () => void;
   onConfigChange: (patch: { provider?: string; base_url?: string; model?: string; api_key?: string }) => Promise<void>;
@@ -95,6 +98,12 @@ export function StartView({
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M5 8h6" /></svg>
             {t('start.canvasPreview')}
           </button>
+          {onProfileInit ? (
+            <button type="button" className={styles.quickButton} onClick={onProfileInit}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="8" cy="5.5" r="2.5" /><path d="M3 13.5c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" /></svg>
+              初始化画像
+            </button>
+          ) : null}
           <button type="button" className={styles.quickButton} onClick={onOpenFile}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2.5h6l3.5 3.5v7.5H3z" /><path d="M9 2.5V6h3.5" /></svg>
             {t('start.openFile')}
@@ -138,6 +147,8 @@ export function OverviewPage({
   onPickDay,
   onSeeAll,
   onResolve,
+  homeMode,
+  onHomeMode,
 }: {
   items: ItemDTO[];
   contexts: ContextIndexEntry[];
@@ -152,9 +163,30 @@ export function OverviewPage({
   onPickDay: (day: string) => void;
   onSeeAll: () => void;
   onResolve: (id: string, status: 'accepted' | 'rejected') => Promise<void>;
+  homeMode?: 'start' | 'overview';
+  onHomeMode?: (m: 'start' | 'overview') => void;
 }) {
   const t = useT();
   const rt = useRelativeTime();
+  const [ovProfile, setOvProfile] = useState<{ user_name: string; xConnected: boolean }>({ user_name: '', xConnected: false });
+  const [ovStats, setOvStats] = useState<{ days: { date: string; count: number }[]; today_items: number; today_proposals: number } | null>(null);
+  const [ovFeed, setOvFeed] = useState<FeedLine[]>([]);
+  const bandRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef({ active: false, startX: 0, startLeft: 0, moved: false });
+  useEffect(() => {
+    void fetch('/api/profile/status').then((r) => r.json())
+      .then((d) => { if (d.ok) setOvProfile((p) => ({ ...p, user_name: d.user_name || '' })); })
+      .catch(() => undefined);
+    void fetch('/api/auth/x/status').then((r) => r.json())
+      .then((d) => { if (d.ok) setOvProfile((p) => ({ ...p, xConnected: Boolean(d.connected) })); })
+      .catch(() => undefined);
+    void fetch('/api/overview/stats').then((r) => r.json())
+      .then((d) => { if (d.ok) setOvStats({ days: d.days, today_items: d.today_items, today_proposals: d.today_proposals }); })
+      .catch(() => undefined);
+    void fetch('/api/overview/feed?limit=5').then((r) => r.json())
+      .then((d) => { if (d.ok) setOvFeed((d.feed ?? []) as FeedLine[]); })
+      .catch(() => undefined);
+  }, []);
   const [view, setView] = useViewMode('overview');
   const rawCount = items.filter((i) => i.type.startsWith('raw.')).length;
   const objCount = items.filter((i) => i.type.startsWith('object.')).length;
@@ -177,11 +209,157 @@ export function OverviewPage({
   const weekPending = pendingProposals.length;
   return (
     <div className={styles.page}>
-      <div className={styles.headRow}>
+      <div className={styles.welcomeRow}>
         <div>
-          <h1 className={styles.pageTitle}>{t('nav.overview')}</h1>
+          <h1 className={styles.welcomeTitle}>欢迎回来，{ovProfile.user_name || 'Ceaser'}</h1>
+          <div className={styles.welcomeSub}>发生了哪些新故事？</div>
         </div>
-        <button type="button" className={styles.primaryButton} onClick={onNew}>+ {t('common.new')}</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {onHomeMode ? (
+            <div className={styles.seg}>
+              <button type="button" className={homeMode === 'start' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn} onClick={() => onHomeMode('start')}>Start</button>
+              <button type="button" className={(homeMode ?? 'overview') === 'overview' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn} onClick={() => onHomeMode('overview')}>Overview</button>
+            </div>
+          ) : null}
+          <button type="button" className={styles.primaryButton} onClick={onNew}>+ {t('common.new')}</button>
+        </div>
+      </div>
+
+      <div className={styles.sourceRow}>
+        <button type="button" className={styles.ovSourceBtn} title="X（已连接）" aria-label="X">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="#171717" aria-hidden="true">
+            <path d="M17.5 3h3.1l-6.8 7.8L21.9 21h-6.3l-4.9-6.4L5.1 21H2l7.3-8.4L2.4 3h6.4l4.4 5.9L17.5 3zm-1.1 16.2h1.7L7.6 4.7H5.8l10.6 14.5z" />
+          </svg>
+          {ovProfile.xConnected ? <span className={styles.ovGreenCheck}>✓</span> : null}
+        </button>
+        <button type="button" className={styles.ovSourceBtn} title="书签" aria-label="书签">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#171717" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6.5 3h11v18l-5.5-4.2L6.5 21z" />
+          </svg>
+        </button>
+        <button type="button" className={styles.ovSourceBtn} title="灵感" aria-label="灵感">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#171717" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19" />
+          </svg>
+        </button>
+        <button type="button" className={styles.ovSourceBtn} title="知识库" aria-label="知识库">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#171717" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 20l3-1 11-11-2-2L5 17z" />
+            <path d="M15 5l2 2" />
+          </svg>
+        </button>
+        <button type="button" className={styles.profileQueueBtn} onClick={onOpenQueue}>
+          进入用户画像
+          <svg width="26" height="12" viewBox="0 0 26 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+            <path d="M0 6h22M17 1.5L22.5 6 17 10.5" />
+          </svg>
+        </button>
+        {ovStats ? (
+          <div className={styles.dataCard}>
+            <div className={styles.dataCardTitle}>今日数据传输量</div>
+            <div className={styles.dataCardSub}>流量图</div>
+            <svg width="252" height="76" viewBox="0 0 252 76" role="img" aria-label="近 7 日信息写入量">
+              {(() => {
+                const max = Math.max(1, ...ovStats.days.map((d) => d.count));
+                const bw = 26;
+                const gap = 10;
+                return ovStats.days.map((d, i) => {
+                  const h = Math.max(3, Math.round((d.count / max) * 58));
+                  const x = i * (bw + gap) + 6;
+                  return (
+                    <g key={d.date}>
+                      <rect x={x} y={64 - h} width={bw} height={h} rx="5" fill={i === 6 ? 'var(--accent)' : '#B9B6AD'}>
+                        <title>{d.date}：{d.count} 条</title>
+                      </rect>
+                    </g>
+                  );
+                });
+              })()}
+              <rect x="0" y="70" width="252" height="1" fill="var(--line)" />
+            </svg>
+            <div className={styles.dataCardMeta}>今日新增 {ovStats.today_items} 条 · {ovStats.today_proposals} 条提案</div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title="历史记录" count={`${ovFeed.length}`} />
+        <div className={styles.feedList}>
+          {ovFeed.length === 0 ? (
+            <div className={styles.emptyLine}>还没有活动——去采集一些信息，这里就会开始讲故事。</div>
+          ) : [...ovFeed].reverse().map((e, i, arr) => {
+            const last = i === arr.length - 1;
+            return (
+              <div key={`${e.at}-${i}`} className={last ? styles.feedRowOn : styles.feedRow}>
+                <span className={last ? styles.feedIconOn : styles.feedIcon} aria-hidden="true">
+                  {e.kind === 'proposal' ? (
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M8 1.5v4M8 10.5v4M1.5 8h4M10.5 8h4M3.5 3.5l2.5 2.5M10 10l2.5 2.5M12.5 3.5L10 6M6 10l-2.5 2.5" /></svg>
+                  ) : e.actor === 'user' ? (
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="8" cy="5.5" r="2.4" /><path d="M3 13.2c0-2.6 2.2-4.2 5-4.2s5 1.6 5 4.2" /></svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="4" height="4" /><rect x="7" y="1" width="4" height="4" /><rect x="1" y="7" width="4" height="4" /><rect x="7" y="7" width="4" height="4" /></svg>
+                  )}
+                </span>
+                <span className={styles.feedText}>{narrate(e)}</span>
+                <span className={last ? styles.feedTimeOn : styles.feedTime}>{rt(e.at)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <SectionLabel title="下面想编辑什么？" count="类别包含各个 cluster" />
+        <div
+          className={styles.clusterBand}
+          ref={bandRef}
+          tabIndex={0}
+          role="group"
+          aria-label="cluster 横滑选择（左右键滚动）"
+          onKeyDown={(e) => {
+            const el = bandRef.current;
+            if (!el) return;
+            if (e.key === 'ArrowRight') { e.preventDefault(); el.scrollBy({ left: 250, behavior: 'smooth' }); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); el.scrollBy({ left: -250, behavior: 'smooth' }); }
+          }}
+          onMouseDown={(e) => {
+            const el = bandRef.current;
+            if (!el) return;
+            dragState.current = { active: true, startX: e.pageX, startLeft: el.scrollLeft, moved: false };
+            el.style.cursor = 'grabbing';
+          }}
+          onMouseMove={(e) => {
+            const el = bandRef.current;
+            if (!el || !dragState.current.active) return;
+            const dx = e.pageX - dragState.current.startX;
+            if (Math.abs(dx) > 4) dragState.current.moved = true;
+            el.scrollLeft = dragState.current.startLeft - dx;
+          }}
+          onMouseUp={() => {
+            const el = bandRef.current;
+            dragState.current.active = false;
+            if (el) el.style.cursor = 'grab';
+          }}
+          onMouseLeave={() => {
+            const el = bandRef.current;
+            dragState.current.active = false;
+            if (el) el.style.cursor = 'grab';
+          }}
+        >
+          {clusters.length === 0 ? (
+            <div className={styles.emptyLine}>还没有关联组——采集归块后这里会长出来。</div>
+          ) : clusters.slice(0, 12).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={styles.clusterTile}
+              onClick={() => { if (!dragState.current.moved) onOpenCluster(c.id); }}
+            >
+              <span className={styles.clusterTileTitle}>{c.title}</span>
+              <span className={styles.clusterTileMeta}>{c.member_ids?.length ?? 0} 个条目</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className={styles.statGrid}>
@@ -193,12 +371,10 @@ export function OverviewPage({
           <span className={styles.statNum}>{objCount}</span>
           <span className={styles.statLabel}>{t('overview.objects')}</span>
         </button>
-        <button type="button" className={styles.statCard} onClick={() => recentContexts[0] && onOpenContext(recentContexts[0].id)}>
-          <span className={styles.statNum}>{contexts.length}</span>
-          <span className={styles.statLabel}>{t('nav.contexts')}</span>
-        </button>
       </div>
 
+      {/* OV5 长页节奏：待裁决+最近 双栏（笔记底部两块并排） */}
+      <div className={styles.ovColumns}>
       {/* Review queue: proposal cards with inline ✓/✗ (P3)；UI_PARITY：原文可读化，不暴露 JSON */}
       {pendingProposals.length > 0 ? (
         <div className={styles.section}>
@@ -256,6 +432,7 @@ export function OverviewPage({
           </div>
         )}
       </div>
+      </div>
 
       {/* Clusters + Contexts: badge clouds instead of repeated list rows (P3) */}
       <div className={styles.section}>
@@ -278,21 +455,6 @@ export function OverviewPage({
         <SemLegend />
         <div style={{ marginTop: 10 }}>
           <ActivityMap cells={activity} onPickDay={onPickDay} />
-        </div>
-      </div>
-
-      <div className={styles.section}>
-        <SectionLabel title={t('overview.contexts')} count={`${contexts.length}`} />
-        <div className={styles.badgeCloud}>
-          {recentContexts.length === 0 ? (
-            <div className={styles.emptyLine}>{t('overview.noContexts')}</div>
-          ) : recentContexts.map((c) => (
-            <button key={c.id} type="button" className={styles.cloudChip} onClick={() => onOpenContext(c.id)}>
-              <span className={styles.cloudGlyph}>CTX</span>
-              {c.title}
-              <span className={styles.cloudCount}>{c.member_ids.length}</span>
-            </button>
-          ))}
         </div>
       </div>
 
