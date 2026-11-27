@@ -381,4 +381,13 @@ export const schedules = pgTable('schedules', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
 
-export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, outlineNodes, schedules, metaGroups, metaTagGroups, assignmentParams, itemMetaParams };
+export const oauthTokens = pgTable('oauth_tokens', {
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  access_token: text('access_token').notNull(),
+  refresh_token: text('refresh_token'),
+  scope: text('scope'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
+export const schema = { items, itemContent, relations, events, contexts, contextMembers, clusters, clusterMembers, proposals, sources, users, clusterShares, clusterShareEvents, tagDefinitions, tagValues, idempotencyKeys, sourceSnapshots, captureTasks, spatialLayouts, outlineNodes, schedules, metaGroups, metaTagGroups, assignmentParams, itemMetaParams, oauthTokens };

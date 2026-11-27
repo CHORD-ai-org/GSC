@@ -32,16 +32,23 @@ Status: `DECIDED` — 2026-11-26（创始人脑暴定调+原型三屏；U1 已�
    （置信度人判）；被 reject 的进裁决留痕（禁止再犯=后续迭代项）。
 4. **限定两组**：打标建议只出「用户画像/个人经历」（3–5 甜点区，渐进披露）。
 5. **伴灵名**：`users.companion_name`（0017 迁移），默认 Tau，屏 3 可改。
-6. **语音（Fish Audio）**：屏 3 增强，最后一批——先把骨架跑通。
+6. **系统接线（2026-11-27）**：`GET /api/profile/status`（initialized=companion）+
+   **首启自动进入**（App mount 查 status：未初始化且无 gsc.onboarded 标记 → 跳 /onboarding）+
+   Start 页快捷区「初始化画像」入口（补做/重跑）；完成打 gsc.onboarded 标记。
+7. **语音（Fish Audio）**：U4 已接——官方 API（POST api.fish.audio/v1/tts，Bearer key，
+   s2.1-pro-free 免费档），env=GSC_FISH_AUDIO_KEY/GSC_FISH_MODEL/GSC_FISH_VOICE；
+   屏 3「🔊 让 Tau 开口」按钮（POST /api/tts → mp3 blob → Audio play），未配置如实上报。
+7. **X OAuth 2.0（PKCE）真接入管线**：env=GSC_X_CLIENT_ID/SECRET；/api/auth/x/status|start|callback
+   三路由+oauth_tokens 表（0018）；未配置=屏 1 如实显示占位，配置后点击即真授权跳转。
 
 ## 3. 分批
 
 | 批 | 内容 | 出口 | 状态 |
 |---|---|---|---|
 | **U1** | 后端管线：锚点+伴灵名+组限定打标提案+`POST /api/profile/init` | 3/3 测试+真链 | ✅ 本轮 |
-| **U2** | 屏 1/2 UI：onboarding 源连接页（logo 卡+composer）→ 合成页（依次展示 notes+Tau 介绍+命名输入） | 全新用户走完屏 1→2 | 待执行 |
-| **U3** | 屏 3 引导：Tau 对话引导+命名确认+过渡动画+scroll 提示 | 原型三屏全链 | 待执行 |
-| **U4** | 语音（Fish Audio API）+ X OAuth 接入 | 语音可开关 | 后置 |
+| **U2** | 屏 1/2 UI：onboarding 源连接页（logo 卡+composer）→ 合成页（依次展示 notes+Tau 介绍+命名输入） | 全新用户走完屏 1→2 | ✅（g8-step1/2.png；composer 提交后**已收入 chips 显示在 composer 上方**，开始构建传 source_item_ids） |
+| **U3** | 屏 3 引导：Tau 对话引导+命名确认+过渡动画+scroll 提示 | 原型三屏全链 | ✅ 骨架（g8-step3.png；语音/过渡动画 U4 增强） |
+| **U4** | 语音（Fish Audio API）+ X OAuth 接入 + 品牌图标 | 语音/X/图标全接线（key 配置后即活） | ✅（2026-11-27） |
 
 ## 4. 任务卡（七项）
 
@@ -53,6 +60,13 @@ Status: `DECIDED` — 2026-11-26（创始人脑暴定调+原型三屏；U1 已�
    命名 → 「继续」→ 提案面逐条校准 → 屏 3 Tau 引导 → 进主界面。
 6. **Minimum** U1 后端管线（本轮已交付）。
 7. **Test method** vitest（锚点幂等/伴灵名/组限定提案/401 降级）+ 真链 curl + 屏 1-3 截图对照原型。
+
+## 5. 品牌资产（100% 还原）
+
+`assets/CHORD Character Universe/`（MIT，创始人自有品牌）——**真资产已接入**：
+`Tau.jpg`（屏 2 粉色 T 吉祥物）· `Gamma.jpg`（屏 3 黄色角色）· `gsc logo.png`（三屏左上）。
+复制至 `public/brand/`（/brand/*.jpg|png）。**教训：先查 assets 再手绘。**
+余项：源 logo 品牌图标（X 等）后换真图标。
 
 ## 5. 不做
 

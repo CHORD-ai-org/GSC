@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Readable } from 'node:stream';
+import type { IncomingMessage } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -89,6 +90,35 @@ describe('USER_PROFILE_INIT（U1）：初始画像构建管线', () => {
       const mt = props.find((p) => p.kind === 'meta_tag');
       expect(mt?.target_id).toBe(src.id);
       expect(mt?.rationale).toContain('profile-init');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('组边 seed 生效：无自定义定义时 preset tag_user_profile 也可产出提案（真实可用性）', async () => {
+    const { handle, dir } = await fresh();
+    try {
+      const user = await createUser(handle.db, 'Ceaser');
+      await createItem(handle.db, {
+        type: 'raw.document', title: '工作方式记录', domain: 'user', origin: 'user',
+        fields: { content_text: '习惯把决策写成文档，喜欢直接给结论' },
+      });
+      const items = await (await import('./repo/items.ts')).listItems(handle.db);
+      const src = items.find((i) => i.source_label !== 'user_profile')!;
+      const okFetch = (async (_u: unknown, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { messages?: { role: string; content: string }[] };
+        const sys = (body.messages ?? []).find((m) => m.role === 'system')?.content ?? '';
+        if (sys.includes('Assign meta tags')) {
+          return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ tags: [{ item: src.id, definition: 'tag_user_profile', value: '结论先行', why: '明确表达' }], new_tags: [] }) } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ choices: [{ message: { content: '{"names":[]}' } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }) as unknown as typeof fetch;
+      const r = await buildInitialProfile(handle.db, config, { userId: user.id, userName: user.name, fetchImpl: okFetch });
+      expect(r.llm).toBe('ok');
+      expect(r.proposals).toBeGreaterThanOrEqual(1); // 组边 seed 后不再空转
+      const props = await listProposals(handle.db, 'pending');
+      const mt = props.find((p2) => p2.kind === 'meta_tag' && p2.related_definition_id === 'tag_user_profile');
+      expect(mt).toBeTruthy();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

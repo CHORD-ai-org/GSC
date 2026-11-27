@@ -13,6 +13,7 @@ import type { Database } from '../persistence/client.ts';
 import { createItem, listItems } from '../repo/items.ts';
 import { createProposal, listProposals } from '../repo/proposals.ts';
 import { listTagDefinitions } from '../repo/tags.ts';
+import { PROFILE_DEFINITION_ID } from '../../src/lib/tags.ts';
 import { metaGroups, metaTagGroups } from '../persistence/schema.ts';
 import { inArray } from 'drizzle-orm';
 import { suggestMetaTags } from './proposer.ts';
@@ -35,7 +36,7 @@ export async function ensureProfileAnchor(db: Database, userName: string): Promi
     domain: 'user',
     origin: 'user',
     source_label: PROFILE_MARKER,
-    fields: { content_text: 'Meta User Profile — 由初始画像管线构建，条目经用户裁决后聚合于此' } as unknown as ItemFields,
+    fields: { content_text: 'Meta User Profile — 由初始画像管线构建，条目经用户裁决后聚合于此' },
   });
   return anchor.id;
 }
@@ -46,13 +47,15 @@ async function profileDefinitions(db: Database): Promise<{ id: string; name: str
     .select({ groupId: metaGroups.id })
     .from(metaGroups)
     .where(inArray(metaGroups.key, PROFILE_GROUP_KEYS));
-  if (groups.length === 0) return [];
   const ids = groups.map((g) => g.groupId);
   const edges = await db
     .select({ definitionId: metaTagGroups.tag_id })
     .from(metaTagGroups)
     .where(inArray(metaTagGroups.group_id, ids));
-  if (edges.length === 0) return [];
+  if (ids.length === 0 || edges.length === 0) {
+    // 兜底锚定：组边未 seed 时至少锚到 User Profile 定义（D-066 画像输出读它）
+    return [{ id: PROFILE_DEFINITION_ID, name: 'User Profile' }];
+  }
   const wanted = new Set(edges.map((e) => e.definitionId));
   return (await listTagDefinitions(db)).filter((d) => wanted.has(d.id)).map((d) => ({ id: d.id, name: d.name }));
 }
