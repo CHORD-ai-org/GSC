@@ -71,7 +71,7 @@ describe('route pipeline (B1)', () => {
         if (op.method === 'GET') continue;
         const p = routeToPath(route.pattern.source);
         // Run-once actions: triggering again should re-run, not replay a stored response.
-        if (p === '/api/sources/{id}/sync' || p === '/api/llm/check') continue;
+        if (p === '/api/sources/{id}/sync' || p === '/api/llm/check' || p === '/api/tts') continue; // 运行型动作：每次真生成
         expect(op.idem, `${op.method} ${p}`).toBe(true);
       }
     }

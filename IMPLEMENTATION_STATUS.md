@@ -780,3 +780,80 @@ awaiting-dot）。**验收结论：PASS**（遗留项见 D-113，均非阻塞）
   限定打标提案+401 降级）· POST /api/profile/init（201+报告）。
 - 实测：3/3（锚点幂等/伴灵名持久化/组限定提案挂 chunk/降级）+ 全量 248+1skip/249。
 - 待办：U2 屏 1/2 UI · U3 屏 3 引导 · U4 语音（Fish Audio）+X OAuth。
+
+## USER_PROFILE_INIT U2/U3：三屏 UI 还原 COMPLETE（2026-11-26）
+
+- 独立壳层 `/onboarding`（无侧栏/无命令面板，原型白底全屏）：屏 1 源连接（四 logo 卡+绿勾+
+  composer 三件套）· 屏 2 依次 notes（正在构建→已完成→容我介绍）+Tau 吉祥物+命名+「继续画像
+  的初始化:3」· 屏 3 大字+黄色小鸭+scroll 提示+「进入 GSC」。`?step=` 深链（屏 2 自动续跑合成）。
+- 屏 2 驱动=POST /api/profile/init（真实管线）；伴灵名 GET/POST /api/profile/companion
+  （持久化 users.companion_name，守门测试抓漏后补 idem）。
+- 验收：三屏截图对照原型全中（g8-step1/2/3.png）· 全量 248+1skip/249。
+- **100% 还原修正**：手绘 SVG 全部替换为真品牌资产（CHORD Character Universe，MIT）——
+  Tau.jpg/Gamma.jpg/gsc logo.png → public/brand/；三屏重截对照原型一致（g8-step1/2/3.png）。
+- 待办：U4 语音（Fish Audio）+X OAuth 真接入；源 logo 品牌图标替换占位字卡。
+
+## USER_PROFILE_INIT U4：语音+OAuth+品牌图标 COMPLETE（2026-11-27）
+
+- **Fish Audio TTS 真接入**（官方 API 核对：POST api.fish.audio/v1/tts，Bearer，s2.1-pro-free
+  免费档）：integrations/fishaudio.ts + GET /api/tts/status + POST /api/tts（mp3 二进制）；
+  屏 3「🔊 让 Tau 开口」按钮（blob→Audio play）；未配置如实上报（502+提示）。
+- **X OAuth 2.0 PKCE 管线**：integrations/xoauth.ts（authorizeUrl/exchangeCode）+
+  /api/auth/x/status|start|callback（verifier 进程级暂存，302 跳转）+ 0018 oauth_tokens 表；
+  env=GSC_X_CLIENT_ID/SECRET；未配置=屏 1 占位+如实状态。
+- **品牌图标**：X 卡换真实官标 SVG（修复字重复 bug）；其余源卡字卡占位。
+- 验收：u4_integrations 3/3（官方端点断言/未配置如实/status）+ 真链（tts/status·auth/x/status
+  未配置如实）+ 三屏截图（X 官标/语音钮）· 全量 252+1skip/253。
+- 配置即活：设 GSC_FISH_AUDIO_KEY / GSC_X_CLIENT_ID+SECRET 后无需改码。
+- **首页双视角（2026-11-27，创始人指令）**：Start 页顶部 Start/Overview pill 切换两个视角
+  （Overview 视角内联渲染 OverviewPage）；侧栏高亮名跟随视角（overview 视角→高亮「总览」）；
+  go('start') 重置回 Start；?home=overview 深链。侧栏导航/总览页本身不变。
+- **系统接线（2026-11-27）**：/api/profile/status + 首启自动进入 onboarding（未初始化→跳三屏，
+  gsc.onboarded 标记防重复）+ Start 页「初始化画像」快捷入口（补做/重跑）。
+  真验：status {initialized:true, companion:Tau, user_name} · g8-start-entry.png（按钮就位）。
+
+## OVERVIEW_REDESIGN OV-BE + OV1 COMPLETE（2026-11-27）
+
+- **OV-BE**：repo/overview.ts 两个只读聚合（overviewStats 7 日 events 桶+今日 items/proposals；
+  overviewFeed events+proposals 合流倒序+标题 join）+ GET /api/overview/stats|feed + 2/2 对账测试
+  + 真链（stats 天桶实数/feed 出「我的秘密基地」等真实叙事行）。
+- **OV1**：OverviewPage 欢迎区（欢迎回来,{user_name}+副语）+源行（X 官标+书签/灵感/知识库
+  线稿图标+X 连接绿勾=oauth_tokens 真状态）+「进入用户画像 →」（落点=提案队列）+seg 挪欢迎行
+  右侧（顶栏 seg 仅 Start 视角显示）；旧区块自然下沉保留。
+- 视觉超越草稿（计划 §2 标准）：ov1-welcome.png 实证。
+- 待办：OV2 数据卡 / OV3 叙事活动流 / OV4 无边界横滑区 / OV5 长页整合。
+
+## OVERVIEW_REDESIGN OV2：今日数据传输量卡 COMPLETE（2026-11-27）
+
+- OverviewPage 源行右侧数据卡：「今日数据传输量/流量图」手绘 SVG 7 日柱状（今日柱强调色，
+  hover 出日期+条数 title）+ 副指标（今日新增 chunks/提案）——数据=GET /api/overview/stats
+  真实计数（零依赖，零造假）。ov2-datacard.png 实证。
+
+## OVERVIEW_REDESIGN OV3：叙事活动流 COMPLETE（2026-11-27）
+
+- src/lib/narrate.ts 纯函数叙事模板（事件按 actor 你/Agent+动词映射；提案映射 Agent 叙事句；
+  空标题兜底「已删除条目」）+ 3/3 单测。OverviewPage「历史记录」区块：灰底容器白胶囊行+
+  来源图标（用户/星形/GSC 块）+相对时间；**最新一条黑底白字**（笔记原意）；空态引导不造假。
+- 数据=GET /api/overview/feed?limit=5（oldest→newest 渲染）。ov3-feed.png 实证。
+
+## OVERVIEW_REDESIGN OV4：无边界 cluster 横滑区 COMPLETE（2026-11-27）
+
+- 「下面想编辑什么？」渐变无边界 subsection（**仅此区无边界**，C 纠偏口径）：
+  浅暖灰渐变圆角容器+无边框白半透明 tiles（title+条目数）；**三路交互**——按住拖动横滑
+  （grab/grabbing+moved 防误触）+scroll-snap+←→键盘（focus-visible 焦点环）+reduced-motion 降级。
+- 数据=clusters prop 真列表（≤12）；空态引导如实。ov4-band.png（3 真 cluster）实证。
+
+## OVERVIEW_REDESIGN OV5：长页节奏对照笔记 COMPLETE（2026-11-27）
+
+- 旧区块节奏：待裁决+最近双栏并排（笔记底部两块）· 全页 .section 44px 垂直节奏 ·
+  statGrid 2 列配平 · 统计卡灰白化（.page scope，尊重全局色块轮换，见 D-117）。
+- ov5-long.png（1440x2400 全页）：欢迎→源行+数据卡→历史记录→横滑区→统计→双栏→
+  关联组/组织活动/标签云，节奏均匀。OVERVIEW_REDESIGN 五批全落（D-117）。
+- 尾巴：整页视觉微调随真实数据增长再调；叙事文案待创始人美化（笔记自注，KNOWN_ISSUES 级）。
+
+## OVERVIEW_REDESIGN 文案美化 v1（2026-11-27，待创始人过目）
+
+- narrate.ts 词彩升级（事实不变只换叙事词）：事件=「写下了/添了新笔墨/请进档案柜/换了个新名字」；
+  提案=「挑好称心标签/想好了名字/该有个归处/细查来龙去脉/心意相通/嗅到新标签/警觉发现重复」。
+- 3/3 测试同步；ov-copy-v1.png 实效（「你写下了「我的秘密基地」」末条黑底）。
+- Status：v1 待创始人过目 → 定稿或改写。

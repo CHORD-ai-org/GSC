@@ -1417,3 +1417,23 @@ Statuses: `DECIDED` · `PROPOSED` · `OPEN` · `DEFERRED`. Never upgrade without
 - **实证**：vitest 10/10（meta_tag 提案/降级规则维保留/discovery 同名幂等/钩子开关）+
   真链 detect（llm=skipped 如实记账）+ dashboard 截图。
 - **Status**：`DECIDED` — 2026-11-26。M4（四轴 axis group 接线）待 G6 B 批。
+
+## D-116 — Contexts 页面从 UI 移除（2026-11-27，创始人指令「删除这个页面」）
+
+- **决策**：侧栏导航移除「上下文」；总览页上下文统计卡与「你的上下文」区块一并移除
+  （避免引导到无入口页面）。
+- **保留**：后端 API/表/数据模型 §8（Context 概念）原样保留——URL /contexts 深链仍可达
+  （详情/表单代码未删），数据不丢；G6 画像的 context 单元口径改由 Cluster 承载。
+- **原因**：双组织概念（Cluster=书架/Context=临时成卷）对新用户认知负担重；G2 采集自动
+  归块只落 Cluster；Context 的「临时成卷」价值尚未被真实工作流验证。
+- **Status**：`DECIDED`（UI 层）。彻底删除（API/表/overview 传参链）= 另一批，需再确认。
+
+## D-117 — Overview 叙事化改版（2026-11-27，创始人定调）
+
+- **决策**：Overview 从统计面板升级为个人主页叙事（欢迎区/源行/今日数据卡/历史记录叙事流/
+  cluster 无边界横滑区）；长页节奏 44px；待裁决+最近双栏。视觉红线=产出必须超越草稿。
+- **关键纠偏**：「无边界」只适用于 cluster 横滑 subsection（非整页画布）。
+- **后端**：两个只读聚合（/api/overview/stats|feed，现算无新表）。
+- **scope 决定**：统计卡灰白化仅覆盖 Overview 页（.page scope），其他页的
+  UI_COLORBLOCK_REFACTOR 色块轮换不动——两决定并存按页分流。
+- **Status**：`DECIDED`（OV-BE~OV4 完成，OV5 节奏完成、整页微调留尾）。文案美化待创始人（笔记自注）。

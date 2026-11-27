@@ -2,7 +2,22 @@
 
 > Last updated: 2026-11-21
 > Standing instruction: read this file before every answer in this workspace.
-> Status: **G8 初始用户画像入 GOALS（2026-11-26）**：新目标行（🟡 U1 后端落地）+ 理解口径段（四屏流水线/Calibration=提案制/三字段/锚点条目/渐进披露/Tau 伴灵）。待 U2 屏 1/2 UI。
+> Status: **文案美化 v1 出稿（2026-11-27）**：narrate.ts 词彩升级（写下了/添了新笔墨/细查来龙去脉…），3/3 测+ov-copy-v1.png；待创始人过目定稿后转下一线。
+> Prior: OV5 节奏完成·OVERVIEW_REDESIGN 全批落地（2026-11-27，D-117）**：双栏/44px 节奏/统计卡灰白（.page scope）；ov5-long.png 全页对照笔记。尾巴=叙事文案美化+整页微调。
+> Prior: OV4 横滑区完成（2026-11-27）**：「下面想编辑什么」渐变无边界区（drag+snap+←→键+焦点环+reduced-motion），3 真 cluster tiles 实证。待 OV5 长页整合（末批）。
+> Prior: OV3 叙事活动流完成（2026-11-27）**：narrate.ts 纯函数模板（3/3 测）+历史记录区块（末条黑底高亮/来源图标/空态），接 overview/feed 真数据。待 OV4 无边界横滑区/OV5 长页。
+> Prior: OV2 数据卡完成（2026-11-27）**：今日数据传输量卡（7 日 SVG 柱状+今日强调+副指标，接 overview/stats 真数据）。待 OV3 活动流/OV4 横滑区/OV5 长页。
+> Prior: OV-BE+OV1 完成（2026-11-27）**：overview/stats|feed 只读聚合（真链+对账）+欢迎区/源行/进入用户画像/seg 挪行；观感超草稿（ov1-welcome.png）。待 OV2-5（数据卡/活动流/横滑区/长页）。
+> Prior: OVERVIEW_REDESIGN v2（2026-11-27）**：创始人纠偏——C=仅 cluster subsection 无边界（非整页画布）；视觉必须超越草稿（§2 五条标准）；后端=两个只读聚合端点（overview/stats 7日柱状+overview/feed 合流活动流，无新表）；文档更新为交付义务。待确认两点后 OV-BE+OV1-5。
+> Prior: OVERVIEW_REDESIGN 规划（2026-11-27，PROPOSED）**：创始人笔记→六区块规格（欢迎区/源行/数据卡/叙事活动流/cluster 渐变横滑/长页下沉）+发散三方向收敛（A 骨架+C 渐变区+B 叙事模板）；UI Skill=Swiss minimal 印证现有 token；全真数据红线。待确认三点后执行 OV1-5。
+> Prior: 首页双视角（2026-11-27）**：Start 页 Start/Overview pill 切换（Overview 内联渲染 OverviewPage），侧栏高亮跟随视角；?home= 深链。D-116 Contexts 移除同日完成。
+> Prior: D-116 Contexts 页 UI 移除（2026-11-27）**：侧栏/总览卡与区块撤下（API/表/§8 概念保留，深链可达）；双组织概念认知减负。彻底删除另批确认。
+> Prior: G8 接线完成（2026-11-27）**：/api/profile/status+首启自动进 onboarding（未初始化跳三屏，标记防重复）+Start 页「初始化画像」入口。G8 全链：三屏/语音/OAuth/接线齐，待 key 真值。
+> Prior: U4 完成（2026-11-27）**：Fish Audio TTS 真接入（官方 API，屏 3 语音钮，未配置如实上报）+X OAuth PKCE 管线（status/start/callback+0018 oauth_tokens）+X 官标；配置即活（env 三键）。G8 全链待 key。
+> Prior: 初始画像管线真实可用性核查+修复（2026-11-26）**：发现 meta_tag_groups 零 seed（画像组无成员→建议器有管线无粮）→0017 补组边 seed+fallback 锚定；全链已接线（三屏→init→提案→裁决→/api/profile）；真链 llm=skipped 如实。唯一阻塞=换 key。
+> Prior: G8 三屏 100% 还原（2026-11-26）**：手绘 SVG→真品牌资产（CHORD Character Universe：Tau.jpg/Gamma.jpg/gsc logo → public/brand/）；教训=先查 assets 再手绘。待 U4。
+> Prior: G8 三屏 UI 还原完成（2026-11-26）**：/onboarding 独立壳层三屏（源连接/合成+Tau 命名/引导）对照原型全中；companion 路由持久化；守门测试补 idem。待 U4 语音+OAuth。
+> Prior: G8 初始用户画像入 GOALS（2026-11-26）**：新目标行（🟡 U1 后端落地）+ 理解口径段（四屏流水线/Calibration=提案制/三字段/锚点条目/渐进披露/Tau 伴灵）。待 U2 屏 1/2 UI。
 > Prior: USER_PROFILE_INIT U1 完成（2026-11-26）**：初始画像管线后端（锚点 raw.document+source_label=user_profile/伴灵名 users.companion_name Tau/用户画像+个人经历两组限定打标提案/401 降级）+ POST /api/profile/init；文献定调（Calibration=提案制/三字段/渐进披露）。待 U2 屏 1/2 UI · U3 引导 · U4 语音。
 > Prior: FORAGENTS F1 完成（2026-11-26）**：/foragents 隐藏教程页+GET /api/foragents.md（text/markdown）上线；内容源=docs/agents/foragents.md 真文件（模板字面量转义坑改文件存储）。F2 配置片段校对/F3 画像节待办。
 > Prior: FORAGENTS 规划（2026-11-26）**：/foragents 隐藏教程页——现状盘点发现 MCP server（9 工具）+tokens 已建成，缺的是自举入口；设计=单一 MD 内容源双形态（server /api/foragents.md agent fetch 一等公民 + 隐藏 React 视图）；七节骨架+四类配置片段；F1-F3 分批 PROPOSED。

@@ -46,7 +46,7 @@ describe('meta tags (PLAN-8)', () => {
       // A8-1: the six Vision §5.4 dimensions are pre-seeded (D-064)
       const defs = await call('GET', '/api/tags/definitions');
       expect(defs.status).toBe(200);
-      expect(defs.json.definitions.length).toBe(6);
+      expect(defs.json.definitions.length).toBe(7); // 0017 加 tag_background（个人经历轨迹）
       const names = defs.json.definitions.map((d: { name: string }) => d.name);
       expect(names).toContain('Thinking Style');
       expect(names).toContain('User Profile');
