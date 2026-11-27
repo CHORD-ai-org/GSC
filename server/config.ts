@@ -27,6 +27,13 @@ export type Config = {
   llmRetryBaseMs: number;
   corsOrigins: string[];
   allowPrivateIngest: boolean;
+  /** U4: Fish Audio 语音（TTS）——key 缺省=语音功能未配置。 */
+  fishAudioKey: string;
+  fishModel: string;
+  fishVoice: string;
+  /** U4: X OAuth——client id 缺省=未配置（状态接口如实上报）。 */
+  xClientId: string;
+  xClientSecret: string;
   authRequired: boolean;
 };
 
@@ -74,6 +81,11 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     corsOrigins: (env.GSC_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     // O1-3: dev/test escape hatch for loopback ingestion; production must stay off
     allowPrivateIngest: env.GSC_INGEST_ALLOW_PRIVATE === '1',
+    fishAudioKey: env.GSC_FISH_AUDIO_KEY ?? '',
+    fishModel: env.GSC_FISH_MODEL ?? 's2.1-pro-free',
+    fishVoice: env.GSC_FISH_VOICE ?? '',
+    xClientId: env.GSC_X_CLIENT_ID ?? '',
+    xClientSecret: env.GSC_X_CLIENT_SECRET ?? '',
     authRequired: env.GSC_AUTH_REQUIRED === '1',
   };
 }

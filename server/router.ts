@@ -15,7 +15,7 @@ import {
   validateCreateContextBody,
   validateUpdateContextBody,
 } from '../src/lib/contexts.ts';
-import { sendJson } from './http.ts';
+import { ApiFailure, sendApiError, sendJson } from './http.ts';
 import { metrics, renderMetrics } from './metrics.ts';
 import { sql } from 'drizzle-orm';
 import { RateLimiter, rateRuleFor } from './ratelimit.ts';
@@ -114,16 +114,23 @@ import type { IngestBatchBody } from '../src/lib/ingest.ts';
 import { createTask, getTask, listTasks, updateTask } from './repo/tasks.ts';
 import { suggestForChunks } from './agent/proposer.ts';
 import { runDetection, maybeDetectOnIngest } from './agent/detector.ts';
-import { buildInitialProfile } from './agent/profile-init.ts';
+import { randomUUID } from 'node:crypto';
+import { buildInitialProfile, ensureProfileAnchor } from './agent/profile-init.ts';
+import { fishConfigured, ttsSpeak } from './integrations/fishaudio.ts';
+import { authorizeUrl, exchangeCode, newVerifier, xConfigured } from './integrations/xoauth.ts';
+import { hasOauthToken, saveOauthToken } from './repo/oauth.ts';
+import { overviewFeed, overviewStats } from './repo/overview.ts';
 import { readSecret, writeSecret } from './storage/secrets.ts';
 import { DEFAULT_USER_ID, verifyApiToken, listTokens, createApiToken, revokeApiToken } from './storage/tokens.ts';
 import {
   createUser,
   deleteUser,
+  getCompanionName,
   getUser,
   listShares,
   listUsers,
   revokeShare,
+  setCompanionName,
   shareCluster,
 } from './repo/users.ts';
 import { dirname } from 'node:path';
@@ -1231,6 +1238,118 @@ async function hTagValueDelete(ctx: RouteCtx): Promise<RouteResult> {
   return ok({ ok: true, deleted: true });
 }
 
+/* OVERVIEW_REDESIGN OV-BE：Overview 只读聚合。 */
+async function hOverviewStats(ctx: RouteCtx): Promise<RouteResult> {
+  return ok({ ok: true, ...(await overviewStats(ctx.db)) });
+}
+
+async function hOverviewFeed(ctx: RouteCtx): Promise<RouteResult> {
+  const limitRaw = Number(ctx.url.searchParams.get('limit') ?? '12');
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 12;
+  return ok({ ok: true, feed: await overviewFeed(ctx.db, limit) });
+}
+
+/* G8：onboarding 接线——画像是否已初始化（锚点存在）。 */
+async function hProfileStatus(ctx: RouteCtx): Promise<RouteResult> {
+  const { db, viewerId } = ctx;
+  const user = await getUser(db, viewerId);
+  const all = await listItems(db);
+  const initialized = all.some((i) => i.source_label === 'user_profile');
+  const companion = await getCompanionName(db, viewerId);
+  return ok({ ok: true, initialized, companion: companion ?? 'Tau', user_name: user?.name ?? '' });
+}
+
+/* G8 屏 3：伴灵名（Tau 默认，用户可改）。 */
+async function hCompanionGet(ctx: RouteCtx): Promise<RouteResult> {
+  const name = await getCompanionName(ctx.db, ctx.viewerId);
+  return ok({ ok: true, companion: name ?? 'Tau' });
+}
+
+async function hCompanionSet(ctx: RouteCtx): Promise<RouteResult> {
+  const name = (ctx.body as { name?: unknown })?.name;
+  if (typeof name !== 'string' || !name.trim() || name.length > 20) {
+    return fail('contract', 'name required (1..20 chars)');
+  }
+  await setCompanionName(ctx.db, ctx.viewerId, name.trim());
+  return ok({ ok: true, companion: name.trim() });
+}
+
+/* U4：Fish Audio TTS（key 缺省=如实上报未配置）。 */
+async function hTtsStatus(ctx: RouteCtx): Promise<RouteResult> {
+  return ok({ ok: true, configured: fishConfigured(ctx.config), model: ctx.config.fishModel });
+}
+
+async function hTtsSpeak(ctx: RouteCtx): Promise<void> {
+  const text = (ctx.body as { text?: unknown })?.text;
+  if (typeof text !== 'string' || !text.trim() || text.length > 500) {
+  throw new ApiFailure('contract', 'text required (1..500)');
+    return;
+  }
+  try {
+    const audio = await ttsSpeak(ctx.config, text.trim());
+    ctx.res.statusCode = 200;
+    ctx.res.setHeader('content-type', 'audio/mpeg');
+    ctx.res.end(Buffer.from(audio));
+  } catch (e) {
+  throw new ApiFailure('internal', e instanceof Error ? e.message : 'TTS failed');
+  }
+}
+
+/* U4：X OAuth 2.0（PKCE）——未配置如实上报；verifier 进程级暂存。 */
+const X_PROVIDER = 'x';
+const xVerifierByState = new Map<string, { verifier: string; at: number }>();
+
+function redirectUriOf(ctx: RouteCtx): string {
+  const host = (ctx.req.headers.host as string) ?? '127.0.0.1';
+  return `http://${host}/api/auth/x/callback`;
+}
+
+async function hXStatus(ctx: RouteCtx): Promise<RouteResult> {
+  return ok({
+    ok: true,
+    configured: xConfigured(ctx.config),
+    connected: await hasOauthToken(ctx.db, ctx.viewerId, X_PROVIDER),
+  });
+}
+
+async function hXStart(ctx: RouteCtx): Promise<void> {
+  if (!xConfigured(ctx.config)) {
+  throw new ApiFailure('contract', 'X OAuth 未配置（GSC_X_CLIENT_ID/SECRET 缺失）');
+    return;
+  }
+  const state = randomUUID();
+  const verifier = newVerifier();
+  xVerifierByState.set(state, { verifier, at: Date.now() });
+  for (const [k, v] of xVerifierByState) if (Date.now() - v.at > 600_000) xVerifierByState.delete(k);
+  ctx.res.statusCode = 302;
+  ctx.res.setHeader('location', authorizeUrl(ctx.config, redirectUriOf(ctx), verifier, state));
+  ctx.res.end();
+}
+
+async function hXCallback(ctx: RouteCtx): Promise<void> {
+  const url = new URL(ctx.req.url ?? '/', 'http://x');
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state') ?? '';
+  const entry = xVerifierByState.get(state);
+  ctx.res.statusCode = 302;
+  if (!code || !entry) {
+    ctx.res.setHeader('location', '/onboarding?x=error');
+    ctx.res.end();
+    return;
+  }
+  try {
+    const token = await exchangeCode(ctx.config, code, entry.verifier, redirectUriOf(ctx));
+    await saveOauthToken(ctx.db, ctx.viewerId, X_PROVIDER, token.access_token, token.refresh_token, token.scope);
+    ctx.res.setHeader('location', '/onboarding?x=ok');
+  } catch {
+    ctx.res.setHeader('location', '/onboarding?x=error');
+  } finally {
+    xVerifierByState.delete(state);
+    ctx.res.end();
+  }
+}
+
+/* USER_PROFILE_INIT_PLAN U1：初始画像构建（屏 2 后端）。 */
 /* USER_PROFILE_INIT_PLAN U1：初始画像构建（屏 2 后端）。 */
 async function hProfileInit(ctx: RouteCtx): Promise<RouteResult> {
   const { db, config, viewerId, body } = ctx;
@@ -1574,6 +1693,18 @@ export const ROUTES: RouteSpec[] = [
   },
   { pattern: /^\/api\/profile$/, ops: [{ method: 'GET', handler: hProfileGet }] },
   { pattern: /^\/api\/profile\/init$/, ops: [{ method: 'POST', handler: hProfileInit, body: true, idem: true }] },
+  { pattern: /^\/api\/profile\/status$/, ops: [{ method: 'GET', handler: hProfileStatus }] },
+  { pattern: /^\/api\/overview\/stats$/, ops: [{ method: 'GET', handler: hOverviewStats }] },
+  { pattern: /^\/api\/overview\/feed$/, ops: [{ method: 'GET', handler: hOverviewFeed }] },
+  { pattern: /^\/api\/profile\/companion$/, ops: [
+    { method: 'GET', handler: hCompanionGet },
+    { method: 'POST', handler: hCompanionSet, body: true, idem: true },
+  ] },
+  { pattern: /^\/api\/tts\/status$/, ops: [{ method: 'GET', handler: hTtsStatus }] },
+  { pattern: /^\/api\/tts$/, ops: [{ method: 'POST', handler: hTtsSpeak, body: true }] },
+  { pattern: /^\/api\/auth\/x\/status$/, ops: [{ method: 'GET', handler: hXStatus }] },
+  { pattern: /^\/api\/auth\/x\/start$/, ops: [{ method: 'GET', handler: hXStart }] },
+  { pattern: /^\/api\/auth\/x\/callback$/, ops: [{ method: 'GET', handler: hXCallback }] },
   {
     pattern: /^\/api\/llm\/config$/,
     ops: [
