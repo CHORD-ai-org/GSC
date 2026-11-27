@@ -1,4 +1,6 @@
 import { humanizeProposalValue } from './pages.tsx';
+import { narrate, type FeedLine } from '../lib/narrate.ts';
+import { listEventsFor } from '../services/api.ts';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui.tsx';
@@ -634,6 +636,7 @@ export function ObjectDetailView({
 
 export function ClusterDetailView({
   detail, items, shares, users, onBack, onEdit, onDelete, onAdd, onRemove, onOpenItem, onShare, onRevoke,
+  pendingProposals = [], onResolve,
 }: {
   detail?: ClusterIndexEntry;
   items: ItemDTO[];
@@ -647,12 +650,40 @@ export function ClusterDetailView({
   onOpenItem: (id: string) => void;
   onShare: (name: string, role: 'view' | 'add') => Promise<void>;
   onRevoke: (userId: string) => Promise<void>;
+  /* CL2：语义名提案就地裁决 + 归块履历 */
+  pendingProposals?: { id: string; kind: string; target_id: string; proposed_value: string; related_id?: string | null }[];
+  onResolve?: (id: string, status: 'accepted' | 'rejected') => Promise<void>;
 }) {
-
-  const t = useT();  const [shareName, setShareName] = useState('');
+  const t = useT();
+  const [shareName, setShareName] = useState('');
   const [shareRole, setShareRole] = useState<'view' | 'add'>('view');
+  const [addQuery, setAddQuery] = useState('');
+  const [history, setHistory] = useState<FeedLine[]>([]);
+
+  /* 归块履历：成员事件合流（narrate 同源管道，倒序 ≤12）。 */
+  useEffect(() => {
+    if (!detail || detail.member_ids.length === 0) { setHistory([]); return; }
+    void listEventsFor(detail.member_ids.slice(0, 100), { limit: 40 })
+      .then((r) => {
+        const rows: FeedLine[] = r.events.map((e) => ({
+          at: e.at,
+          actor: e.actor,
+          kind: 'event' as const,
+          verb: e.action,
+          target_title: items.find((i) => i.id === e.item_id)?.title ?? '（已删除条目）',
+        }));
+        setHistory(rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12));
+      })
+      .catch(() => setHistory([]));
+  }, [detail?.id, detail?.member_ids.join(','), items]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!detail) return <div className={styles.detailPage}><div className={styles.hint}>{t('detail.loading')}</div></div>;
-  const candidates = items.filter((item) => !detail.member_ids.includes(item.id));
+
+  const candidates = items.filter((item) => !detail.member_ids.includes(item.id)
+    && (!addQuery.trim() || item.title.toLowerCase().includes(addQuery.trim().toLowerCase()))).slice(0, 8);
+  /* 语义名提案（就地裁决）：挂在此 cluster 的 pending semantic_name。 */
+  const nameProposals = pendingProposals.filter((pr) => pr.kind === 'semantic_name' && (pr.target_id === detail.id || pr.related_id === detail.id));
+
   return (
     <DetailShell
       kicker={t('nav.clusters')}
@@ -660,6 +691,20 @@ export function ClusterDetailView({
       onBack={onBack}
       actions={<><Button small onClick={onEdit}>{t('common.edit')}</Button><Button small onClick={onDelete}>{t('common.delete')}</Button></>}
     >
+      {nameProposals.map((pr) => (
+        <div key={pr.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--tint-hover)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
+          <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>
+            Agent 给这个书架想好了名字：<b>{humanizeProposalValue(pr.kind, pr.proposed_value)}</b>
+          </span>
+          {onResolve ? (
+            <>
+              <button type="button" style={{ border: 0, background: '#2fae55', color: '#fff', borderRadius: 999, padding: '4px 14px', cursor: 'pointer', font: 'inherit', fontSize: 12 }} onClick={() => void onResolve(pr.id, 'accepted')}>✓ 用这个</button>
+              <button type="button" style={{ border: '1px solid var(--line)', background: 'transparent', borderRadius: 999, padding: '4px 14px', cursor: 'pointer', font: 'inherit', fontSize: 12 }} onClick={() => void onResolve(pr.id, 'rejected')}>✕ 不用</button>
+            </>
+          ) : null}
+        </div>
+      ))}
+
       <Block title={t('detail.clusterDef')}>
         <div className={styles.kv}>
           <div className={styles.kvRow}>
@@ -674,33 +719,73 @@ export function ClusterDetailView({
       </Block>
 
       <Block title={t('detail.members')}>
-        <div className={styles.list}>
-          {detail.member_ids.length === 0 ? (
-            <div className={styles.emptyLine}>{t('detail.noMembers')}</div>
-          ) : detail.member_ids.map((id) => {
-            const item = items.find((x) => x.id === id);
-            return (
-              <div className={styles.listRow} key={id}>
-                <span className={styles.rowGlyph}>{item ? <Glyph kind={item.type} /> : <Glyph kind="raw.document" />}</span>
-                <button type="button" className={styles.linkButton} onClick={() => onOpenItem(id)}>
-                  {item?.title ?? id}
-                </button>
-                <span className={styles.rowType}>{item ? ITEM_LABELS[item.type] : id}</span>
-                <button type="button" className={styles.removeButton} onClick={() => onRemove(id)}>{t('detail.remove')}</button>
+        {detail.member_ids.length === 0 ? (
+          <div className={styles.emptyLine}>{t('detail.noMembers')}</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+            {detail.member_ids.map((id) => {
+              const item = items.find((x) => x.id === id);
+              return (
+                <div key={id} style={{ position: 'relative', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 30px 10px 12px', background: 'var(--bg)' }}>
+                  <button type="button" onClick={() => onOpenItem(id)} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', width: '100%' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      {item ? <Glyph kind={item.type} /> : <Glyph kind="raw.document" />}
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item?.title ?? id}</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{item ? ITEM_LABELS[item.type] : id}</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t('detail.remove')}
+                    onClick={() => onRemove(id)}
+                    style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, border: 0, borderRadius: 99, background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', lineHeight: 1 }}
+                  >✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className={styles.addRow} style={{ marginTop: 12, position: 'relative' }}>
+          <input
+            className={styles.settingInput}
+            placeholder="搜索条目，点选添加…"
+            value={addQuery}
+            onChange={(e) => setAddQuery(e.target.value)}
+            style={{ flex: 1 }}
+          />
+        </div>
+        {addQuery.trim() && candidates.length > 0 ? (
+          <div style={{ border: '1px solid var(--line)', borderRadius: 10, marginTop: 6, overflow: 'hidden' }}>
+            {candidates.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { onAdd(item.id); setAddQuery(''); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 0, borderBottom: '0.5px solid var(--line)', background: 'var(--bg)', padding: '8px 12px', cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+              >
+                <Glyph kind={item.type} />
+                <span style={{ flex: 1, fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>+ 添加</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </Block>
+
+      <Block title="归块履历">
+        {history.length === 0 ? (
+          <div className={styles.emptyLine}>这个书架还没有动静。</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {history.map((h, i) => (
+              <div key={`${h.at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--ink-3)', opacity: 0.5, flex: 'none' }} />
+                <span style={{ flex: 1 }}>{narrate(h)}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-3)', flex: 'none' }}>{new Date(h.at).toLocaleDateString()}</span>
               </div>
-            );
-          })}
-        </div>
-        <div className={styles.addRow}>
-          <select className={styles.settingInput} id="cluster-add-picker" defaultValue="">
-            <option value="">{t('detail.addItems')} — select a Chunk —</option>
-            {candidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-          </select>
-          <Button small onClick={() => {
-            const picker = document.getElementById('cluster-add-picker') as HTMLSelectElement | null;
-            if (picker?.value) { onAdd(picker.value); picker.value = ''; }
-          }}>Add</Button>
-        </div>
+            ))}
+          </div>
+        )}
       </Block>
 
       <Block title={t('detail.sharing')}>

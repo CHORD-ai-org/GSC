@@ -36,6 +36,36 @@ export type ContextIndexEntry = ContextDTO & { member_ids: string[] };
 
 /* ── Start (the composer home; formerly "Overview") ───────────────────── */
 
+/** 「下一步我们 ____？」——固定句 Inter Bold，短语随时间轮换且各配字体（创始人定调）。 */
+const NEXT_PROMPTS: { text: string; font: string }[] = [
+  { text: '添加些什么', font: "'Inter', 'Segoe UI', sans-serif" },
+  { text: '审查一个新项目', font: "Georgia, 'Times New Roman', serif" },
+  { text: '随便逛逛', font: "'Cascadia Mono', ui-monospace, monospace" },
+  { text: '聊聊最近的事', font: "'Segoe Print', 'Comic Sans MS', cursive" },
+];
+
+function RotatingPrompt() {
+  const [idx, setIdx] = useState(0);
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const timer = window.setInterval(() => {
+      if (reduce) { setIdx((i) => (i + 1) % NEXT_PROMPTS.length); return; }
+      setOn(false);
+      window.setTimeout(() => { setIdx((i) => (i + 1) % NEXT_PROMPTS.length); setOn(true); }, 260);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, []);
+  const p = NEXT_PROMPTS[idx];
+  return (
+    <div className={styles.nextPrompt}>
+      <span className={styles.nextFixed}>下一步我们</span>
+      <span className={on ? styles.nextSlot : styles.nextSlotOff} style={{ fontFamily: p.font }}>{p.text}</span>
+      <span className={styles.nextFixed}>？</span>
+    </div>
+  );
+}
+
 export function StartView({
   onSubmit,
   onCanvas,
@@ -63,6 +93,7 @@ export function StartView({
     <div className={styles.overview}>
       <NewsPanel />
       <GscLogo height={64} className={styles.overviewLogo} />
+      <RotatingPrompt />
       {empty ? (
         <h1 className={styles.valueTitle}>{t('start.valueTitle')}</h1>
       ) : null}

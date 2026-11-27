@@ -547,3 +547,32 @@
 .page .statCard:nth-child(6n+5),
 .page .statCard:nth-child(6n+6) { background: #F6F6F8; }
 .page .statCard:hover { background: var(--tint-hover); }
+
+/* 「下一步我们 ____？」动态提示行（默认 Inter Bold；轮换短语各配字体） */
+.nextPrompt { display: flex; justify-content: center; align-items: baseline; gap: 6px; margin: 12px 0 2px; min-height: 30px; }
+.nextFixed { font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 700; font-size: 19px; color: var(--ink); }
+.nextSlot { font-weight: 700; font-size: 20px; color: var(--ink); opacity: 1; transform: none; transition: opacity .26s ease, transform .26s ease; }
+.nextSlotOff { font-weight: 700; font-size: 20px; color: var(--ink); opacity: 0; transform: translateY(5px); transition: opacity .26s ease, transform .26s ease; }
+@media (prefers-reduced-motion: reduce) { .nextSlot, .nextSlotOff { transition: none; } }
+
+/* CLUSTERS_UI_PLAN CL1：书架墙（spine）+ Gallery 网格封面（Thylas 封面系统语言） */
+.coverGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 18px; margin-top: 8px; }
+.coverCard { border: 0; padding: 0; border-radius: 16px; overflow: hidden; background: var(--bg); cursor: pointer; text-align: left; display: flex; flex-direction: column; transition: transform .22s ease, box-shadow .22s ease; box-shadow: 0 1px 2px rgba(16,16,20,.05); font: inherit; }
+.coverCard:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(16,16,20,.12); }
+.coverTop { position: relative; height: 118px; display: flex; align-items: center; justify-content: center; }
+.coverSymbol { display: flex; opacity: .9; }
+.coverDot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 99px; background: #e2591f; box-shadow: 0 0 0 3px rgba(226,89,31,.18); }
+.coverDensity { position: absolute; left: 12px; right: 12px; bottom: 8px; display: flex; justify-content: flex-start; }
+.coverBody { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
+.coverTitle { font-size: 15px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coverSummary { font-size: 12px; line-height: 1.55; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 37px; }
+.coverMeta { font-size: 11px; color: var(--ink-3); }
+.shelfWall { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.spineCard { display: flex; align-items: stretch; gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--bg); cursor: pointer; text-align: left; font: inherit; transition: transform .18s ease, border-color .18s ease; }
+.spineCard:hover { transform: translateX(3px); border-color: var(--line-strong); }
+.spineEdge { width: 8px; flex: none; }
+.spineBody { flex: 1; min-width: 0; padding: 13px 16px; display: flex; flex-direction: column; gap: 3px; }
+.spineTitle { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spineDesc { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spineSide { display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+@media (prefers-reduced-motion: reduce) { .coverCard, .spineCard { transition: none; } .coverCard:hover, .spineCard:hover { transform: none; } }

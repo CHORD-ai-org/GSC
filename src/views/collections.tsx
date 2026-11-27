@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ITEM_LABELS, OBJECT_TYPES, RAW_TYPES } from '../lib/items.ts';
 import type { ItemDTO } from '../lib/items.ts';
@@ -563,23 +563,131 @@ export function ObjectCollection({
   );
 }
 
+/* CLUSTERS_UI_PLAN CL1：书架墙（spine）+ Gallery 网格（Thylas 封面系统语言）。 */
+
+const COVER_TINTS = [
+  { bg: '#EDF1F6', fg: '#4b6b8f' },
+  { bg: '#EFF3E9', fg: '#6b8f4b' },
+  { bg: '#F6EFE7', fg: '#8f6b4b' },
+  { bg: '#F1EDF6', fg: '#6b4b8f' },
+];
+
+function coverTint(id: string): { bg: string; fg: string } {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return COVER_TINTS[h % COVER_TINTS.length];
+}
+
+/** 符号自动分派（Thylas 画笔规则：24 viewBox/stroke 1.2/fill none/currentColor）：成员多=点阵、中=双叠方块、少=书架三横线。 */
+function CoverSymbol({ members }: { members: number }) {
+  const common = { width: 56, height: 56, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
+  if (members >= 10) {
+    const pts: number[] = [4, 12, 20];
+    return (
+      <svg {...common}>
+        {pts.map((y) => pts.map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.1" fill="currentColor" stroke="none" />))}
+      </svg>
+    );
+  }
+  if (members >= 3) {
+    return (
+      <svg {...common}>
+        <rect x="3.5" y="7" width="10.5" height="10.5" rx="1.5" />
+        <rect x="10" y="4.5" width="10.5" height="10.5" rx="1.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M5 5.5h14M5 12h14M5 18.5h14" />
+    </svg>
+  );
+}
+
+/** 7 日活动密度条（真实事件桶）。 */
+function DensityStrip({ days, color, height = 18 }: { days: number[]; color: string; height?: number }) {
+  const max = Math.max(1, ...days);
+  return (
+    <span style={{ display: 'inline-flex', gap: 2, alignItems: 'flex-end', height }} aria-hidden="true">
+      {days.map((d, i) => (
+        <span key={i} style={{ width: 4, height: Math.max(2, Math.round((d / max) * (height - 2))), borderRadius: 2, background: color, opacity: 0.35 + 0.65 * (d / max) }} />
+      ))}
+    </span>
+  );
+}
+
 export function ClusterCollection({
-  clusters, onNew, onSelect,
+  clusters, onNew, onSelect, pendingProposals = [],
 }: {
   clusters: ClusterIndexEntry[];
   onNew: () => void;
   onSelect: (id: string) => void;
+  pendingProposals?: { id: string; kind: string; target_id: string; related_id?: string | null }[];
 }) {
   const t = useT();
   const rt = useRelativeTime();
   const [q, setQ] = useState('');
   const [view, setView] = useViewMode('clusters');
-  const rows = useMemo(
-    () => clusters.filter((c) => !q.trim()
+  const [sort, setSort] = useState<'active' | 'members' | 'name'>('active');
+  const [density, setDensity] = useState<Record<string, number[]>>({});
+
+  const rows = useMemo(() => {
+    const filtered = clusters.filter((c) => !q.trim()
       || c.title.toLowerCase().includes(q.trim().toLowerCase())
-      || c.description.toLowerCase().includes(q.trim().toLowerCase())),
-    [clusters, q],
-  );
+      || c.description.toLowerCase().includes(q.trim().toLowerCase()));
+    const sorted = [...filtered];
+    if (sort === 'active') sorted.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    else if (sort === 'members') sorted.sort((a, b) => b.member_ids.length - a.member_ids.length);
+    else sorted.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
+    return sorted;
+  }, [clusters, q, sort]);
+
+  /* 待裁决红点：proposals 与 cluster 直接相关（related_id=cluster 或 target=cluster）。 */
+  const pendingC = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of pendingProposals) {
+      if (p.kind === 'cluster' && p.related_id) set.add(p.related_id);
+      if (p.related_id) set.add(p.related_id);
+      set.add(p.target_id);
+    }
+    return set;
+  }, [pendingProposals]);
+
+  /* 7 日密度：成员事件一次批取（≤200 id）→ 按 cluster 聚合。 */
+  const idsKey = useMemo(() => [...new Set(rows.flatMap((c) => c.member_ids))].slice(0, 200).join(','), [rows]);
+  useEffect(() => {
+    if (!idsKey) { setDensity({}); return; }
+    const ids = idsKey.split(',');
+    const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+    void import('../services/api.ts').then(({ listEventsFor }) =>
+      listEventsFor(ids, { since, limit: 500 }).then((r) => {
+        const perItem = new Map<string, number[]>();
+        for (const e of r.events) {
+          const day = Math.floor((Date.now() - new Date(e.at).getTime()) / 86400_000);
+          if (day < 0 || day > 6) continue;
+          const arr = perItem.get(e.item_id) ?? [0, 0, 0, 0, 0, 0, 0];
+          arr[6 - day] += 1;
+          perItem.set(e.item_id, arr);
+        }
+        const out: Record<string, number[]> = {};
+        for (const c of clusters) {
+          const agg = [0, 0, 0, 0, 0, 0, 0];
+          for (const id of c.member_ids) {
+            const arr = perItem.get(id);
+            if (arr) for (let i = 0; i < 7; i += 1) agg[i] += arr[i];
+          }
+          out[c.id] = agg;
+        }
+        setDensity(out);
+      })).catch(() => undefined);
+  }, [idsKey, clusters]);
+
+  const SORTS: { id: 'active' | 'members' | 'name'; label: string }[] = [
+    { id: 'active', label: '最近活跃' },
+    { id: 'members', label: '成员数' },
+    { id: 'name', label: '名称' },
+  ];
+
   return (
     <div className={styles.page}>
       <PageHead
@@ -589,41 +697,58 @@ export function ClusterCollection({
       />
       <div className={styles.toolbar}>
         <input className={styles.search} placeholder={t('clu.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className={styles.pillTrack} style={{ marginLeft: 10 }}>
+          {SORTS.map((x) => (
+            <button key={x.id} type="button" className={`${styles.pill} ${sort === x.id ? styles.on : ''}`} onClick={() => setSort(x.id)}>{x.label}</button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
         <ViewToggle mode={view} onChange={setView} />
       </div>
-      {view === 'grid' ? (
-        rows.length === 0 ? (
-          <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
-        ) : (
-          <div className={styles.gridView}>
-            {rows.map((c) => (
-              <GridCard
-                key={c.id}
-                glyph={<Glyph kind="cluster" />}
-                typeLabel={t('common.members', { n: c.member_ids.length })}
-                title={c.title}
-                time={rt(c.updated_at)}
-                onClick={() => onSelect(c.id)}
-              />
-            ))}
-          </div>
-        )
-      ) : (
-        <>
-          <ListHeader cols={[t('cols.name'), t('cols.desc'), t('cols.membersUpdated')]} />
-          <div className={styles.list}>
-            {rows.length === 0 ? (
-              <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
-            ) : rows.map((c) => (
-              <button key={c.id} type="button" className={styles.listRow} onClick={() => onSelect(c.id)}>
-                <span className={styles.rowGlyph}><Glyph kind="cluster" /></span>
-                <span className={styles.rowTitle}>{c.title}</span>
-                <span className={styles.rowType}>{c.description || '—'}</span>
-                <span className={styles.rowTime}>{t('common.members', { n: c.member_ids.length })} · {rt(c.updated_at)}</span>
+      {rows.length === 0 ? (
+        <EmptyState title={t('clu.empty')} hint={t('clu.emptyHint')} action={<button type="button" className={styles.primaryButton} onClick={onNew}>{t('clu.new')}</button>} />
+      ) : view === 'grid' ? (
+        /* 网格视角：Gallery 封面卡（语义底色+自绘符号+状态点+密度条） */
+        <div className={styles.coverGrid}>
+          {rows.map((c) => {
+            const tint = coverTint(c.id);
+            return (
+              <button key={c.id} type="button" className={styles.coverCard} onClick={() => onSelect(c.id)}>
+                <span className={styles.coverTop} style={{ background: tint.bg, color: tint.fg }}>
+                  {pendingC.has(c.id) ? <span className={styles.coverDot} title="有待裁决提案" /> : null}
+                  <span className={styles.coverSymbol}><CoverSymbol members={c.member_ids.length} /></span>
+                  <span className={styles.coverDensity}><DensityStrip days={density[c.id] ?? [0, 0, 0, 0, 0, 0, 0]} color={tint.fg} /></span>
+                </span>
+                <span className={styles.coverBody}>
+                  <span className={styles.coverTitle}>{c.title}</span>
+                  <span className={styles.coverSummary}>{c.description || '还没有描述。'}</span>
+                  <span className={styles.coverMeta}>{c.member_ids.length} 成员 · {rt(c.updated_at)}</span>
+                </span>
               </button>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
+      ) : (
+        /* 书架墙：书脊卡（色脊+密度+红点） */
+        <div className={styles.shelfWall}>
+          {rows.map((c) => {
+            const tint = coverTint(c.id);
+            return (
+              <button key={c.id} type="button" className={styles.spineCard} onClick={() => onSelect(c.id)}>
+                <span className={styles.spineEdge} style={{ background: tint.fg }} />
+                <span className={styles.spineBody}>
+                  <span className={styles.spineTitle}>{c.title}</span>
+                  <span className={styles.spineDesc}>{c.description || '还没有描述。'}</span>
+                  <span className={styles.coverMeta}>{c.member_ids.length} 成员 · 创建于 {c.created_at.slice(0, 7)} · {rt(c.updated_at)}</span>
+                </span>
+                <span className={styles.spineSide}>
+                  {pendingC.has(c.id) ? <span className={styles.coverDot} title="有待裁决提案" /> : null}
+                  <DensityStrip days={density[c.id] ?? [0, 0, 0, 0, 0, 0, 0]} color={tint.fg} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

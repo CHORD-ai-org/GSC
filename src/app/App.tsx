@@ -114,12 +114,12 @@ export default function App() {
   const [recentDay, setRecentDay] = useState(route.day ?? '');
   /* GSC 对话（G7）/ SIDEBAR_PLAN：会话 id + 对话列表 + 置顶页。 */
   const [chatId, setChatId] = useState(route.chatId ?? '');
-  const [conversations, setConversations] = useState<{ id: string; title: string; awaiting?: boolean }[]>([]);
+  const [conversations, setConversations] = useState<{ id: string; title: string; awaiting?: boolean; thinking?: boolean }[]>([]);
   const [pinnedPages, setPinnedPages] = useState<string[]>(() => loadSpatialPinned());
 
   const loadConversations = useCallback(() => {
     void api.listConversations()
-      .then((r) => setConversations(r.conversations.map((c) => ({ id: c.id, title: c.title, awaiting: c.awaiting }))))
+      .then((r) => setConversations((prev) => r.conversations.map((c) => ({ id: c.id, title: c.title, awaiting: c.awaiting, thinking: prev.find((x) => x.id === c.id)?.thinking }))))
       .catch(() => setConversations([]));
   }, []);
   useEffect(() => { loadConversations(); }, [loadConversations]);
@@ -1180,10 +1180,14 @@ export default function App() {
               onOpenItem={openItemInPage}
               onShare={shareClusterEntry}
               onRevoke={revokeShareEntry}
+              pendingProposals={proposals}
+              onResolve={async (id, status) => {
+                await resolveProposalEntry({ id } as ProposalDTO, status);
+              }}
             />
           );
         }
-        return <ClusterCollection clusters={clusters} onNew={openNewCluster} onSelect={(id) => { setClusterId(id); markVisited(id); }} />;
+        return <ClusterCollection clusters={clusters} pendingProposals={proposals} onNew={openNewCluster} onSelect={(id) => { setClusterId(id); markVisited(id); }} />;
       case 'contexts':
         if (panel === 'new-context' || panel === 'edit-context') {
           return formPage(

@@ -233,6 +233,9 @@ async function request<T extends ApiResponse>(path: string, init?: RequestInit):
   });
   const body = (await res.json()) as ApiResponse;
   if (!res.ok || body.ok === false) {
+    const msg = body.ok === false ? body.message : `HTTP ${res.status}`;
+    /* M3 失败态可视化：LLM 相关失败广播健康事件（Composer 状态灯消费）。 */
+    if (/llm|401|api key/i.test(msg)) window.dispatchEvent(new CustomEvent('gsc-llm-health', { detail: 'fail' }));
     if (body.ok === false) {
       throw new ApiRequestError(body.kind, body.message, body.retryable ?? false);
     }
@@ -240,6 +243,7 @@ async function request<T extends ApiResponse>(path: string, init?: RequestInit):
   }
   return body as T;
 }
+
 
 export type TrashResponse = { ok: true; items: ItemDTO[] };
 export type RestoreResponse = { ok: true; restored: true };
@@ -643,8 +647,11 @@ export function updateLlmConfig(body: { provider?: string; base_url?: string; mo
   return request<LlmConfigResponse>('/api/llm/config', { method: 'PATCH', body: JSON.stringify(body) });
 }
 
-export function checkLlm(): Promise<LlmCheckResponse> {
-  return request<LlmCheckResponse>('/api/llm/check', { method: 'POST' });
+export async function checkLlm(): Promise<LlmCheckResponse> {
+  /* M1 测试连接：真探针（ping 模型），成功广播 ok 健康事件（Composer 状态灯）。 */
+  const r = await request<LlmCheckResponse>('/api/llm/check', { method: 'POST' });
+  window.dispatchEvent(new CustomEvent('gsc-llm-health', { detail: 'ok' }));
+  return r;
 }
 
 // LLM cost accounting: factual token totals + labelled USD estimate.

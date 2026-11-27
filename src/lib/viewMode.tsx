@@ -6,7 +6,12 @@ import styles from '../components/ui.module.css';
 
 /* 网格视角: per-page list ⇄ grid toggle with persisted preference. */
 export function useViewMode(page: string): [ViewMode, (m: ViewMode) => void] {
-  const [mode, setMode] = useState<ViewMode>(() => loadViewMode(page));
+  const [mode, setMode] = useState<ViewMode>(() => {
+    /* CL1：?view=list|grid 深链（可分享视角），无参回落持久化偏好。 */
+    const q = new URLSearchParams(window.location.search).get('view');
+    if (q === 'list' || q === 'grid' || q === 'relations' || q === 'timeline' || q === 'spatial') return q;
+    return loadViewMode(page);
+  });
   const change = useCallback((m: ViewMode) => {
     setMode(m);
     saveViewMode(page, m);
