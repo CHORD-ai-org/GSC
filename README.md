@@ -1,86 +1,119 @@
-# GSC — Global Shared Context
+<p align="center">
+  <img src="assets/gsc%20logo.png" alt="GSC logo" width="120">
+</p>
 
-Independent prototype of a persistent context infrastructure for human–AI collaboration.
+<h1 align="center">GSC — Global Shared Context</h1>
 
-**Status:** Layout v2 + PLAN-1…PLAN-7 (model, Light Up, Sync, Agent, Chunk UI, API/MCP, Shared Clusters) implemented 2026-11-20. PLAN-8 (Meta Tags + User Profile) in progress. Long-range plans in `plans/`.
+<p align="center">
+<b>Turns fragmented information into persistent, addressable, and reusable context.<br>
+A local-first information infrastructure for human–AI collaboration.</b>
+</p>
 
-## Read first
+<p align="center">
+  <img src="docs/images/start-page.png" alt="GSC Start page" width="49%">
+  <img src="docs/images/overview-page.png" alt="GSC Overview page" width="49%">
+</p>
 
-0. `DOCS_MAP.md` — 文档地图：72 份文档的分类、权威归属、过期/矛盾标注（2026-11-21 整理）。
-1. `THINKING.md` — active task and standing pre-answer instruction.
-2. `AGENTS.md` — mandatory rules for agents and developers.
-3. `PROJECT_CONTEXT.md` — purpose and boundaries.
-4. `DESIGN_BOUNDARIES.md` — scope and non-goals.
-5. `DEVELOPMENT_ROADMAP.md` — phase order, verification, open questions.
-6. `PRODUCT_VISION.md` + `INFORMATION_MODEL.md` — product intent and finalized model.
-7. `RAW_INFORMATION_TAXONOMY.md`, `STRUCTURED_OBJECT_TAXONOMY.md`, `RELATIONSHIP_MODEL.md` — MVP types and relations.
-8. `MVP_USER_FLOWS.md`, `MVP_UI_SPECIFICATION.md`, `ui-prototype/index.html` — interaction design.
-9. `THYLAS_REFERENCE.md` — verified facts about the reference project.
-10. `IMPLEMENTATION_STATUS.md`, `DECISION_LOG.md`, `KNOWN_ISSUES.md` — current state.
+---
 
-Do not rely on conversation history. These files are the source of truth.
+## Why
 
-## Repository layout (verified 2026-11-16)
+Knowledge produced in AI sessions is scattered across chats, docs, repos, and workspaces — and dies with each session. GSC gives every piece of information a stable identity, explicit relationships, and a provenance trail, so humans and agents can build on what came before instead of rebuilding history.
 
-```text
-GSC/
-  README.md                  this file
-  THINKING.md                active task record
-  AGENTS.md                  developer/agent rules
-  PROJECT_CONTEXT.md         purpose, boundaries, consumer relationships
-  PRODUCT_VISION.md          intended value; model summary
-  INFORMATION_MODEL.md       finalized hybrid + three-level model
-  RAW_INFORMATION_TAXONOMY.md    raw item types
-  STRUCTURED_OBJECT_TAXONOMY.md  object types and fields
-  RELATIONSHIP_MODEL.md          relation kinds and provenance
-  MVP_USER_FLOWS.md          workflows F1-F8 and scenario walks
-  MVP_UI_SPECIFICATION.md    screens S1-S7, tokens, components
-  ui-prototype/index.html    interactive static prototype (in-memory)
-  PHASE_03_PLAN.md           Phase 03 task cards and verification gates
-  PHASE_04_PLAN.md           Phase 04 task cards and verification gates
-  CONTEXT_VIEWS.md           Context Space vs Context View boundary
-  src/                       shared contracts, services, React app
-  server/                    node:http API, Drizzle schema, repositories
-  scripts/                   db-check and API smoke checks
-  DESIGN_BOUNDARIES.md       in scope / out of scope / ownership
-  THYLAS_REFERENCE.md        Thylas audit: verified vs assumed
-  DEVELOPMENT_ROADMAP.md     Phase 00-05 plan and Phase 01/02 task cards
-  IMPLEMENTATION_STATUS.md   what actually works
-  DECISION_LOG.md            decisions with status
-  KNOWN_ISSUES.md            limitations and unresolved problems
-```
+GSC is **not** a note app, a vector database, or a wrapper around an agent runtime. It is an independent information layer: useful on its own, consumable by any agent.
 
-## Run locally
+## Core concepts (five, no more)
+
+| Concept | One line |
+|---|---|
+| **Chunk** | The smallest information unit — a note, excerpt, or record — with a semantic name. Original text is always preserved. |
+| **Cluster** | A topic-level group of related information ("project" is just one kind of cluster). |
+| **Context** | An explicit-membership unit of context — a research topic, a decision domain. |
+| **Meta Tag** | Three-level tagging (group → tag → typed parameters) that makes information understandable and discoverable. |
+| **Proposal** | The safety model: every machine change lands as a pending proposal; a human accepts before it counts. Agents never write directly. |
+
+## Quickstart
+
+Requirements: **Node.js ≥ 22** (verified on v22.x) — no database setup needed out of the box (embedded PGlite).
 
 ```bash
 npm install
-npm run db:migrate
-npm run api       # http://localhost:8788
-npm run dev       # http://localhost:5174
-npm test
-npm run build
-npm run api:check # requires the API process
+npm run db:migrate     # applies all migrations to the embedded database
+npm run api            # API server  → http://127.0.0.1:8788
+npm run dev            # web UI      → http://localhost:5174
 ```
 
-Phase 03 uses PGlite at `.data/pglite` (D-026). `ui-prototype/index.html` remains the earlier static prototype.
+That's it — open `http://localhost:5174`, create an account, and **Light Up** your first piece of information.
 
-## Environment facts (verified locally, 2026-11-16)
-
-| Item | Result |
+| Command | What it does |
 |---|---|
-| Node | v22.22.2 |
-| npm | 10.9.7 |
-| Docker | 29.1.5 available |
-| PostgreSQL on 127.0.0.1:5432 / 55432 | not reachable |
-| `psql` | not installed |
-| pnpm | not installed |
+| `npm run api` | API server (default port `8788`, override with `PORT`) |
+| `npm run dev` | Vite dev server (port `5174`, proxies `/api` to the API) |
+| `npm run mcp` | MCP server over stdio for AI agents |
+| `npm run worker` | Background worker (sync, scheduled capture) |
+| `npm test` | Test suite (56 files, 257 tests passing) |
+| `npm run api:check` | API smoke checks (requires the API process) |
+| `npm run build` | Type-check + production build |
 
-PostgreSQL remains the persistence target. Local provisioning is Docker PostgreSQL (`DECISION_LOG.md` D-004, `DECIDED`). No container was started in Phase 01.
+Optional configuration lives in `.env.local` (see `.env.example`): LLM provider for semantic naming, PostgreSQL adapter for deployment, secrets/CORS for production. Everything works without it.
 
-## Setup
+## Capabilities
 
-Not applicable yet. Setup instructions will be added in Phase 03 when a runnable prototype exists.
+- **Light Up** — bring information in: direct text, files, paste, URLs. Web crawling and folder adapters included. Original text is preserved verbatim, forever.
+- **Organize** — Chunks → Clusters → Contexts, with three-level Meta Tags and semantic naming proposals.
+- **Collaborate with agents** — a conversation workspace where agents propose structured changes as reviewable task cards and UI flows; nothing lands without your confirmation.
+- **Provenance & history** — every object carries source metadata and a modification trail. Ask "where did this come from?" and get an answer.
+- **Overview** — a narrative activity feed, data transfer stats, and cluster workbench on one long page.
 
-## Origin
+<div align="center">
+  <img src="docs/images/light-up.png" alt="Light Up capture" width="49%">
+  <img src="docs/images/chat-workspace.png" alt="Chat workspace with task cards" width="49%">
+  <br>
+  <img src="docs/images/onboarding-tau.png" alt="Onboarding with Tau companion" width="49%">
+</div>
 
-GSC is an independent repository. It was separated from Thylas so that it can be implemented, used, and evolved without depending on WAM, Thylas, or any agent runtime. Thylas is a consumer. The source charter is `D:\github projects\Thylas\docs\product\gsc\MANIFESTO.md`.
+## For agents & developers
+
+GSC speaks three integration dialects — pick one:
+
+1. **MCP (recommended for agents)** — `npm run mcp` starts a stdio JSON-RPC server exposing 9 tools (`gsc_get_chunk`, `gsc_list_chunks`, `gsc_search`, `gsc_browse_clusters`, `gsc_get_cluster`, `gsc_browse_contexts`, `gsc_get_context`, `gsc_get_user_profile`, `gsc_propose`). Point your client at it with `GSC_API_URL` + `GSC_API_TOKEN` (a PAT from Settings → Connections).
+2. **HTTP API + JS SDK** — thin zero-dependency client in [`sdk/`](sdk/README.md) over the frozen v1 contract ([`API_CONTRACT.md`](API_CONTRACT.md)).
+3. **Push CLI & adapters** — `integrations/gsc-push.mjs` pipes session excerpts into GSC from Codex, opencode, WorkBuddy, or plain stdin:
+   ```bash
+   cat notes.md | node integrations/gsc-push.mjs --client workbuddy --project GSC --session manual-1
+   ```
+
+**Agents:** start with [`docs/agents/foragents.md`](docs/agents/foragents.md) (also served in-app at `/foragents`). Two iron rules: all machine changes go through proposals, and there are no exceptions.
+
+## Repository layout
+
+```text
+GSC/
+  README.md            you are here
+  src/                 React app (views, chat workspace, Light Up, Overview)
+  server/              node:http API, Drizzle schema, MCP server, ingest/sync pipelines
+  sdk/                 zero-dependency JS client for the API
+  integrations/        gsc-push CLI + Codex / opencode / WorkBuddy adapters
+  scripts/             verification, screenshots, backup/restore utilities
+  docs/
+    images/            README screenshots
+    agents/            agent onboarding (foragents)
+  ui-prototype/        interactive static prototype + screenshot archive
+  plans/               long-range product plans (internal)
+  .env.example         all optional configuration, documented
+```
+
+## Documentation
+
+| Document | What it answers |
+|---|---|
+| [`PRODUCT_VISION.md`](PRODUCT_VISION.md) | What GSC is building and why |
+| [`INFORMATION_MODEL.md`](INFORMATION_MODEL.md) | The authoritative concept model |
+| [`API_CONTRACT.md`](API_CONTRACT.md) | The frozen API v1 contract |
+| [`docs/agents/foragents.md`](docs/agents/foragents.md) | How agents connect and behave |
+| [`sdk/README.md`](sdk/README.md) | JS SDK usage |
+| [`REMAINING_WORK.md`](REMAINING_WORK.md) | Current state and what's next |
+
+## License
+
+[GPL-3.0](LICENSE)

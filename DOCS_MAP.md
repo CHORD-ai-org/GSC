@@ -13,6 +13,10 @@
 
 ## 1. 权威归属 —— 一个问题该查哪份文档
 
+> **对外入口（2026-11-28，D-118）**：外部读者只走 `README.md` → 其「Documentation」段
+> （PRODUCT_VISION / INFORMATION_MODEL / API_CONTRACT / foragents / sdk / REMAINING_WORK ≤6 份）。
+> 下表为内部协作者全图，不对外。
+
 | 问题 | 查这份 | 不要查 |
 |---|---|---|
 | 产品是什么、为什么做 | `PRODUCT_VISION.md` | — |
@@ -31,7 +35,7 @@
 |---|---|---|
 | `PRODUCT_VISION.md` | 愿景 v0.2：把碎片信息变成持久、可寻址、可复用的 Context | ✅ |
 | `PROJECT_CONTEXT.md` | GSC 目的 + 与 Thylas/WAM 边界；源宪章在 Thylas 仓 MANIFESTO | 📜 §2 仓库状态是 Phase 00 快照 |
-| `README.md` | 仓库导览 + 运行方式 | ⚠️ "PLAN-8 in progress"、Setup 段、目录树均过期 |
+| `README.md` | 仓库导览 + 运行方式 | ✅ 2026-11-28 对外门面重写（D-118，英文单语；导航只链对外子集） |
 
 ## 3. 计划 —— 三条轴
 
